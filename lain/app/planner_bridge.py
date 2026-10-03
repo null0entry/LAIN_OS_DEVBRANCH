@@ -14,7 +14,7 @@ from lain.planner_adapters.openai_protocol import (
 from lain.planning.protocol import agent_planner_request, parse_agent_decision
 
 
-_MAX_COMPLETION_TOKENS = 4096
+_MAX_COMPLETION_TOKENS = 1024
 _ERROR_MAP = {
     "PLANNER_CANCELLED": ErrorCode.PLANNER_CANCELLED,
     "PLANNER_TIMEOUT": ErrorCode.PLANNER_TIMEOUT,

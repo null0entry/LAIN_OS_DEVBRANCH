@@ -64,6 +64,16 @@ class OpenAIProtocolTests(unittest.TestCase):
         self.assertFalse(action["additionalProperties"])
         self.assertFalse(arguments["additionalProperties"])
 
+    def test_zero_argument_capability_schema_omits_empty_required(self):
+        request = planner_input()
+        request["capabilities"][0]["name"] = "android.battery_status"
+        request["capabilities"][0]["arguments"] = {}
+        schema = build_response_schema(request)
+        arguments = schema["properties"]["actions"]["items"]["anyOf"][0]["properties"]["arguments"]
+        self.assertEqual(arguments["properties"], {})
+        self.assertNotIn("required", arguments)
+        self.assertFalse(arguments["additionalProperties"])
+
     def test_input_requires_exact_keys(self):
         valid = planner_input()
         self.assertEqual(parse_planner_input(json.dumps(valid)), valid)

@@ -89,6 +89,7 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
                 self.assertEqual(sent_binding["mode"], mode)
                 self.assertEqual(sent_binding["credential_ref"], binding.credential_ref)
                 self.assertEqual(sent_request["model"], "model-a")
+                self.assertEqual(sent_request["max_completion_tokens"], 1024)
                 self.assertNotIn("secret", bridge.calls[0][0].lower())
 
     def test_native_cancellation_maps_to_planner_cancelled(self):
