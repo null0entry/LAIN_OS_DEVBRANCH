@@ -1,5 +1,66 @@
 # Next
 
+## TASK-040: Persist exact YouTube upload intent records
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, upload, intent, idempotency, provenance
+
+### Goal
+Persist one immutable, revision-bound upload intent before any YouTube upload so later execution, reconciliation, approval, status polling, and publication refer to the exact same artifact, destination, metadata, and operation identity.
+
+### Scope
+- Define a strict YouTube upload-intent record containing artifact hash, destination channel identity, title, description, intended visibility, workflow revision, and stable operation/idempotency identity.
+- Validate the referenced artifact through the immutable artifact workspace and bind the destination to the explicit TASK-039 authorization profile/channel.
+- Persist the record before any upload transport call and preserve immutable historical revisions.
+- Make intent replacement an explicit new revision with a new operation identity; never mutate an attempted intent in place.
+- Expose safe provenance/status fields to workflow and UI surfaces without exposing credentials or granting upload/publication authority.
+- Do not add upload HTTP, resumable transfer, status polling, thumbnail, playlist, scheduling, approval, or publication behavior.
+
+### Dependencies
+- TASK-016, TASK-018, and TASK-020: durable workflow state, immutable artifacts, and revision invalidation.
+- TASK-022 and TASK-023: external-effect reconciliation and aggregate budgets.
+- TASK-039: explicit identity-bound YouTube authorization profile.
+- The current Phase-6 upload-intent contract in `docs/ROADMAP_1.0.md` R6.2.
+
+### Plan
+- Specify the minimal versioned upload-intent schema and invariants.
+- Bind artifact hash/type/revision and authorized channel identity at intent creation.
+- Allocate a stable operation identity suitable for later resumable-upload reconciliation without starting an external effect.
+- Persist atomically before transport and keep attempted records immutable.
+- Add deterministic creation, restart, revision, replacement, and serialization tests.
+- Add adversarial tests for stale artifacts, channel/profile substitution, malformed metadata, duplicate identity, and secret leakage.
+
+### Acceptance
+- A valid current-revision video artifact can produce one durable upload-intent record with exact hash, channel, title, description, visibility, workflow revision, and operation identity.
+- The record exists durably before any future upload call can begin.
+- Artifact, workflow revision, authorization profile, and destination channel substitutions fail closed.
+- Changing metadata, artifact, destination, or visibility creates a new revision/identity and cannot rewrite an attempted record.
+- The record grants no upload, approval, publish, generic HTTP, or credential access authority.
+- Credentials and raw provider tokens remain absent from durable state, audit, logs, IPC, crash diagnostics, and exports.
+
+### Verification
+- Schema/round-trip and deterministic serialization tests.
+- Atomic persistence and crash/restart boundary tests proving record-before-effect ordering.
+- Artifact hash/type/revision and authorization-profile/channel binding negatives.
+- Immutable attempted-record and explicit replacement/revision tests.
+- Duplicate operation/idempotency identity and reconciliation handoff tests.
+- Metadata size/Unicode/visibility validation plus secret-surface scans.
+- Canonical verification and architecture/security/privacy review.
+
+### Expected result
+Every future YouTube upload begins from one durable, inspectable, exact intent whose identity can be reconciled safely without conflating authorization, upload execution, or publication approval.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.2 explicitly requires persisting artifact hash, destination channel, title, description, and intended visibility before upload.
+- TASK-039 covers only R6.1 authorization; no current task, open issue, or open PR represents the R6.2 durable upload-intent boundary.
+
+### Projection basis
+- Later resumable upload, status polling, exact-artifact approval, and uncertain-write reconciliation require a stable record-before-effect identity.
+- Defining this boundary before transport prevents provider calls from inventing mutable or incompatible upload state.
+
+### Risks / unknowns
+- YouTube metadata and visibility validation rules can change and must be rechecked against official documentation during implementation.
+- Brand Account/channel selection must remain explicit; authorization identity must not be guessed.
+- The idempotency identity is internal reconciliation state and must not imply that YouTube guarantees duplicate suppression.
+
 ## TASK-039: Implement bounded YouTube OAuth account authorization
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, oauth, credentials, android
 
