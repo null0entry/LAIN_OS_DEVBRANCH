@@ -115,6 +115,28 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
         self.assertEqual(sent_request["max_completion_tokens"], 1024)
         self.assertEqual(sent_request["reasoning_effort"], "low")
 
+    def test_transport_failures_preserve_safe_error_class(self):
+        cases = {
+            "PLANNER_AUTH_REJECTED": ErrorCode.AUTHENTICATION_FAILED,
+            "PLANNER_CREDENTIAL_MISSING": ErrorCode.AUTHENTICATION_REQUIRED,
+            "PLANNER_HTTP_REJECTED": ErrorCode.REMOTE_REJECTED,
+            "PLANNER_MODEL_NOT_FOUND": ErrorCode.REMOTE_REJECTED,
+            "PLANNER_RATE_LIMITED": ErrorCode.REMOTE_RATE_LIMITED,
+            "PLANNER_SERVER_ERROR": ErrorCode.REMOTE_UNAVAILABLE,
+            "PLANNER_DNS_UNREACHABLE": ErrorCode.REMOTE_UNAVAILABLE,
+            "PLANNER_CONNECTION_REFUSED": ErrorCode.REMOTE_UNAVAILABLE,
+            "PLANNER_TLS_FAILURE": ErrorCode.REMOTE_UNAVAILABLE,
+        }
+        for transport_error, expected in cases.items():
+            with self.subTest(transport_error=transport_error):
+                planner = AndroidPlannerFactory(
+                    self.workspace,
+                    FakeNativePlannerBridge({"ok": False, "error": transport_error}),
+                )(cloud_binding())
+                with self.assertRaises(LainError) as raised:
+                    planner.decide("finish", {"iteration_count": 0}, ())
+                self.assertEqual(raised.exception.code, expected)
+
     def test_native_cancellation_maps_to_planner_cancelled(self):
         bridge = FakeNativePlannerBridge({"ok": False, "error": "PLANNER_CANCELLED"})
         planner = AndroidPlannerFactory(self.workspace, bridge)(cloud_binding())
