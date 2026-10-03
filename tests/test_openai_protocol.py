@@ -115,6 +115,16 @@ class OpenAIProtocolTests(unittest.TestCase):
         schema = body["response_format"]["json_schema"]["schema"]
         self.assertIn("device.custom_action", json.dumps(schema))
 
+    def test_json_object_mode_keeps_capability_catalog_in_user_message(self):
+        request = agent_input()
+        body = json.loads(build_chat_body(
+            request, "model-a", response_mode="json_object", max_completion_tokens=1024
+        ))
+
+        prompt = json.loads(body["messages"][1]["content"])
+        self.assertEqual(prompt["capabilities"], request["capabilities"])
+        self.assertEqual(prompt["goal"], request["goal"])
+
     def test_action_count_is_enforced_after_model_output(self):
         too_many = {"actions": [
             {"type": "device.custom_action", "arguments": {"target": str(i), "count": i, "enabled": None}}
