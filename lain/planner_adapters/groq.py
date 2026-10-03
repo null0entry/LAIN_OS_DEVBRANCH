@@ -25,7 +25,7 @@ MODELS = ("openai/gpt-oss-120b", "openai/gpt-oss-20b")
 DEFAULT_MODEL = MODELS[0]
 TIMEOUT_SECONDS = 30.0
 MAX_RESPONSE_BYTES = 1_048_576
-MAX_COMPLETION_TOKENS = 4096
+MAX_COMPLETION_TOKENS = 1024
 USER_AGENT = "Mozilla/5.0 LAIN_OS/0.0.1"
 AdapterError = PlannerProtocolError
 

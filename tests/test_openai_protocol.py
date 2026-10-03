@@ -81,6 +81,19 @@ class OpenAIProtocolTests(unittest.TestCase):
         self.assertTrue(body["response_format"]["json_schema"]["strict"])
         self.assertNotIn("reasoning_effort", body)
         self.assertNotIn("groq", json.dumps(body).lower())
+        model_request = json.loads(body["messages"][1]["content"])
+        self.assertNotIn("capabilities", model_request)
+        self.assertIn(
+            "device.custom_action",
+            json.dumps(body["response_format"]["json_schema"]["schema"]),
+        )
+
+    def test_json_object_mode_keeps_capability_catalog_in_model_message(self):
+        body = json.loads(build_chat_body(
+            planner_input(), "model-a", response_mode="json_object", max_completion_tokens=1234
+        ))
+        model_request = json.loads(body["messages"][1]["content"])
+        self.assertEqual(model_request["capabilities"], planner_input()["capabilities"])
 
     def test_action_count_is_enforced_after_model_output(self):
         too_many = {"actions": [

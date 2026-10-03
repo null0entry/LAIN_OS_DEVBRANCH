@@ -153,6 +153,7 @@ class GroqAdapterTests(unittest.TestCase):
         self.assertEqual(call["request"].get_header("User-agent"), groq.USER_AGENT)
         body = json.loads(call["request"].data)
         self.assertEqual(body["model"], groq.DEFAULT_MODEL)
+        self.assertEqual(body["max_completion_tokens"], 1024)
         self.assertEqual(body["reasoning_effort"], "low")
         self.assertTrue(body["response_format"]["json_schema"]["strict"])
         self.assertNotIn("tools", body)
