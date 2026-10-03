@@ -165,12 +165,21 @@ def build_chat_body(
         or max_completion_tokens < 1
     ):
         raise _fail("max_completion_tokens must be a positive integer")
+    model_request = request
+    if response_mode == "json_schema":
+        # The response schema already carries the complete capability names and
+        # argument contract. Omitting the duplicate catalog from the user message
+        # materially reduces provider input tokens while retaining the original
+        # request locally for strict response normalization.
+        model_request = dict(request)
+        model_request.pop("capabilities", None)
+
     body: dict[str, Any] = {
         "model": model,
         "max_completion_tokens": max_completion_tokens,
         "messages": [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": json.dumps(request, ensure_ascii=False, separators=(",", ":"))},
+            {"role": "user", "content": json.dumps(model_request, ensure_ascii=False, separators=(",", ":"))},
         ],
     }
     if response_mode == "json_schema":
