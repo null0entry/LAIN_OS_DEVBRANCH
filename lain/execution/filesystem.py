@@ -66,7 +66,7 @@ def _publish_temp(temp_path: Path, destination: Path, *, overwrite: bool) -> Non
         except FileExistsError as exc:
             raise LainError(ErrorCode.DESTINATION_EXISTS, "destination already exists") from exc
         except OSError as exc:
-            unsupported_link_errors = {errno.EPERM, errno.EXDEV}
+            unsupported_link_errors = {errno.EACCES, errno.EPERM, errno.EXDEV}
             if hasattr(errno, "EOPNOTSUPP"):
                 unsupported_link_errors.add(errno.EOPNOTSUPP)
             if hasattr(errno, "ENOTSUP"):
