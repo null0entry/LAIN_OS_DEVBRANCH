@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 39,
+  "nextId": 40,
   "states": [
     {
       "name": "Backlog",
@@ -235,10 +235,16 @@
         "title": "Implement explicit provider privacy disclosure and data-sharing state",
         "priority": "P1",
         "order": 32
+      },
+      {
+        "id": "TASK-039",
+        "title": "Implement bounded YouTube OAuth account authorization",
+        "priority": "P1",
+        "order": 33
       }
     ],
     "issue": 6,
-    "repo_head": "9168b184e1170c7adf1cee9906b24bc92b811903",
-    "next_action": "Continue TASK-008 on PR #16 head 59c5863: Verify #286 passed; Android #275 is running. If green, build/install that exact APK and rerun the full physical Galaxy Phase-1 suite before TASK-008 can close."
+    "repo_head": "634f8d7da138932e233c4c6b4f40cc3ae944a18f",
+    "next_action": "Continue TASK-008 through PR #18 and PR #19: Verify is green on both; Android matrices are running. Merge only after fresh Android/review clearance, then build/install the exact integrated APK and rerun the full physical Galaxy Phase-1 suite."
   }
 }
