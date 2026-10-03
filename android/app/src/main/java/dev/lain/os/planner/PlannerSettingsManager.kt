@@ -42,6 +42,9 @@ internal enum class PlannerConnectionStatus {
     ENDPOINT_UNREACHABLE,
     TLS_FAILURE,
     TIMED_OUT,
+    REQUEST_REJECTED,
+    RATE_LIMITED,
+    SERVER_ERROR,
     RESPONSE_UNSUPPORTED,
     MISSING_CREDENTIAL,
     UNAVAILABLE,
@@ -179,6 +182,48 @@ internal class PlannerSettingsManager(
         "profile-" + UUID.randomUUID().toString().replace("-", "")
 }
 
+internal fun buildPlannerDiagnosticRequest(profile: PlannerProfile): String = JSONObject()
+    .put("model", profile.model)
+    .put("max_completion_tokens", 64)
+    .put(
+        "messages",
+        JSONArray().put(
+            JSONObject()
+                .put("role", "user")
+                .put("content", "Reply OK."),
+        ),
+    )
+    .toString()
+
+internal fun plannerConnectionStatusFor(code: String): PlannerConnectionStatus = when (code) {
+    NativePlannerTransport.ERROR_AUTH_REJECTED ->
+        PlannerConnectionStatus.AUTHENTICATION_REJECTED
+    NativePlannerTransport.ERROR_MODEL_NOT_FOUND ->
+        PlannerConnectionStatus.MODEL_UNAVAILABLE
+    NativePlannerTransport.ERROR_DNS_UNREACHABLE,
+    NativePlannerTransport.ERROR_CONNECTION_REFUSED,
+    NativePlannerTransport.ERROR_ENDPOINT_UNREACHABLE,
+    NativePlannerTransport.ERROR_CLEARTEXT_BLOCKED ->
+        PlannerConnectionStatus.ENDPOINT_UNREACHABLE
+    NativePlannerTransport.ERROR_TLS ->
+        PlannerConnectionStatus.TLS_FAILURE
+    NativePlannerTransport.ERROR_TIMEOUT ->
+        PlannerConnectionStatus.TIMED_OUT
+    NativePlannerTransport.ERROR_HTTP_REJECTED ->
+        PlannerConnectionStatus.REQUEST_REJECTED
+    NativePlannerTransport.ERROR_RATE_LIMITED ->
+        PlannerConnectionStatus.RATE_LIMITED
+    NativePlannerTransport.ERROR_SERVER ->
+        PlannerConnectionStatus.SERVER_ERROR
+    NativePlannerTransport.ERROR_RESPONSE_TOO_LARGE,
+    NativePlannerTransport.ERROR_RESPONSE_MALFORMED,
+    NativePlannerTransport.ERROR_RESPONSE_UNSUPPORTED ->
+        PlannerConnectionStatus.RESPONSE_UNSUPPORTED
+    AndroidKeystoreSecretStore.ERROR_CREDENTIAL_MISSING ->
+        PlannerConnectionStatus.MISSING_CREDENTIAL
+    else -> PlannerConnectionStatus.UNAVAILABLE
+}
+
 private class PlannerConnectionDiagnostic(context: Context) {
     private val transport = NativePlannerTransport(AndroidKeystoreSecretStore(context))
 
@@ -195,46 +240,12 @@ private class PlannerConnectionDiagnostic(context: Context) {
             responseMode = profile.responseMode,
             allowInsecureLanHttp = profile.allowInsecureLanHttp,
         )
-        val request = JSONObject()
-            .put("model", profile.model)
-            .put("max_completion_tokens", 1)
-            .put(
-                "messages",
-                JSONArray().put(
-                    JSONObject()
-                        .put("role", "user")
-                        .put("content", "Reply with one JSON object."),
-                ),
-            )
-            .put("response_format", JSONObject().put("type", "json_object"))
-            .toString()
+        val request = buildPlannerDiagnosticRequest(profile)
 
         return when (val result = transport.newCall(binding, request).execute()) {
             is PlannerTransportResult.Success -> PlannerConnectionStatus.CONNECTED
-            is PlannerTransportResult.Failure -> statusFor(result.code)
+            is PlannerTransportResult.Failure -> plannerConnectionStatusFor(result.code)
         }
     }
 
-    private fun statusFor(code: String): PlannerConnectionStatus = when (code) {
-        NativePlannerTransport.ERROR_AUTH_REJECTED ->
-            PlannerConnectionStatus.AUTHENTICATION_REJECTED
-        NativePlannerTransport.ERROR_MODEL_NOT_FOUND ->
-            PlannerConnectionStatus.MODEL_UNAVAILABLE
-        NativePlannerTransport.ERROR_DNS_UNREACHABLE,
-        NativePlannerTransport.ERROR_CONNECTION_REFUSED,
-        NativePlannerTransport.ERROR_ENDPOINT_UNREACHABLE,
-        NativePlannerTransport.ERROR_CLEARTEXT_BLOCKED ->
-            PlannerConnectionStatus.ENDPOINT_UNREACHABLE
-        NativePlannerTransport.ERROR_TLS ->
-            PlannerConnectionStatus.TLS_FAILURE
-        NativePlannerTransport.ERROR_TIMEOUT ->
-            PlannerConnectionStatus.TIMED_OUT
-        NativePlannerTransport.ERROR_RESPONSE_TOO_LARGE,
-        NativePlannerTransport.ERROR_RESPONSE_MALFORMED,
-        NativePlannerTransport.ERROR_RESPONSE_UNSUPPORTED ->
-            PlannerConnectionStatus.RESPONSE_UNSUPPORTED
-        AndroidKeystoreSecretStore.ERROR_CREDENTIAL_MISSING ->
-            PlannerConnectionStatus.MISSING_CREDENTIAL
-        else -> PlannerConnectionStatus.UNAVAILABLE
-    }
 }
