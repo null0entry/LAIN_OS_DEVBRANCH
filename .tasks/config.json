@@ -244,7 +244,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "634f8d7da138932e233c4c6b4f40cc3ae944a18f",
-    "next_action": "Continue TASK-008 through PR #18 and PR #19: Verify is green on both; Android matrices are running. Merge only after fresh Android/review clearance, then build/install the exact integrated APK and rerun the full physical Galaxy Phase-1 suite."
+    "repo_head": "2a30ba8a8b0f1ed78ede47b5f8954c383d2711fc",
+    "next_action": "Continue TASK-008 on PR #19 head f7c61da: Verify #316 passed; Android #305 is running. If green, merge the compact payload/schema patch, reconcile PR #16's remaining distinct fixes onto current main, then build/install the exact integrated APK and rerun the full physical Galaxy suite."
   }
 }
