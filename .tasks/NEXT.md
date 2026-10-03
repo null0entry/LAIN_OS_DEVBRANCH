@@ -1,14 +1,15 @@
 # Next
 
 ## CURRENT EXECUTION GATE — TASK-008 Phase-1 planner acceptance
-**State:** IN PROGRESS | **PR:** #16 | **Candidate head:** `59c58639c15227fc7216f321b3a0f8f59f2bc499`
+**State:** IN PROGRESS | **PR:** #16 | **Candidate head:** `1a894fb4ac7936549362e857bdb92f21e28251b9`
 
-- TDD RED `712507319e082da4fe4935c9f4888f3284ca4b1f`: Android #272 failed on the deliberately missing plain connection-probe builder, explicit diagnostic mapper, and RATE_LIMITED/SERVER_ERROR statuses.
-- GREEN candidate `59c58639c15227fc7216f321b3a0f8f59f2bc499`: Verify #286 passed; Android #275 is running on API 24/35.
-- Implemented candidate fixes: zero-argument strict-schema generation; plain one-token connection probe with no structured-output requirement; explicit request/rate-limit/server/transport diagnostic states; planner-neutral Run copy; blocking in-flight Stop regression.
-- Do **not** advance to TASK-009 or close/merge TASK-008 until Android #275 is GREEN and the exact APK from that head completes the physical Galaxy suite.
-- Physical suite: Create demo file, Show battery, Show demo toast, Vibrate briefly, Copy demo text, Share demo text. Every applicable flow must reach terminal **COMPLETE**; Share must require exact approval before chooser.
-- Also retain selected-planner pinning, lifecycle/rebind/background, stale-approval, secret-isolation, no-fallback, diagnostic-status, truthful LIMITED, and in-flight Stop evidence.
+- Physical Galaxy run of earlier candidate proved real Groq planning but exposed: Android hardlink `EACCES` on Create demo file; follow-up HTTP 429 TPM exhaustion; action/session-status divergence; Share COMPLETE without observed chooser is not accepted.
+- Filesystem TDD: RED `74c43e7e763e40d32189dcbe17d75057bd410aaf` reproduced Android hardlink `EACCES`; GREEN adds that errno to the existing exclusive-copy fallback.
+- Planner-token TDD: RED `cdb7b9154da3780225b85dadfb5f00eab1566108` pinned duplicated capability catalog, 4096 completion ceiling, and missing Groq GPT-OSS low reasoning. Compatibility RED `c337b827ab875a8d9c16c4d22b4aefe822235a73` preserved JSON-object capability visibility.
+- Final candidate `1a894fb4ac7936549362e857bdb92f21e28251b9`: JSON-Schema prompts no longer duplicate the capability catalog; JSON-object prompts retain it; completion ceiling is 1024; `api.groq.com` GPT-OSS uses `reasoning_effort=low`.
+- Verify #297: **GREEN**. Android #286 API 24/35: **GREEN**, including instrumentation.
+- Exact API-35 installable APK SHA-256: `d6474f768ee15ba2a1418d92a48d13f9647ed86cb85c102ae3b96e50d3f92102`.
+- Physical acceptance remains open. Retest the six Workbench flows on this exact APK; require expected capability evidence, truthful session terminal state, exact approval for Share, and physically observed chooser for Share. Stop cancellation evidence remains accepted only when a real in-flight call yields truthful cancellation.
 
 ## TASK-038: Implement explicit provider privacy disclosure and data-sharing state
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-5, provider, privacy, disclosure
