@@ -151,6 +151,24 @@ def build_response_schema(request: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _prompt_payload(request: dict[str, Any]) -> dict[str, Any]:
+    if _is_agent_request(request):
+        return {
+            "version": request["version"],
+            "mode": request["mode"],
+            "goal": request["goal"],
+            "context": request["context"],
+            "constraints": request["constraints"],
+            "instructions": request["instructions"],
+        }
+    return {
+        "version": request["version"],
+        "intent": request["intent"],
+        "constraints": request["constraints"],
+        "instructions": request["instructions"],
+    }
+
+
 def build_chat_body(
     request: dict[str, Any],
     model: str,
@@ -171,7 +189,7 @@ def build_chat_body(
         "max_completion_tokens": max_completion_tokens,
         "messages": [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": json.dumps(request, ensure_ascii=False, separators=(",", ":"))},
+            {"role": "user", "content": json.dumps(_prompt_payload(request), ensure_ascii=False, separators=(",", ":"))},
         ],
     }
     if response_mode == "json_schema":
