@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from lain.agent.models import PlannerBinding
 from lain.app.demo import DemoPlanner
@@ -14,7 +15,7 @@ from lain.planner_adapters.openai_protocol import (
 from lain.planning.protocol import agent_planner_request, parse_agent_decision
 
 
-_MAX_COMPLETION_TOKENS = 4096
+_MAX_COMPLETION_TOKENS = 1024
 _ERROR_MAP = {
     "PLANNER_CANCELLED": ErrorCode.PLANNER_CANCELLED,
     "PLANNER_TIMEOUT": ErrorCode.PLANNER_TIMEOUT,
@@ -22,6 +23,16 @@ _ERROR_MAP = {
     "PLANNER_RESPONSE_MALFORMED": ErrorCode.PLANNER_OUTPUT_INVALID,
     "PLANNER_RESPONSE_UNSUPPORTED": ErrorCode.PLANNER_OUTPUT_INVALID,
 }
+
+
+_GROQ_GPT_OSS_MODELS = frozenset({"openai/gpt-oss-120b", "openai/gpt-oss-20b"})
+
+
+def _use_low_reasoning(binding: PlannerBinding) -> bool:
+    return (
+        urlsplit(binding.base_url).hostname == "api.groq.com"
+        and binding.model in _GROQ_GPT_OSS_MODELS
+    )
 
 
 class AndroidPlannerFactory:
@@ -48,12 +59,15 @@ class NativeBridgePlanner:
     def decide(self, goal, context, capabilities):
         request = agent_planner_request(goal, context, capabilities, self.max_actions)
         try:
-            body = build_chat_body(
+            body_payload = json.loads(build_chat_body(
                 request,
                 self.binding.model,
                 response_mode=self.binding.response_mode,
                 max_completion_tokens=_MAX_COMPLETION_TOKENS,
-            ).decode("utf-8")
+            ))
+            if _use_low_reasoning(self.binding):
+                body_payload["reasoning_effort"] = "low"
+            body = json.dumps(body_payload, ensure_ascii=False, separators=(",", ":"))
         except (PlannerProtocolError, UnicodeError) as exc:
             raise LainError(ErrorCode.PLANNER_FAILED, "planner request could not be constructed") from exc
 
