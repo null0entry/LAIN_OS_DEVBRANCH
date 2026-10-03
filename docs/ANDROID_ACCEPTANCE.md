@@ -10,12 +10,12 @@ printed or changed here.
 
 ### Current patched candidate
 
-- PR #16 candidate head: `59c58639c15227fc7216f321b3a0f8f59f2bc499`.
-- TDD RED: `712507319e082da4fe4935c9f4888f3284ca4b1f`, Android #272 failed on the intentionally absent plain diagnostic/status contracts.
-- Verify #286 on the candidate head: **GREEN**.
-- Android #275 on API 24/35: **IN PROGRESS**.
-- Candidate fixes: zero-argument schema generation, transport-only plain connection probe, explicit request/rate-limit/server/transport diagnostic statuses, planner-neutral Run copy, and blocking in-flight Stop regression.
-- **No physical acceptance claim exists for this patched candidate yet.** The exact APK from this head becomes the only valid next physical artifact if Android #275 completes GREEN.
+- PR #16 candidate head: `1a894fb4ac7936549362e857bdb92f21e28251b9`.
+- Verify #297: **GREEN**.
+- Android #286: **GREEN** on API 24 and API 35, including instrumentation and artifact upload.
+- Exact API-35 `app-debug.apk` SHA-256: `d6474f768ee15ba2a1418d92a48d13f9647ed86cb85c102ae3b96e50d3f92102`; size 38,093,311 bytes.
+- Included fixes since the prior physical build: zero-argument schema validity; plain connection diagnostic; explicit provider error classes; planner-neutral Run copy; blocking Stop regression; Android hardlink-`EACCES` filesystem fallback; JSON-Schema prompt compaction; 1024 completion ceiling; Groq GPT-OSS low reasoning; JSON-object compatibility preserved.
+- Prior physical observations remain evidence only for the older binaries. **No physical acceptance claim exists yet for this exact candidate.**
 
 The older `c700eed` record below remains the evidence that discovered the defects; it is not the current acceptance candidate.
 
