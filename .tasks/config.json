@@ -250,7 +250,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "6a7b24ada479d5390a08bd02c3214a88e4afe5e0",
-    "next_action": "Review and merge PR #19 head 0977a3c after Android #317 and Verify #328 GREEN, then reconcile only PR #16 work not already integrated. Build/install the exact integrated APK and rerun the full physical Galaxy TASK-008 suite; keep TASK-040 sequenced after TASK-039 and its durable foundations."
+    "repo_head": "1cc9b5158fb755c1057ce229b4fa94fb08175bef",
+    "next_action": "TASK-008 remains in progress. PR #19 merged as 1cc9b515 after Verify #328 and Android #317 passed. Reconcile only PR #16 changes not already integrated—installed Cloud/Local GUI acceptance is the leading delta—then run fresh CI, build/install the exact integrated APK, and rerun the full physical Galaxy suite."
   }
 }
