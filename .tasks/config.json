@@ -244,7 +244,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "2a30ba8a8b0f1ed78ede47b5f8954c383d2711fc",
-    "next_action": "Continue TASK-008 on PR #19 head f7c61da: Verify #316 passed; Android #305 is running. If green, merge the compact payload/schema patch, reconcile PR #16's remaining distinct fixes onto current main, then build/install the exact integrated APK and rerun the full physical Galaxy suite."
+    "repo_head": "773e7961dcd9300586074c688b9cd7662fa6d58a",
+    "next_action": "Continue TASK-008 on PR #19 head 7c3830b: Verify #321 and Android #310 are queued. If green, merge the complete compact-payload/schema patch, reconcile PR #16's remaining distinct fixes, then build/install the exact integrated APK and rerun the full physical Galaxy suite."
   }
 }
