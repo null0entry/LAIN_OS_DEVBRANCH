@@ -3,6 +3,7 @@ package dev.lain.os
 import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
@@ -83,6 +84,14 @@ class PlannerSettingsUiTest {
         return buildString {
             append(own)
             for (index in 0 until view.childCount) append(visibleText(view.getChildAt(index)))
+        }
+    }
+
+    @Test fun primaryRunActionUsesPlannerNeutralCopy() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity {
+                assertEquals("Run task", it.findViewById<Button>(R.id.run_button).text.toString())
+            }
         }
     }
 

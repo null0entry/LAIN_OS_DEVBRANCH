@@ -10,7 +10,7 @@
     <string name="command_heading">What would you like to do?</string>
     <string name="demo_notice">Planner selection is pinned when a task starts. Changing it affects future tasks only.</string>
     <string name="command_hint">Describe a task…</string>
-    <string name="run">Run locally</string>
+    <string name="run">Run task</string>
     <string name="stop">Stop task</string>
     <string name="resume">Resume interrupted task</string>
     <string name="task_heading">CURRENT TASK</string>

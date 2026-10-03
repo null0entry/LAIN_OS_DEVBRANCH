@@ -114,9 +114,10 @@ def _action_schema(capability: dict[str, Any]) -> dict[str, Any]:
     arguments_schema = {
         "type": "object",
         "properties": properties,
-        "required": list(properties),
         "additionalProperties": False,
     }
+    if properties:
+        arguments_schema["required"] = list(properties)
     return {
         "type": "object",
         "properties": {

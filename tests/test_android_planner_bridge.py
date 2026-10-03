@@ -89,7 +89,53 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
                 self.assertEqual(sent_binding["mode"], mode)
                 self.assertEqual(sent_binding["credential_ref"], binding.credential_ref)
                 self.assertEqual(sent_request["model"], "model-a")
+                self.assertEqual(sent_request["max_completion_tokens"], 1024)
+                self.assertNotIn("reasoning_effort", sent_request)
                 self.assertNotIn("secret", bridge.calls[0][0].lower())
+
+    def test_groq_gpt_oss_uses_low_reasoning_effort(self):
+        bridge = FakeNativePlannerBridge()
+        binding = PlannerBinding(
+            profile_id="groq-primary",
+            mode="cloud",
+            protocol="openai_compatible_v1",
+            base_url="https://api.groq.com/openai/v1",
+            model="openai/gpt-oss-120b",
+            credential_ref="cred_0123456789abcdef0123456789abcdef",
+            timeout_seconds=30.0,
+            max_response_bytes=1_048_576,
+            response_mode="json_schema",
+            allow_insecure_lan_http=False,
+        )
+        planner = AndroidPlannerFactory(self.workspace, bridge)(binding)
+
+        planner.decide("finish", {"iteration_count": 0}, ())
+
+        sent_request = json.loads(bridge.calls[0][1])
+        self.assertEqual(sent_request["max_completion_tokens"], 1024)
+        self.assertEqual(sent_request["reasoning_effort"], "low")
+
+    def test_transport_failures_preserve_safe_error_class(self):
+        cases = {
+            "PLANNER_AUTH_REJECTED": ErrorCode.AUTHENTICATION_FAILED,
+            "PLANNER_CREDENTIAL_MISSING": ErrorCode.AUTHENTICATION_REQUIRED,
+            "PLANNER_HTTP_REJECTED": ErrorCode.REMOTE_REJECTED,
+            "PLANNER_MODEL_NOT_FOUND": ErrorCode.REMOTE_REJECTED,
+            "PLANNER_RATE_LIMITED": ErrorCode.REMOTE_RATE_LIMITED,
+            "PLANNER_SERVER_ERROR": ErrorCode.REMOTE_UNAVAILABLE,
+            "PLANNER_DNS_UNREACHABLE": ErrorCode.REMOTE_UNAVAILABLE,
+            "PLANNER_CONNECTION_REFUSED": ErrorCode.REMOTE_UNAVAILABLE,
+            "PLANNER_TLS_FAILURE": ErrorCode.REMOTE_UNAVAILABLE,
+        }
+        for transport_error, expected in cases.items():
+            with self.subTest(transport_error=transport_error):
+                planner = AndroidPlannerFactory(
+                    self.workspace,
+                    FakeNativePlannerBridge({"ok": False, "error": transport_error}),
+                )(cloud_binding())
+                with self.assertRaises(LainError) as raised:
+                    planner.decide("finish", {"iteration_count": 0}, ())
+                self.assertEqual(raised.exception.code, expected)
 
     def test_native_cancellation_maps_to_planner_cancelled(self):
         bridge = FakeNativePlannerBridge({"ok": False, "error": "PLANNER_CANCELLED"})
