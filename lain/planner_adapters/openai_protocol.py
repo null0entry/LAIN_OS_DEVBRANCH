@@ -184,12 +184,13 @@ def build_chat_body(
         or max_completion_tokens < 1
     ):
         raise _fail("max_completion_tokens must be a positive integer")
+    prompt_payload = _prompt_payload(request) if response_mode == "json_schema" else request
     body: dict[str, Any] = {
         "model": model,
         "max_completion_tokens": max_completion_tokens,
         "messages": [
             {"role": "system", "content": SYSTEM_INSTRUCTION},
-            {"role": "user", "content": json.dumps(_prompt_payload(request), ensure_ascii=False, separators=(",", ":"))},
+            {"role": "user", "content": json.dumps(prompt_payload, ensure_ascii=False, separators=(",", ":"))},
         ],
     }
     if response_mode == "json_schema":
