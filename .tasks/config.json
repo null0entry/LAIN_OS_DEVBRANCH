@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 40,
+  "nextId": 41,
   "states": [
     {
       "name": "Backlog",
@@ -241,10 +241,16 @@
         "title": "Implement bounded YouTube OAuth account authorization",
         "priority": "P1",
         "order": 33
+      },
+      {
+        "id": "TASK-040",
+        "title": "Persist exact YouTube upload intent records",
+        "priority": "P1",
+        "order": 34
       }
     ],
     "issue": 6,
-    "repo_head": "773e7961dcd9300586074c688b9cd7662fa6d58a",
-    "next_action": "Continue TASK-008 on PR #19 head 7c3830b: Verify #321 and Android #310 are queued. If green, merge the complete compact-payload/schema patch, reconcile PR #16's remaining distinct fixes, then build/install the exact integrated APK and rerun the full physical Galaxy suite."
+    "repo_head": "6a7b24ada479d5390a08bd02c3214a88e4afe5e0",
+    "next_action": "Review and merge PR #19 head 0977a3c after Android #317 and Verify #328 GREEN, then reconcile only PR #16 work not already integrated. Build/install the exact integrated APK and rerun the full physical Galaxy TASK-008 suite; keep TASK-040 sequenced after TASK-039 and its durable foundations."
   }
 }
