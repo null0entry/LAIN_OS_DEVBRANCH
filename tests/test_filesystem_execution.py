@@ -33,6 +33,13 @@ class FilesystemExecutionTests(unittest.TestCase):
         self.assertEqual(outcome.status, ActionStatus.SUCCESS)
         self.assertEqual((self.root / "no-hardlink.md").read_text(), "portable")
 
+    def test_write_text_falls_back_when_hardlinks_are_access_denied(self):
+        import errno
+        with patch.object(os, "link", create=True, side_effect=OSError(errno.EACCES, "permission denied")):
+            outcome = execute_file_write_text({"path": "android-eacces.md", "content": "portable", "overwrite": False}, self.config)
+        self.assertEqual(outcome.status, ActionStatus.SUCCESS)
+        self.assertEqual((self.root / "android-eacces.md").read_text(), "portable")
+
     def test_write_text_falls_back_when_os_link_is_missing(self):
         with patch.object(os, "link", new=None, create=True):
             outcome = execute_file_write_text({"path": "missing-link.md", "content": "termux", "overwrite": False}, self.config)
