@@ -154,6 +154,7 @@ class GroqAdapterTests(unittest.TestCase):
         body = json.loads(call["request"].data)
         self.assertEqual(body["model"], groq.DEFAULT_MODEL)
         self.assertEqual(body["reasoning_effort"], "low")
+        self.assertEqual(body["max_completion_tokens"], 1024)
         self.assertTrue(body["response_format"]["json_schema"]["strict"])
         self.assertNotIn("tools", body)
 
