@@ -162,6 +162,51 @@ class AppControlTests(unittest.TestCase):
         ))["ok"])
         self.assertFalse(self.send("sessions", extra=True)["ok"])
 
+    def test_stop_cancels_in_flight_planner_call(self):
+        entered, cancelled = threading.Event(), threading.Event()
+
+        class BlockingPlannerBridge:
+            def execute(self, binding_json, request_body):
+                entered.set()
+                if not cancelled.wait(5):
+                    raise RuntimeError("planner fixture was not cancelled")
+                return json.dumps({"ok": False, "error": "PLANNER_CANCELLED"})
+
+            def cancel(self):
+                cancelled.set()
+
+        profiles = FakePlannerProfiles({
+            "profile_id": "cloud-a",
+            "mode": "cloud",
+            "protocol": "openai_compatible_v1",
+            "base_url": "https://api.example.invalid/v1",
+            "model": "model-a",
+            "credential_ref": "cred_0123456789abcdef0123456789abcdef",
+            "timeout_seconds": 30.0,
+            "max_response_bytes": 1048576,
+            "response_mode": "json_schema",
+            "allow_insecure_lan_http": False,
+        })
+        self.app = AppController(
+            Path(self.directory.name),
+            planner_profiles=profiles,
+            planner_bridge=BlockingPlannerBridge(),
+        )
+        sid = self.send("start", goal="Show battery")["session"]["session_id"]
+        worker = threading.Thread(target=self.app.advance)
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            stopped = self.send("stop", session_id=sid)
+            self.assertTrue(stopped["ok"])
+            self.assertTrue(stopped["stop_requested"])
+        finally:
+            cancelled.set()
+            worker.join(5)
+        self.assertFalse(worker.is_alive())
+        session = self.send("inspect", session_id=sid)["session"]
+        self.assertEqual(session["status"], "cancelled")
+
     def test_stop_acknowledges_while_native_step_is_in_flight(self):
         entered, release = threading.Event(), threading.Event()
 
