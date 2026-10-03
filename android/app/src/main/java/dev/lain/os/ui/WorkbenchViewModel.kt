@@ -11,7 +11,12 @@ import dev.lain.os.runtime.RuntimeClient
 import org.json.JSONObject
 
 class WorkbenchViewModel(application: Application, private val saved: SavedStateHandle) : AndroidViewModel(application) {
-    private val client = RuntimeClient(application)
+    companion object {
+        @Volatile
+        var runtimeClientFactory: (Application) -> RuntimeClient = { app -> RuntimeClient(app) }
+    }
+
+    private val client = runtimeClientFactory(application)
     private val main = Handler(Looper.getMainLooper())
     private val mutable = MutableLiveData(WorkbenchState())
     val state: LiveData<WorkbenchState> = mutable
