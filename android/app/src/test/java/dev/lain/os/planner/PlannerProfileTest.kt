@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import org.json.JSONObject
 
 class PlannerProfileTest {
     @Test fun demoProfileProducesTrustedOfflineBinding() {
@@ -54,6 +55,56 @@ class PlannerProfileTest {
 
         assertEquals("cloud-primary", cloud.toTrustedBindingJson().getString("profile_id"))
         assertEquals("local", local.toTrustedBindingJson().getString("mode"))
+    }
+
+    @Test fun diagnosticProbeIsBoundedAndDoesNotRequireStructuredGeneration() {
+        val profile = PlannerProfile(
+            id = "cloud-primary",
+            name = "Cloud primary",
+            mode = "cloud",
+            protocol = "openai_compatible_v1",
+            baseUrl = "https://api.groq.com/openai/v1",
+            model = "openai/gpt-oss-120b",
+            credentialRef = "cred_0123456789abcdef0123456789abcdef",
+            timeoutSeconds = 30.0,
+            maxResponseBytes = 1_048_576,
+            responseMode = "json_schema",
+            allowInsecureLanHttp = false,
+        )
+        val request = JSONObject(buildPlannerDiagnosticRequest(profile))
+        assertEquals(64, request.getInt("max_completion_tokens"))
+        assertFalse(request.has("response_format"))
+    }
+
+    @Test fun plannerConnectionStatusPreservesProviderFailureClass() {
+        assertEquals(
+            PlannerConnectionStatus.REQUEST_REJECTED,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_HTTP_REJECTED),
+        )
+        assertEquals(
+            PlannerConnectionStatus.RATE_LIMITED,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_RATE_LIMITED),
+        )
+        assertEquals(
+            PlannerConnectionStatus.SERVER_ERROR,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_SERVER),
+        )
+        assertEquals(
+            PlannerConnectionStatus.AUTHENTICATION_REJECTED,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_AUTH_REJECTED),
+        )
+        assertEquals(
+            PlannerConnectionStatus.MODEL_UNAVAILABLE,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_MODEL_NOT_FOUND),
+        )
+        assertEquals(
+            PlannerConnectionStatus.TIMED_OUT,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_TIMEOUT),
+        )
+        assertEquals(
+            PlannerConnectionStatus.TLS_FAILURE,
+            plannerConnectionStatusFor(NativePlannerTransport.ERROR_TLS),
+        )
     }
 
     @Test fun invalidEndpointsModelsAndCredentialValuesFailClosed() {
