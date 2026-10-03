@@ -250,7 +250,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "1cc9b5158fb755c1057ce229b4fa94fb08175bef",
-    "next_action": "TASK-008 remains in progress. PR #19 merged as 1cc9b515 after Verify #328 and Android #317 passed. Reconcile only PR #16 changes not already integrated—installed Cloud/Local GUI acceptance is the leading delta—then run fresh CI, build/install the exact integrated APK, and rerun the full physical Galaxy suite."
+    "repo_head": "3bfd3414b099c7b40b47b1f4259118536c416880",
+    "next_action": "TASK-008 remains in progress. PR #21 merged as 3bfd3414 after Verify #337 passed and Android #326 passed on API 35 plus the successful API 24 failed-job rerun; installed Cloud/Local GUI acceptance is now integrated. Build/install the exact integrated APK and rerun the full physical Galaxy TASK-008 suite, including all six Workbench flows, Share approval-before-chooser, real selected Cloud planner path, session pinning, lifecycle/rebind/background recovery, stale approval rejection, secret isolation, no Local-to-Cloud fallback, safe connection statuses, truthful LIMITED semantics, and deliberately in-flight Stop cancellation."
   }
 }
