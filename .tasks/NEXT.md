@@ -1,5 +1,66 @@
 # Next
 
+## TASK-039: Implement bounded YouTube OAuth account authorization
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, oauth, credentials, android
+
+### Goal
+Authorize one explicit YouTube account/channel through the current official OAuth flow using minimum scopes, Keystore-backed token protection, truthful identity display, and revocation without creating generic authenticated HTTP authority.
+
+### Scope
+- Define a narrowly scoped YouTube authorization profile and lifecycle for authorize, refresh where officially supported, inspect identity, revoke, and remove.
+- Request only scopes required by the future bounded upload/status/publish capabilities.
+- Protect refresh/access tokens through the existing Android Keystore secret boundary; durable Python/workflow state stores opaque references only.
+- Display the authorized Google account/channel identity independently retrieved from the provider.
+- Keep authorization distinct from upload or publication approval.
+- Fail closed on state/nonce mismatch, redirect mismatch, expired/revoked credentials, missing browser/provider support, or profile substitution.
+- Do not add generic OAuth, arbitrary authenticated HTTP, upload, publish, or implicit account switching.
+
+### Dependencies
+- TASK-008 complete: stable installed planner/runtime acceptance.
+- TASK-018 and TASK-022 complete: artifact identity and external-effect reconciliation foundations.
+- TASK-032, TASK-035, TASK-037, and TASK-038 complete: provider lifecycle, spending/retry bounds, and privacy disclosure.
+- Current official YouTube/Google authorization requirements verified at implementation time.
+
+### Plan
+- Specify the minimal trusted OAuth state, PKCE/redirect, scope, token-reference, and channel-identity contracts.
+- Implement Android authorization entry/return handling with exact state binding and no token exposure to planners or Python durable state.
+- Exchange and refresh through a bounded YouTube-specific transport.
+- Retrieve and display account/channel identity with explicit profile binding.
+- Implement revoke/remove and fail-closed restart/expiry/error behavior.
+- Add deterministic fake-provider tests plus Android lifecycle/redirect coverage and live authorization evidence only when owner credentials are available.
+
+### Acceptance
+- The installed app can authorize one explicit YouTube account using the official supported flow and minimum required scopes.
+- State, PKCE, redirect, profile, and account/channel identity remain bound across lifecycle/restart.
+- Raw access/refresh tokens are absent from planner payloads, workflow state, audit, logs, IPC responses, crash diagnostics, and exported settings.
+- Revocation/removal prevents future authenticated calls and clears only the intended credential reference.
+- Authorization grants no upload, publication, generic HTTP, or account-switching authority.
+- Unsupported, cancelled, mismatched, expired, or revoked flows settle explicitly without fabricated success.
+
+### Verification
+- Deterministic OAuth state/PKCE/redirect/profile-binding tests.
+- Scope-minimization and no-generic-transport assertions.
+- Restart, cancellation, expiry, refresh, revocation, account-switch, and replay negatives.
+- Secret-leak scans across durable, returned, audit, log, IPC, crash, and export surfaces.
+- Android API/lifecycle/deep-link matrix and canonical verification.
+- Architecture/security/privacy review; live owner-account authorization remains separately labeled when unavailable.
+
+### Expected result
+LAIN_OS can hold one explicit, revocable, identity-verified YouTube authorization profile that later bounded upload capabilities can consume without exposing credentials or granting publication authority.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.1 requires the current official authorization flow, minimum scopes, account/channel identity display, Keystore-backed token protection, and revocation/removal.
+- TaskPlanner now covers Phase 5 through R5.6 as TASK-032 through TASK-038; no existing task, issue, or open PR represents R6.1.
+
+### Projection basis
+- Every later Phase-6 upload/status/publish task depends on a stable, secret-safe, identity-bound authorization primitive.
+- Separating authorization from upload and publication prevents credentials from becoming implicit side-effect authority.
+
+### Risks / unknowns
+- Google OAuth policies, redirect mechanisms, verification requirements, and minimum scopes can change and must be checked against official documentation during implementation.
+- Live acceptance requires owner-controlled Google/YouTube credentials and must not be inferred from deterministic fixtures.
+- Account and Brand Account channel identity semantics may require explicit selection rather than guessing.
+
 ## CURRENT EXECUTION GATE — TASK-008 Phase-1 planner acceptance
 **State:** IN PROGRESS | **PR:** #16 | **Candidate head:** `1a894fb4ac7936549362e857bdb92f21e28251b9`
 
