@@ -1,5 +1,67 @@
 # Next
 
+## TASK-059: Implement bounded visual-asset workflow stage
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-4, workflow, media, visual-assets
+**Updated:** 2026-10-04
+
+### Goal
+Add the missing bounded visual-asset workflow stage between script/visual planning and deterministic timeline construction so Phase 4 can consume verified local image/title-card artifacts without depending on the later external media-provider stack.
+
+### Scope
+- Consume current-revision script/visual-plan inputs and produce typed visual-asset requests/results through the durable workflow/artifact boundaries.
+- Support user-provided images, bundled licensed fixtures, and deterministic generated text/title cards for the local/offline Phase-4 path.
+- Normalize each accepted visual artifact into the TASK-025 media schema with hash, dimensions, MIME/format, provenance, ownership, and workflow revision.
+- Reject corrupt, unsupported, oversized, missing, stale-revision, or provenance-incomplete assets before timeline consumption.
+- Preserve immutable artifact history and TASK-020 downstream invalidation when a visual input or plan changes.
+- Keep external image generation/provider network calls out of this task; TASK-034 later plugs into the same typed result boundary.
+
+### Dependencies
+- TASK-018 immutable artifact workspace.
+- TASK-019 restricted visual-planner role boundary.
+- TASK-020 workflow revision invalidation.
+- TASK-023 aggregate workflow budgets.
+- TASK-024 Phase-3 durable-workflow acceptance.
+- TASK-025 media artifact schemas.
+- TASK-056 bounded script-generation workflow stage where script-derived visual requirements are needed.
+
+### Plan
+- Reuse TASK-025 image artifact types and TASK-018 immutable storage rather than creating a parallel media store.
+- Define the smallest durable workflow-stage input/output contract for local visual assets.
+- Add deterministic adapters for bundled/user-selected image ingestion and generated title-card assets.
+- Validate decode, dimensions, size, hash, provenance, and current workflow revision before success.
+- Ensure revision/cancellation invalidates only dependent downstream outputs.
+- Add focused workflow/artifact tests plus a real local fixture suitable for later TASK-027/TASK-031 consumption.
+
+### Acceptance
+- One current-revision visual plan can produce a bounded ordered set of verified image/title-card artifact references without cloud access.
+- Every successful output has independently derived hash, format, dimensions, provenance, and workflow revision.
+- Corrupt/unsupported/oversized/stale assets fail closed and cannot enter the timeline.
+- Revisions preserve old immutable artifacts while invalidating only dependent current outputs.
+- Cancellation and restart cannot fabricate completion or duplicate mutable outputs.
+- No provider credential, arbitrary path authority, shell command, or capability grant is introduced.
+
+### Verification
+- Stage input/output schema and deterministic ordering tests.
+- Real decoder tests for valid bundled fixture plus corrupt/truncated/unsupported/oversized negatives.
+- Artifact hash/provenance/revision and stale-output invalidation tests.
+- Restart/cancellation/idempotency tests over the durable workflow boundary.
+- Path/authority/secret negative inspection.
+- Canonical Verify + Android checks where the selected local image APIs are platform-sensitive; architecture/security/media review.
+
+### Expected result
+The offline media pipeline has a real verified visual-asset stage feeding TASK-027 timeline construction, while TASK-034 can later add external generation without changing artifact trust or workflow semantics.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` sequential item 44 explicitly requires “Build the image/visual-asset stage,” and the flagship workflow includes a visual-assets stage before render. Current TaskPlanner work covers script generation (TASK-056), narration (TASK-026), media schemas (TASK-025), timeline (TASK-027), and later external media generation (TASK-034), but no task represents the local Phase-4 visual-asset workflow stage.
+
+### Projection basis
+Without this stage, TASK-027/TASK-031 would either consume ad-hoc images directly or prematurely depend on Phase-5 external generation. A provider-neutral local stage closes that integration gap and lets external generation reuse the same verified artifact boundary later.
+
+### Risks / unknowns
+Exact Android image decode/title-card primitives should reuse platform APIs where possible. Licensing/provenance for bundled assets must be explicit. Do not broaden into arbitrary image editing, cinematic generation, or external provider selection.
+
+---
+
 ## TASK-058: Define 1.0 app-data backup and export boundary
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, privacy, backup, export, android
 **Updated:** 2026-10-04
