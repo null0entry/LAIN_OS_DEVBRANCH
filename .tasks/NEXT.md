@@ -1,5 +1,66 @@
 # Next
 
+## TASK-058: Define 1.0 app-data backup and export boundary
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, privacy, backup, export, android
+**Updated:** 2026-10-04
+
+### Goal
+Define and verify the bounded 1.0 backup/export behavior for user-owned LAIN_OS state so release documentation and Phase-7 data-export review can distinguish intentionally private/non-exportable state from explicitly user-exportable data without leaking secrets or execution authority.
+
+### Scope
+- Inventory app-private durable state that exists by 1.0: workflow/session checkpoints, audit/evidence records, settings/profile references, artifact metadata, and user-created artifacts.
+- Define which classes are exportable, backup-eligible, intentionally excluded, or unsupported; an explicit no-export/no-backup result is valid where required by authority or secret boundaries.
+- Keep credentials, tokens, keystore material, approval authority, private provider state, and raw secret-bearing payloads out of export/backup surfaces.
+- Define deterministic export manifest/version/provenance semantics for any supported user-controlled export without creating a generic filesystem/archive capability.
+- Align Android backup/data-extraction configuration and operator documentation with the declared behavior; fail closed on stale, malformed, oversized, or mixed-authority data.
+- Do not add cloud backup, automatic upload/sync, credential export, restore/migration behavior beyond TASK-057, or public distribution machinery.
+
+### Dependencies
+- TASK-024 durable-workflow acceptance establishes the persisted workflow/session state that must be classified.
+- TASK-038 provider privacy/data-sharing state establishes provider-sensitive exclusions.
+- TASK-047 supplies candidate/evidence provenance semantics.
+- TASK-049/TASK-057 establish release package and installed-state boundaries consumed by final documentation/acceptance.
+
+### Plan
+- Inventory persisted files/records and current Android backup/data-extraction rules.
+- Classify each state class as exportable, backup-eligible, excluded, or unsupported with explicit rationale and versioning.
+- Add the smallest bounded export/manifest path only where the roadmap requires user-portable data; otherwise encode explicit unsupported behavior rather than inventing sync.
+- Add negative tests for secrets, authority-bearing records, malformed/stale manifests, path traversal, oversized payloads, and cross-candidate restore confusion.
+- Feed the declared behavior into TASK-048 data-export review, TASK-052 operator docs, and TASK-051 release evidence.
+
+### Acceptance
+- Every durable 1.0 state class has an explicit backup/export classification.
+- Any supported export is user-initiated, bounded, versioned, path-safe, and contains no credential, keystore secret, authorization token, approval capability, or hidden execution authority.
+- Android backup/data-extraction configuration matches the declared behavior; private state is not silently exported by platform defaults.
+- Unsupported backup/export paths are explicit and cannot be presented as successful portability.
+- Exported metadata cannot be imported or interpreted as current approval/capability authority merely because it came from a prior installation.
+- TASK-048, TASK-052, and TASK-051 can mechanically consume the classification/evidence.
+
+### Verification
+- Persisted-state inventory assertions and deterministic manifest/schema tests.
+- Secret/redaction and authority-leak negatives across checkpoints, audit, settings, provider state, and artifacts.
+- Path traversal, hostile filename, oversized/corrupt/stale export negatives.
+- Android manifest/data-extraction configuration checks.
+- Candidate/provenance binding checks through TASK-047 plus architecture/security/privacy review.
+
+### Expected result
+LAIN_OS has one truthful, security-bounded 1.0 backup/export contract: user-portable data is explicitly identified and verifiable, sensitive authority-bearing state remains private, and release docs/matrix cannot imply portability that the installed product does not provide.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` Release Engineering requires documented backup/export behavior and Phase-7 R7.6 requires a data-export review.
+- Current Android manifest uses `android:allowBackup="false"` with app-private durable state, while repository/task search finds no dedicated app-state backup/export task; TASK-030 covers rendered media export only and TASK-052 documents behavior without defining the underlying state boundary.
+
+### Projection basis
+- Without a canonical backup/export boundary, TASK-048/TASK-052/TASK-051 could review or document an ambiguous surface, creating late privacy/authority gaps or implying unsupported portability.
+- A bounded classification-first task is reversible and avoids prematurely adding cloud sync or generic archive machinery.
+
+### Risks / unknowns
+- Some durable state classes do not exist until later phases; classify them when their owning task lands rather than inventing schemas early.
+- The correct 1.0 result may intentionally exclude most private state from export; user-owned data goals do not justify exporting credentials or authority.
+- Restore/migration remains TASK-057 territory and must not be conflated with backup/export.
+
+---
+
 ## TASK-057: Verify installed release upgrade and state-migration boundary
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, migration, android, recovery
 **Updated:** 2026-10-04
