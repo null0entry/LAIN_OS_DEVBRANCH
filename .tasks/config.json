@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 44,
+  "nextId": 45,
   "states": [
     {
       "name": "Backlog",
@@ -265,10 +265,16 @@
         "title": "Require exact YouTube publication approval",
         "priority": "P1",
         "order": 37
+      },
+      {
+        "id": "TASK-044",
+        "title": "Execute exact approved YouTube publication",
+        "priority": "P1",
+        "order": 38
       }
     ],
     "issue": 6,
-    "repo_head": "ae99271cbf4ad43e739f29cffea5d4fb3160252d",
-    "next_action": "TASK-008 remains in progress on PR #23. Verify #353 passed. Android #342 built, linted, unit-tested, and packaged successfully but instrumentation failed with API-35 window-focus loss across new and existing tests plus an API-24 emulator system death; failed jobs were retried once. Require a green retry before merge, then install the exact artifact and capture physical Create demo file and Copy demo text receipts. Clipboard production behavior remains unchanged until a reproducible physical trace proves its root cause."
+    "repo_head": "836c750f776794938328fb2f3dc317992bfdeb98",
+    "next_action": "TASK-008 remains in progress on PR #23. Verify #353 and the retried Android #342 are green at head 4b46d6c with no open review threads. Perform fresh post-retry whole-diff review; merge only if the head remains unchanged and no independent blocker appears. Then install the exact integrated artifact and capture physical Create demo file and Copy demo text receipts."
   }
 }
