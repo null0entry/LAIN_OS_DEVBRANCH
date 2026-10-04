@@ -4,7 +4,7 @@
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, privacy
 **Updated:** 2026-10-04
 
-**Integration:** Started after TASK-012 merge `c6d6cf092571bf6ae67f1fde07df37e546dca590`; Android on-device speech capability/API constraints require fail-closed handling.
+**Integration:** Draft PR #29 exact head `c79b032`; async TTS readiness RED was proven on `ce1cc72`, bounded GREEN implementation is present, Verify #487 passed, and Android #476 remains in progress on API 24/API 35. Merge is gated on exact-head Android completion.
 
 ### Goal
 Close the Phase-2 implementation gap by providing one concrete Android speech path behind the TASK-009 contracts so a real spoken goal can become a final trusted turn and a spoken response can reach TASK-012 playback without depending on the later Phase-5 external-provider stack.
