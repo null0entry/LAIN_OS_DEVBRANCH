@@ -316,8 +316,8 @@
       },
       {
         "id": "TASK-056",
-        "title": "Build Phase-2 conversational transcript UI",
-        "priority": "P2",
+        "title": "Implement bounded script-generation workflow stage",
+        "priority": "P1",
         "order": 50
       },
       {
@@ -346,7 +346,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "7cd0874dd9a7f0e8977c4774bf25dc248debb282",
-    "next_action": "TASK-012 / PR #28 exact head e9f399c7 fixes the invalid-replacement playback/focus defect; fresh review #5408575478 found no remaining code blocker. Verify #441 passed; Android #430 remains in progress and PR mergeability is not yet clear. Merge only after exact-head Android passes and GitHub reports mergeable; then TASK-050."
+    "repo_head": "de2c5a933fce109545063a6e086e86e359dbde94",
+    "next_action": "Finish TASK-012 / PR #28; then TASK-050. TASK-053–055 complete Phase-2 presentation gaps. TASK-056 is the next uncovered workflow/media critical-path stage before narration/timeline integration."
   }
 }
