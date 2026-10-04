@@ -100,7 +100,7 @@ class OnDeviceSpeechAdapterAndroidTest {
                     )
                 )
             }
-            if (synthesizeOnBackground) Thread(complete, "speech-test-completion").start()
+            if (synthesizeOnBackground) Thread({ complete() }, "speech-test-completion").start()
             else complete()
         }
 
