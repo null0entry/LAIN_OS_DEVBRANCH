@@ -1,5 +1,75 @@
 # Next
 
+## TASK-048: Close Phase-7 adversarial release matrix
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, adversarial
+**Updated:** 2026-10-04
+
+### Goal
+
+Exercise the complete Phase-7 adversarial release matrix against one exact candidate identity and produce mechanically classifiable evidence without allowing mocked, stale, weaker-environment, or planner-reported results to masquerade as release proof.
+
+### Scope
+
+- Cover roadmap R7.1–R7.7: conversation, planner, workflow/recovery, media, publication, security/privacy, and performance/resource failures.
+- Bind every run to exact source, artifact, environment, provider/effect identity, and evidence strength through the TASK-047 release-evidence contract.
+- Reuse existing focused tests and phase acceptance fixtures where they already prove a matrix cell; add only missing end-to-end/adversarial checks.
+- Keep destructive or consequential live effects separately authorized; deterministic fake-provider cases may prove failure handling but cannot certify real external publication.
+- Do not create release signing, tagging, deployment, or publication machinery in this task.
+
+### Dependencies
+
+- TASK-015, TASK-024, TASK-031, TASK-036, and TASK-046 provide the phase acceptance/evidence producers required by the matrix.
+- TASK-047 defines the candidate-bound release evidence manifest and provenance/strength rules.
+- Existing canonical verification, Android CI, audit redaction, artifact verification, and approval/reconciliation boundaries remain authoritative.
+
+### Plan
+
+- Map each R7.1–R7.7 roadmap failure to an existing proving check or one bounded missing test.
+- Add the smallest missing deterministic tests/fixtures and candidate-bound evidence capture needed for uncovered cells.
+- Run canonical Python, Android/JVM/instrumentation, secret-scan, recovery/replay, media, and provider/publication failure checks on the exact candidate revision.
+- Record physical-device, performance/thermal, and live external-service cells separately when those environments are actually available and authorized.
+- Produce one matrix result that distinguishes PASS, FAIL, UNTESTED/UNAVAILABLE, environment, source/artifact identity, and evidence provenance.
+
+### Acceptance
+
+- Every R7.1–R7.7 cell has an explicit result and evidence pointer or an explicit truthful UNTESTED/UNAVAILABLE reason.
+- No automated/emulator/fake-provider result is promoted to physical-device or live-provider evidence.
+- Crash/restart, uncertain external effects, duplicate resume/approval, stale revisions, exhausted budgets, and cancellation cannot silently replay consequential work.
+- Secret scans, redaction, IPC/path/approval-replay/data-export checks produce no unresolved critical security/privacy finding.
+- Performance/resource observations are tied to a declared device/build/environment and do not invent unsupported thresholds.
+- The matrix is bound to one exact candidate and becomes stale when source/artifact identity changes.
+
+### Verification
+
+- Canonical portable verification plus Android build/lint/JVM/instrumentation on the supported API matrix.
+- Focused deterministic R7.1–R7.7 failure suites, including crash/restart/reconciliation and provider/publication uncertainty cases.
+- Secret/log/audit/export scans and security/privacy review.
+- Candidate-identity mismatch/staleness negatives against TASK-047 manifest rules.
+- Physical-device, latency/resource, and live-provider checks only with actual environment evidence and required authorization.
+
+### Expected result
+
+Release review can see, for one exact candidate, which adversarial failure classes are proven safe, which failed, and which remain honestly unverified, with no weaker evidence promoted into a 1.0 claim.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` Phase 7 explicitly defines R7.1–R7.7 as the adversarial release matrix.
+- Release engineering requires the adversarial matrix, physical acceptance, secret scan, artifact manifest, and end-to-end golden workflow before a 1.0 claim.
+- Current TaskPlanner state through TASK-047 defines phase/component gates and the release-evidence manifest, but no canonical task represents the complete R7.1–R7.7 integrated matrix.
+
+### Projection basis
+
+- TASK-047 can classify evidence, but the release candidate still needs one integrated consumer that proves failure behavior across subsystem boundaries before golden-workflow/release readiness can be trusted.
+- Centralizing only the matrix orchestration/evidence prevents later release work from duplicating per-phase tests or accidentally treating partial evidence as a complete gate.
+
+### Risks / unknowns
+
+- Physical-device thermal/latency behavior and live YouTube/provider failures may require owner-controlled hardware, credentials, quota, or explicit consequential-effect approval; absent environments remain UNTESTED rather than simulated success.
+- The matrix can become large; reuse existing proving tests/receipts and add only missing cross-boundary coverage.
+- Candidate changes invalidate evidence; do not preserve green status across source/artifact identity changes.
+
+---
+
 ## TASK-047: Define 1.0 release evidence manifest and provenance contract
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, evidence, provenance
 
