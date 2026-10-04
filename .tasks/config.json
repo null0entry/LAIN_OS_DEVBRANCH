@@ -352,7 +352,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "2e01d83a6772843425ca7aeaec9237df4c697360",
-    "next_action": "Finish TASK-012 / PR #28 exact-head Android verification and integrate if clear; then TASK-050 before TASK-013. Release path includes TASK-047 -> TASK-049 -> TASK-057 -> TASK-052/TASK-048 -> TASK-051."
+    "repo_head": "233da63547770e9d7a73e17ee36c83bc2ff23cb1",
+    "next_action": "TASK-012 / PR #28 head 48523920 includes the stale-callback generation fix and focused regression; Verify #446 passed, Android #435 was cancelled, and PR is not mergeable. Finish exact-head Android and mergeability gate; then TASK-050 before TASK-013. TASK-057 is adopted in place as the release migration acceptance assignment."
   }
 }
