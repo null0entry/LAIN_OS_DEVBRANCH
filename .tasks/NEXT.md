@@ -1,5 +1,60 @@
 # Next
 
+
+## TASK-062: Implement bounded media timeline assembly workflow
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-4, workflow, media, timeline
+**Updated:** 2026-10-04
+
+### Goal
+Create the durable Phase-4 stage that assembles current-revision narration, visual-plan, visual-asset, caption, and output settings into one validated TASK-027 timeline for TASK-028.
+
+### Scope
+- Consume verified outputs from TASK-026, TASK-056, TASK-061, and TASK-059.
+- Build TASK-027 scenes, caption timing, transitions, and output constraints.
+- Persist one immutable revision-bound timeline with upstream identities and provenance.
+- Reuse TASK-020 invalidation when upstream content changes.
+- Rendering, inspection, preview/export, external generation, and publication remain separate tasks.
+
+### Dependencies
+TASK-024, TASK-025, TASK-026, TASK-027, TASK-056, TASK-061, TASK-059, plus existing artifact/revision foundations.
+
+### Plan
+- Reuse scheduler, artifact, revision, and media contracts.
+- Map verified narration and visual outputs into deterministic scenes/captions.
+- Validate the full TASK-027 timeline before persistence.
+- Bind the result to exact upstream artifacts/revision.
+- Add restart, cancellation, idempotency, and stale-input coverage.
+
+### Acceptance
+- Equivalent verified inputs produce exactly one deterministic validated timeline.
+- Missing, stale, wrong-type, mismatched-revision, corrupt, oversized, or incomplete inputs fail explicitly.
+- Caption/scene/transition timing satisfies TASK-027 bounds.
+- Upstream revisions invalidate the current timeline and downstream render while preserving history.
+- Restart cannot promote a partial or duplicate result.
+- The stage cannot alter capability, approval, policy, or credential state.
+
+### Verification
+- Deterministic assembly and serialization tests using TASK-027 validation.
+- Narration/visual/caption ordering fixtures.
+- Hash/type/revision/stale/oversize/missing-input negatives.
+- Revision invalidation, restart, cancellation, and idempotency tests.
+- Provenance and authority-boundary review.
+- Canonical verification plus architecture/security/media review.
+
+### Expected result
+Phase 4 gains one production producer for the renderer-ready timeline rather than relying on renderer-specific or fixture-specific composition.
+
+### Evidence basis
+R4.3 requires a deterministic scene/image/audio/caption/transition timeline. TASK-027 defines that representation but not the durable stage that creates it from TASK-026/TASK-056/TASK-061/TASK-059 outputs. No current task owns this assembly boundary.
+
+### Projection basis
+Without this stage, TASK-028 or TASK-031 would absorb orchestration and duplicate revision/artifact responsibilities.
+
+### Risks / unknowns
+Keep scene segmentation minimal and deterministic. Reuse narration timing for captions where available. Extend TASK-027 only if one required field is demonstrably missing.
+
+---
+
 ## TASK-061: Implement bounded visual-planning workflow stage
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-4, workflow, visual-planning, artifacts
 **Updated:** 2026-10-04
