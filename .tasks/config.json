@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 59,
+  "nextId": 60,
   "states": [
     {
       "name": "Backlog",
@@ -355,10 +355,16 @@
         "title": "Define 1.0 app-data backup and export boundary",
         "priority": "P1",
         "order": 52
+      },
+      {
+        "id": "TASK-059",
+        "title": "Implement bounded visual-asset workflow stage",
+        "priority": "P1",
+        "order": 53
       }
     ],
     "issue": 6,
     "repo_head": "dd408146ad64807457569ddb1c198420e09cbc8d",
-    "next_action": "TASK-050 / PR #29 remains the active Phase-2 path: complete exact-head review and the safe captured-PCM STT boundary, then merge only with fresh green CI and mergeability. TASK-058 is release-path work before TASK-048/TASK-052/TASK-051."
+    "next_action": "Diagnose PR #29 Android failure; preserve fail-closed captured-audio STT; rerun exact-head gates. Phase-4: TASK-056 -> TASK-025/TASK-026/TASK-059 -> TASK-027."
   }
 }
