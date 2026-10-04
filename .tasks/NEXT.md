@@ -1,5 +1,64 @@
 # Next
 
+## TASK-060: Establish 1.0 performance and resource acceptance evidence
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, performance, resources, release-evidence
+**Updated:** 2026-10-04
+
+### Goal
+Produce repeatable, candidate-bound performance/resource evidence for roadmap R7.7 so 1.0 acceptance can distinguish measured behavior from assumptions across voice, workflow recovery, and long-running media work.
+
+### Scope
+- Define measurable evidence for voice interruption latency, trusted Stop receipt latency, memory pressure, thermal pressure, long-render responsiveness, background/foreground transitions, and restart timing.
+- Reuse existing instrumentation and phase acceptance paths; add only the minimum measurement hooks/fixtures needed for reproducible observations.
+- Separate emulator/CI measurements from physical-device measurements and never promote weaker evidence.
+- Bind results to exact source/build/device/environment identity through TASK-047; candidate packaging identity comes from TASK-049.
+- Do not introduce telemetry upload, background tracking, new provider dependencies, or release/publish effects.
+
+### Dependencies
+- TASK-015 Phase-2 integrated voice acceptance for voice/Stop behavior.
+- TASK-024 durable-workflow acceptance for restart/background behavior.
+- TASK-031 Phase-4 offline golden media fixture for long-render responsiveness.
+- TASK-036 physical Voice-First preview acceptance for reference-device measurements.
+- TASK-047 release evidence provenance contract and TASK-049 release-candidate identity.
+
+### Plan
+- Define measurement points, units, evidence-strength labels, and deterministic fixtures for each R7.7 cell.
+- Add bounded automated pressure/lifecycle/restart cases where CI can truthfully exercise them.
+- Record physical-only latency/thermal/resource observations separately on declared device/build identities.
+- Emit one candidate-bound result set consumable by TASK-048 and TASK-051.
+
+### Acceptance
+- Every R7.7 item has an explicit PASS/FAIL/UNTESTED/UNAVAILABLE result with source/build/environment provenance.
+- Voice interruption and trusted Stop measurements come from the real exercised path, not planner/provider assertions.
+- Memory/thermal/long-render testing cannot hide task failure, reset authority/budgets, or fabricate completion under pressure.
+- Background/foreground and restart timing preserve truthful durable state and cannot replay consequential effects.
+- CI/emulator evidence and physical-device evidence remain mechanically distinguishable.
+- Candidate identity changes invalidate prior candidate-bound performance evidence.
+
+### Verification
+- Deterministic lifecycle/restart/resource-pressure fixtures in existing JVM/Android verification surfaces.
+- Exact-head Android API-matrix runs for automated cases.
+- Long-render responsiveness against the verified offline Phase-4 fixture.
+- Declared reference-device timing/resource capture when hardware is actually available.
+- TASK-047 provenance/staleness checks and R7.7 integration into TASK-048.
+
+### Expected result
+Release review has a mechanically truthful R7.7 evidence package showing how the exact candidate behaves under interruption, resource pressure, long work, lifecycle transitions, and restart conditions.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` explicitly defines R7.7 performance/resource behavior: voice interruption latency, Stop receipt latency, memory pressure, thermal pressure, long render responsiveness, background/foreground transitions, and restart timing.
+- TASK-048 owns the integrated R7.1-R7.7 adversarial matrix but no canonical task currently owns generating the dedicated measurable R7.7 evidence inputs.
+
+### Projection basis
+- A separate bounded evidence producer prevents the terminal adversarial matrix from inventing ad-hoc thresholds/measurement plumbing late in release hardening and keeps physical measurements distinct from CI automation.
+
+### Risks / unknowns
+- Thermal and some latency behavior require owner-controlled physical hardware; absent hardware remains UNTESTED.
+- Device/OEM variability may preclude universal numeric thresholds; evidence must record declared environment and project-approved acceptance targets rather than generalize unsupported guarantees.
+- Long-render measurements depend on TASK-031 and the actual renderer path existing first.
+
+---
+
 ## TASK-059: Implement bounded visual-asset workflow stage
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-4, workflow, media, visual-assets
 **Updated:** 2026-10-04
