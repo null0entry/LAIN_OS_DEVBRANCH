@@ -1,11 +1,13 @@
 package dev.lain.os
 
+import android.Manifest
 import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -18,10 +20,19 @@ import dev.lain.os.planner.PlannerProfileSummary
 import dev.lain.os.planner.PlannerSettingsManager
 import dev.lain.os.ui.WorkbenchState
 import dev.lain.os.ui.WorkbenchViewModel
+import dev.lain.os.voice.MicrophoneFailure
+import dev.lain.os.voice.MicrophoneState
+import dev.lain.os.voice.MicrophoneStatus
+import dev.lain.os.voice.VoiceCaptureViewModel
 
 class MainActivity : AppCompatActivity() {
     private lateinit var ui: ActivityMainBinding
     private val model: WorkbenchViewModel by viewModels()
+    private val voice: VoiceCaptureViewModel by viewModels()
+    private val microphonePermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            voice.onPermissionResult(it)
+        }
     private var lastHistory = ""
     private var lastResults: String? = null
     private lateinit var plannerSettings: PlannerSettingsManager
@@ -42,6 +53,13 @@ class MainActivity : AppCompatActivity() {
         ui.approveButton.setOnClickListener { model.approve() }
         ui.resumeButton.setOnClickListener { model.resume() }
         ui.reconnectButton.setOnClickListener { model.reconnect() }
+        ui.voiceRecordButton.setOnClickListener {
+            if (voice.state.value?.status == MicrophoneStatus.RECORDING) {
+                voice.stop()
+            } else if (!voice.start()) {
+                microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
@@ -54,10 +72,19 @@ class MainActivity : AppCompatActivity() {
             ui.demoCommands.addView(button)
         }
         model.state.observe(this) { render(it) }
+        voice.state.observe(this) { renderVoice(it) }
     }
 
     override fun onStart() { super.onStart(); model.attach() }
-    override fun onStop() { model.detach(isChangingConfigurations); super.onStop() }
+    override fun onResume() {
+        super.onResume()
+        voice.reconcilePermission()
+    }
+    override fun onStop() {
+        voice.onActivityStop(isChangingConfigurations)
+        model.detach(isChangingConfigurations)
+        super.onStop()
+    }
 
     private fun render(state: WorkbenchState) {
         val session = state.session
@@ -117,6 +144,28 @@ class MainActivity : AppCompatActivity() {
                     setOnClickListener { model.select(entry.getString("session_id")) }
                 })
             }
+        }
+    }
+
+    private fun renderVoice(state: MicrophoneState) {
+        val recording = state.status == MicrophoneStatus.RECORDING
+        ui.voiceRecordButton.text = getString(
+            if (recording) R.string.voice_stop else R.string.voice_record
+        )
+        ui.voiceStatus.text = when (state.status) {
+            MicrophoneStatus.IDLE -> state.lastCaptureDurationMs?.let {
+                getString(R.string.voice_captured, it)
+            } ?: getString(R.string.voice_idle)
+            MicrophoneStatus.PERMISSION_REQUIRED -> getString(R.string.voice_permission_required)
+            MicrophoneStatus.RECORDING -> getString(R.string.voice_recording)
+            MicrophoneStatus.FAILED -> getString(
+                when (state.failure) {
+                    MicrophoneFailure.PERMISSION_DENIED -> R.string.voice_permission_denied
+                    MicrophoneFailure.PERMISSION_REVOKED -> R.string.voice_permission_revoked
+                    MicrophoneFailure.RESOURCE_LIMIT -> R.string.voice_resource_limit
+                    else -> R.string.voice_capture_failed
+                }
+            )
         }
     }
 
