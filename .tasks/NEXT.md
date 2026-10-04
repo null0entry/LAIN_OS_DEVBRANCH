@@ -1,5 +1,170 @@
 # Next
 
+## TASK-053: Implement selectable agent speech voices
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
+**Updated:** 2026-10-04
+
+### Goal
+Expose a bounded user-selectable speech-synthesis voice choice through the existing TASK-009 speech contract and the concrete TASK-050 adapter without letting voice metadata become execution authority.
+
+### Scope
+- Discover and present only voices actually available through the active speech synthesis implementation.
+- Persist a stable non-secret voice selection per applicable local speech profile.
+- Bind synthesis requests to an explicit selected voice identifier where supported; fail truthfully when a stored voice disappears.
+- Preserve typed fallback, Stop talking semantics, provider/locality provenance, and TASK-012 playback boundaries.
+- Do not add voice cloning, arbitrary downloadable models, provider credentials, cloud fallback, or new capability authority.
+
+### Dependencies
+- TASK-009 speech provider contracts.
+- TASK-012 cancellable playback.
+- TASK-050 first concrete on-device speech adapter.
+
+### Plan
+- Reuse the TASK-050 synthesis adapter's platform voice inventory rather than introducing a parallel registry.
+- Add the smallest stable voice-selection state and UI control.
+- Validate stored selections against current engine/provider identity before synthesis.
+- Keep unsupported/no-voice state explicit and recoverable.
+- Add focused JVM/instrumentation coverage for selection, disappearance, restart, cancellation, and authority isolation.
+
+### Acceptance
+- The user can see and select among synthesis voices actually exposed by the active supported engine.
+- A selected voice is used by subsequent synthesis requests and survives app restart when still available.
+- Missing/removed voices surface a truthful recoverable state and never silently switch provider/locality.
+- Voice selection cannot grant task approval, policy, capability, credential, or executor authority.
+- Stop talking and task cancellation remain separate.
+
+### Verification
+- Voice inventory/selection unit tests using injectable engine doubles.
+- Restart and stale-voice negative tests.
+- Android instrumentation for selection UI and synthesis binding.
+- No-cloud-fallback and authority-field leakage tests.
+- Canonical Verify + Android API matrix; physical voice quality/availability remains separately labeled.
+
+### Expected result
+LAIN_OS satisfies the roadmap's selectable-agent-voice requirement through the existing bounded speech path, with a user-visible choice that is stable, truthful, and authority-neutral.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Phase 2 lists selectable speech synthesis voice as a feature and sequential item 23 explicitly says “Add selectable agent voices.” Current TaskPlanner work covers speech contracts, microphone, turn routing, playback, barge-in, narration, acceptance, and the first concrete speech adapter, but no task covers selectable voice state/UI.
+
+### Projection basis
+A dedicated bounded selection layer avoids baking one engine voice into TASK-050 and gives later narration/media work a reusable explicit voice identity without coupling it to provider credentials or execution authority.
+
+### Risks / unknowns
+Android/OEM engines expose different voice inventories and locality metadata. Persist stable identifiers only when the platform exposes them; otherwise surface unsupported/changed state rather than inventing portability.
+
+---
+
+## TASK-054: Add conversational transcript UI
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, transcript, android-ui
+**Updated:** 2026-10-04
+
+### Goal
+Make the trusted conversation history visible in the Android client so typed and final spoken turns, assistant responses, revisions, and active-task references are inspectable without conflating transcript text with durable execution authority.
+
+### Scope
+- Render an ordered bounded conversation stream from existing TASK-011 turn state and accepted assistant/task-facing responses.
+- Distinguish user typed input, final recognized speech, assistant response/progress, and system/recovery status.
+- Keep partial speech visibly provisional and non-authoritative; never persist raw microphone audio.
+- Preserve active-task/turn identity and make revision routing understandable.
+- Bound in-memory/UI history and define restart behavior consistent with existing retention rules.
+- Do not duplicate the durable audit log or turn transcript into policy/approval state.
+
+### Dependencies
+- TASK-011 bounded voice turn manager.
+- TASK-050 concrete speech adapter for final speech turns.
+- Existing Android Workbench UI/state patterns.
+
+### Plan
+- Reuse current turn/session models as the source of truth.
+- Add the smallest bounded transcript view/state projection.
+- Mark provisional versus accepted turns explicitly.
+- Preserve typed fallback and recovery/error states.
+- Add lifecycle/restart/rotation tests plus negative authority-boundary checks.
+
+### Acceptance
+- Typed and accepted spoken turns appear in deterministic order with clear speaker/status labeling.
+- Partial recognition is visually distinct and cannot become an accepted task-facing turn through UI state alone.
+- Rotation/rebind does not reorder or duplicate visible turns.
+- Transcript rendering does not expose credentials, raw audio, approval tokens, or capability authority.
+- History is bounded and retention behavior is explicit.
+
+### Verification
+- View-model/order/bounds JVM tests.
+- Partial-to-final transition and duplicate-turn negative tests.
+- Android instrumentation for typed+spoken transcript rendering, rotation/rebind, and active-task reference.
+- Secret/authority-field inspection.
+- Canonical Verify + Android API matrix.
+
+### Expected result
+LAIN_OS has a truthful user-readable conversation surface that makes the voice-first interaction inspectable while leaving execution authority in the trusted runtime.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Phase 2 lists “text transcript” and sequential item 24 explicitly says “Add conversational transcript UI.” Current search finds turn-management transcript semantics but no dedicated transcript UI task or implementation surface.
+
+### Projection basis
+Visible conversation state is needed to debug and safely use revision/ambiguity handling, and it gives TASK-015/TASK-036 a concrete installed-app surface to verify rather than inferring turns from internal state.
+
+### Risks / unknowns
+Existing Workbench layout space is limited; prefer a minimal bounded list over a new navigation architecture. Durable transcript retention must not be invented here if the current product contract only requires session-visible history.
+
+---
+
+## TASK-055: Implement progressive assistant speech delivery
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, streaming, speech
+**Updated:** 2026-10-04
+
+### Goal
+Allow bounded assistant responses to begin speaking progressively where the active synthesis implementation supports it, while preserving cancellation, ordering, replay safety, and the rule that speech transport failure never equals task failure.
+
+### Scope
+- Extend the existing speech synthesis/playback seam to accept ordered bounded response segments or chunks without exposing arbitrary streaming transport to the executor.
+- Preserve deterministic segment ordering, cancellation generation, audio-focus behavior, and Stop talking semantics.
+- Surface unsupported/non-streaming engines truthfully and fall back only to bounded whole-response synthesis within the same selected provider/locality contract.
+- Prevent late/stale segments from a cancelled or superseded turn from playing.
+- Keep progress narration (TASK-014) logically distinct from assistant conversational response speech.
+- Do not introduce provider-specific network streaming, hidden cloud fallback, or task authority.
+
+### Dependencies
+- TASK-009 speech contracts.
+- TASK-011 ordered turn/session identity.
+- TASK-012 cancellable playback.
+- TASK-050 concrete synthesis implementation.
+- TASK-053 explicit voice identity where supported.
+
+### Plan
+- Reuse existing turn IDs and playback cancellation generation as the ordering key.
+- Add the minimum segment/chunk representation needed by the speech boundary.
+- Gate playback on current turn/revision and selected speech profile.
+- Cancel and discard queued/late segments on Stop talking, barge-in, or superseding turn.
+- Add deterministic fake-synthesizer tests before Android integration.
+
+### Acceptance
+- A supported engine can begin speaking a multi-segment assistant response before the entire response is synthesized.
+- Segments play exactly once in order for the current turn.
+- Stop talking or superseding the turn prevents queued/late segments from resuming.
+- Non-streaming engines remain functional through bounded whole-response synthesis without switching provider/locality.
+- Speech failure leaves the underlying task state unchanged.
+
+### Verification
+- Segment ordering, cancellation, stale-turn, duplicate, and completion JVM tests.
+- Android instrumentation for progressive playback, focus transitions, lifecycle teardown, and Stop talking separation.
+- Unsupported-engine fallback-within-same-profile tests and no-cloud-fallback negatives.
+- Canonical Verify + Android API matrix; latency measurements on physical device remain separate acceptance evidence.
+
+### Expected result
+Assistant conversation can speak responsively without weakening TASK-012 cancellation or TASK-011 turn truth, and engines without progressive support remain truthful and usable.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Phase 2 requires “streaming/progressive spoken responses where supported” and sequential item 25 explicitly says “Add streaming/progressive assistant speech.” Existing TASK-014 covers progress narration, a separate short progress-event channel rather than progressive delivery of conversational assistant speech.
+
+### Projection basis
+Progressive delivery reduces voice interaction latency and gives later barge-in/echo work a realistic queued-audio path to interrupt while preserving the provider-neutral boundary.
+
+### Risks / unknowns
+Android speech engines vary in incremental synthesis support. The implementation must feature-detect capability and stay bounded; provider-specific network streaming belongs to later external-provider work.
+
+---
+
 ## TASK-052: Close 1.0 operator documentation and third-party notices
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, docs, licensing
 
