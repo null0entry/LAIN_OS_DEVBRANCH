@@ -1,5 +1,71 @@
 # Next
 
+## TASK-051: Close installed 1.0 golden workflow and release-readiness gate
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, golden, acceptance
+**Updated:** 2026-10-04
+
+### Goal
+Prove the complete installed-phone 1.0 golden scenario on one exact release candidate and close the final release-readiness gate only when every required automated, emulator, physical-device, media, provider, publication, security/privacy, documentation, and evidence condition is truthfully satisfied.
+
+### Scope
+- Execute the roadmap golden scenario end to end from installed voice session through workflow creation, verbal revision, dependent invalidation/rebuild, narration, visuals, render, inspection, preview, private YouTube staging, processing verification, exact publication approval, publication, independent final retrieval, and workflow close with audit + artifact manifest.
+- Bind the run to one exact TASK-049 package/version/source/checksum/signing identity and TASK-047 evidence manifest.
+- Consume TASK-048 adversarial results as a hard release gate and include TASK-050's concrete on-device speech path in the Phase-2 acceptance chain.
+- Keep every live provider/upload/publication effect under its existing exact explicit authority.
+- Validate all roadmap release documentation and known-limitations surfaces.
+- Do not publish/deploy a public release, create a public release tag, rotate credentials, or claim 1.0 when evidence is missing.
+
+### Dependencies
+- TASK-015, TASK-024, TASK-031, TASK-036, TASK-046 phase exit/physical/live evidence.
+- TASK-047 release evidence manifest.
+- TASK-048 adversarial matrix.
+- TASK-049 release-candidate packaging/signing identity.
+- TASK-050 concrete on-device Phase-2 speech implementation.
+
+### Plan
+- Freeze one TASK-049 candidate identity and reject evidence from any other artifact/source revision.
+- Run reproducible automated/emulator gates first and resolve deterministic failures before live/physical acceptance.
+- Install the exact candidate on the declared reference device and execute the complete voice-to-video-to-publication scenario with separately authorized live effects.
+- Independently verify media, YouTube processing/final metadata, Stop/interruption, revision invalidation, restart/reconciliation, privacy/fallback semantics, and audit/evidence completeness.
+- Populate TASK-047 with exact evidence classes, checksums, environments, external-result identities, limitations, and required release docs.
+- Emit READY only if all mandatory gates pass; otherwise emit NOT_READY with exact failed/missing evidence.
+
+### Acceptance
+- The exact installed release candidate completes the full spoken idea-to-video workflow and closes with durable audit + artifact manifest.
+- Voice I/O, barge-in, Stop, revision, workflow restart/recovery, invalidation, render/inspection/preview, provider failure handling, and publication authority conform to phase contracts.
+- YouTube publication uses the exact approved artifact/payload, occurs once, and final metadata/visibility are independently retrieved.
+- Automated, emulator, physical-device, and live-service evidence remain separately typed and bound to the exact candidate.
+- Critical unresolved security/recovery/data-loss findings are zero.
+- Secrets are absent from planner/audit/log/IPC/export/evidence surfaces.
+- Documentation and known limitations match observed shipped behavior.
+- No debug APK, mocked external effect, skipped check, stale receipt, owner assertion alone, or planner/provider claim is promoted into release proof.
+
+### Verification
+- Canonical Python verification plus Android release build/lint/JVM/instrumentation on the supported API matrix.
+- TASK-048 R7.1-R7.7 adversarial matrix with exact-candidate binding.
+- Physical reference-device voice/interruption/Stop/restart/resource acceptance.
+- Real offline golden video render plus independent media inspection.
+- Authorized live provider/YouTube staging, processing verification, exact publication approval, publication, and independent final retrieval.
+- Secret/redaction/export/package scans plus checksum/signature/source identity checks.
+- Fresh architecture/security/privacy/release review and TASK-047 manifest validation.
+
+### Expected result
+A release reviewer gets one binary evidence-backed decision for LAIN_OS 1.0: READY only when one exact installed candidate satisfies the complete golden workflow and every mandatory evidence class, otherwise NOT_READY with precise unresolved evidence and no fabricated release claim.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` Phase 7 defines the installed golden scenario; Release Engineering and the 1.0 definition of done require exact candidate identity, automated/emulator/physical/live evidence, adversarial matrix, artifact manifest, documentation, secret scan, and zero critical unresolved security/recovery/data-loss findings.
+- TASK-047 through TASK-050 cover evidence semantics, adversarial hardening, release packaging, and the concrete speech gap, but no current task represents the terminal installed golden workflow/readiness decision.
+
+### Projection basis
+- A single terminal candidate-bound gate prevents individually green phases, debug/mock success, stale evidence, release-build drift, or incomplete docs from being mistaken for product readiness.
+
+### Risks / unknowns
+- Physical-device and live-provider/YouTube execution require owner-controlled hardware, credentials, quota, and explicit effect approval; unavailable prerequisites remain NOT_READY/UNTESTED.
+- Candidate changes invalidate affected receipts and require rerun.
+- Public distribution remains owner-authority work outside this task.
+
+---
+
 ## TASK-050: Implement first on-device Phase-2 speech adapter
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, privacy
 
