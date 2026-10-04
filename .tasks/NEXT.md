@@ -1,5 +1,71 @@
 # Next
 
+## TASK-045: Reconcile uncertain YouTube upload and publication effects
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, reconciliation, idempotency, external-effect
+
+### Goal
+Reconcile ambiguous, duplicate, or already-applied YouTube upload and publication outcomes against exact durable effect identities so LAIN_OS never creates a second upload, replays publication authority, or reports success without independent evidence.
+
+### Scope
+- Define versioned reconciliation records for TASK-041 upload sessions and TASK-044 publication attempts, keyed by immutable intent, artifact hash, provider video ID when known, channel/profile, metadata, visibility, workflow/policy revision, and effect identity.
+- Resolve crash-after-send, network loss after response, unknown provider acknowledgement, duplicate approval/invocation, and already-published states through bounded independent provider lookup.
+- Distinguish not-attempted, pending, confirmed-exact, confirmed-conflict, absent-after-bounded-search, and owner-decision-required outcomes.
+- Reuse TASK-022 reconciliation, TASK-021 waits, TASK-023/TASK-035 budgets, TASK-037 retry rules, TASK-038 disclosure, and TASK-043 single-use approval semantics.
+- Prohibit automatic second upload or publication replay whenever a prior effect may have occurred.
+- Preserve redacted audit receipts and exact evidence provenance without storing credentials or broad provider responses.
+- Do not add deletion, rollback, metadata repair, cross-channel migration, generic search, generic HTTP, or automatic conflict resolution.
+
+### Dependencies
+- TASK-018/TASK-020/TASK-021/TASK-022/TASK-023: immutable identities, revision invalidation, durable waits, reconciliation, and budgets.
+- TASK-032/TASK-035/TASK-037/TASK-038: provider lifecycle, spending, retry, and disclosure controls.
+- TASK-039 through TASK-044: authorized identity, immutable intent, staged upload, independent status, exact approval, and publication effect identity.
+- Current official YouTube lookup semantics and searchable identity fields verified during implementation.
+
+### Plan
+- Specify canonical reconciliation keys and durable terminal/uncertain/conflict states for upload and publication effects.
+- Enumerate every crash/network/duplicate boundary before, during, and after provider transmission and independent lookup.
+- Implement the narrowest authenticated read paths needed to recover the exact existing video/effect without broad search authority.
+- Match candidates against immutable intent, artifact, channel/profile, metadata, visibility, revision, upload session, and publication attempt evidence.
+- Resume only safe reads/polls; keep all possibly-applied writes non-replayable until exact evidence settles them.
+- Add deterministic duplicate, already-applied, ambiguous, conflicting, restart, budget, and Android receipt tests.
+
+### Acceptance
+- A crash or lost response after an upload/publication attempt cannot trigger an automatic second write.
+- Reconciliation success requires independent evidence for the exact effect identity and all available immutable bindings.
+- Duplicate approval, invocation, retry, restart, and concurrent workers converge on one durable reconciliation record.
+- Already-uploaded or already-published exact state settles as confirmed without consuming new approval or write budget.
+- Conflicting video/channel/profile/artifact/metadata/visibility/revision evidence fails closed and requests one explicit owner decision; it is never silently repaired.
+- Bounded absence evidence does not prove a write never happened unless the provider contract supplies authoritative exact lookup semantics.
+- Restart preserves uncertainty, consumed authority, counters, deadlines, and budgets.
+- Secrets remain absent from planner payloads, durable workflow state, audit, logs, IPC, and exported settings.
+
+### Verification
+- State-machine serialization and canonical reconciliation-key tests.
+- Crash matrix covering pre-send, partial send, provider receipt, lost response, post-response crash, and lookup interruption.
+- Duplicate approval/invocation/retry/restart/concurrent-worker tests.
+- Exact-match, already-applied, absent, multiple-candidate, cross-channel/profile, stale-revision, metadata/visibility drift, and unknown-video fixtures.
+- Assertions that uncertain writes never replay and read-only reconciliation respects deadlines, cancellation, call/cost ceilings, and retry classes.
+- Redacted audit/Android receipt tests plus canonical, Android, architecture, security, and privacy review.
+- Live reconciliation remains UNVERIFIED unless separately exercised against an owner-authorized exact provider state.
+
+### Expected result
+Every uncertain YouTube upload or publication converges to an explicit, evidence-backed state without duplicate writes, reused authority, fabricated success, or silent cross-identity repair.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.7 explicitly requires handling crash after upload attempt, network loss after response, duplicate approval, and already-published state, and forbids blindly creating a second upload.
+- TASK-041 and TASK-044 create durable upload/publication effect identities, but no current task, issue, or open PR represents their shared duplicate/uncertain reconciliation gate.
+
+### Projection basis
+- The Phase-6 exit gate cannot truthfully prove upload, processing, and publication correctness unless ambiguous write outcomes converge across restart without replay.
+- A shared bounded reconciliation layer prevents upload and publication adapters from developing incompatible duplicate-detection and authority semantics.
+
+### Risks / unknowns
+- YouTube may not expose an authoritative exact lookup for every pre-video-ID upload boundary; such cases must remain uncertain rather than infer absence.
+- Provider-side normalization and delayed indexing can create temporary mismatches; time bounds must not weaken exact identity checks.
+- Multiple historical videos with similar metadata are not safe matches without stronger immutable evidence.
+- Any destructive repair or compatibility policy requires separate owner authority and is out of scope.
+
+
 ## TASK-044: Execute exact approved YouTube publication
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, publication, external-effect, approval, reconciliation
 
