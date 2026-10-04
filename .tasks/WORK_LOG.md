@@ -1,5 +1,8 @@
 # Work Log
 
+## 2026-10-04 — TASK-012
+PR #28 exact head `48523920d0f4c5eb1ffe7810b277547ade42fd41` passed fresh whole-diff review, Verify #451, and Android #440 on API 24/API 35 including instrumentation after two RED→GREEN playback-replacement regressions. Squash-merged to `main` as `c6d6cf092571bf6ae67f1fde07df37e546dca590`. TASK-050 promoted to In Progress.
+
 ## 2026-10-04 — TASK-009
 PR #25 merged to `main` as `414bccec30268a464ef2bd0c12bbad3a7b2992e7`. Exact implementation head `e6e671c121cd57818d8bbabad608582f493427b1` passed Verify #371 (292 tests) and Android #360 (API 24/API 35). Provider-neutral speech contracts are integrated and TASK-010 is promoted to In Progress.
 
