@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 62,
+  "nextId": 63,
   "states": [
     {
       "name": "Backlog",
@@ -373,10 +373,16 @@
         "title": "Implement bounded visual-planning workflow stage",
         "priority": "P1",
         "order": 55
+      },
+      {
+        "id": "TASK-062",
+        "title": "Implement bounded media timeline assembly workflow",
+        "priority": "P1",
+        "order": 56
       }
     ],
     "issue": 6,
     "repo_head": "32f6b57afaa9a09623adc7fd926c591181bbceae",
-    "next_action": "TASK-050 / PR #29 first: exact head 72a548d has fresh clear code review and Verify #479 green; require Android #468 success, then final mergeability/review gate. After TASK-050, continue Phase-2 TASK-053/TASK-054/TASK-055 before TASK-013/TASK-014/TASK-015; Phase-4 visual path TASK-061 -> TASK-059 -> TASK-027."
+    "next_action": "TASK-050 / PR #29 remains active; resolve exact-head captured-PCM STT and Android evidence, then merge only with fresh clear review+CI. Phase-4 sequencing: TASK-056 + TASK-025/TASK-026/TASK-061/TASK-059 + TASK-027 -> TASK-062 -> TASK-028."
   }
 }
