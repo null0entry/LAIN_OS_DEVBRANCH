@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 47,
+  "nextId": 48,
   "states": [
     {
       "name": "Backlog",
@@ -283,10 +283,16 @@
         "title": "Close Phase-6 YouTube live acceptance gate",
         "priority": "P1",
         "order": 40
+      },
+      {
+        "id": "TASK-047",
+        "title": "Define 1.0 release evidence manifest and provenance contract",
+        "priority": "P1",
+        "order": 41
       }
     ],
     "issue": 6,
-    "repo_head": "c548324b77c32240e7d62cd108354e89446b39df",
-    "next_action": "TASK-010 merged as 204a20d7. TASK-011 is In Progress; PR #27 was retargeted to main and is non-mergeable. Reconcile the TASK-011 delta onto current main, run fresh exact-head Verify + Android + whole-diff review, then merge only if clear. TASK-012 remains dependency-blocked."
+    "repo_head": "6b9824fa9070429e8282176e3fcbef172bd637e1",
+    "next_action": "PR #27 / TASK-011 is now mergeable on exact head 874c9b7 with Verify #409 and Android #398 green plus fresh clear review. Review and integrate TASK-011 if still clear; then advance stacked TASK-012 PR #28. TASK-047 is queued for Phase-7 release evidence."
   }
 }
