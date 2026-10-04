@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 43,
+  "nextId": 44,
   "states": [
     {
       "name": "Backlog",
@@ -259,10 +259,16 @@
         "title": "Verify YouTube processing status independently",
         "priority": "P1",
         "order": 36
+      },
+      {
+        "id": "TASK-043",
+        "title": "Require exact YouTube publication approval",
+        "priority": "P1",
+        "order": 37
       }
     ],
     "issue": 6,
-    "repo_head": "0502308ec412a86221f933f794fce13115a66ac2",
-    "next_action": "TASK-008 remains in progress. PR #22 merged as 6985cbb and current-main Verify #348 plus Android #337 passed. A recent owner-reported physical run says Create demo file and Copy demo text remain red while the other presets are green, but exact build identity and detailed failure receipts are not yet repository-native. Capture those two exact failure traces/build SHA before any fix, then diagnose under TDD; preserve the complete physical Galaxy gate."
+    "repo_head": "b8fe30a1678fb2abccf4ce655cc49d828c4a2061",
+    "next_action": "TASK-008 remains in progress on PR #23. Verify #353 passed but Android #342 failed on head 4b46d6c; diagnose the exact failing job/log, patch under TDD if deterministic, rerun fresh CI, and preserve the physical Galaxy gate. Copy demo text production behavior remains unchanged until a reproducible physical trace proves its root cause."
   }
 }
