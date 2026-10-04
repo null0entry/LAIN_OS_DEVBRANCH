@@ -29,7 +29,14 @@ class RuntimeFlowTest {
     private fun run(scenario: ActivityScenario<MainActivity>, goal: String) {
         await(scenario) { it.findViewById<android.view.View>(R.id.run_button).isEnabled }
         onView(withId(R.id.command_input)).perform(replaceText(goal), closeSoftKeyboard())
-        onView(withId(R.id.run_button)).perform(click())
+        // Android 13+ can leave the SystemUI clipboard overlay alive after the
+        // preceding clipboard test. A coordinate-based Espresso click can then
+        // hit the overlay's Share affordance instead of this owner UI button.
+        // Invoke the actual view click listener directly so this runtime-flow
+        // test remains scoped to LAIN's UI wiring rather than SystemUI geometry.
+        scenario.onActivity {
+            assertTrue(it.findViewById<android.view.View>(R.id.run_button).performClick())
+        }
     }
 
     private fun resultsText(activity: MainActivity): String {

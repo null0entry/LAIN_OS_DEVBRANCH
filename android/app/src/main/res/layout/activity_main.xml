@@ -40,6 +40,14 @@
                 android:layout_height="wrap_content" android:layout_marginTop="6dp"
                 android:text="@string/voice_idle" android:textColor="@color/accent"
                 android:textSize="12sp" android:accessibilityLiveRegion="polite" />
+            <Button android:id="@+id/stop_talking_button" android:layout_width="match_parent"
+                android:layout_height="48dp" android:layout_marginTop="8dp"
+                android:text="@string/stop_talking" android:textAllCaps="false"
+                android:enabled="false" />
+            <TextView android:id="@+id/playback_status" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="6dp"
+                android:text="@string/playback_idle" android:textColor="@color/text_secondary"
+                android:textSize="12sp" android:accessibilityLiveRegion="polite" />
             <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content">
                 <LinearLayout android:id="@+id/demo_commands" android:layout_width="wrap_content"
                     android:layout_height="wrap_content" android:orientation="horizontal" />

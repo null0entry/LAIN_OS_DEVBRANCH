@@ -23,12 +23,18 @@ import dev.lain.os.ui.WorkbenchViewModel
 import dev.lain.os.voice.MicrophoneFailure
 import dev.lain.os.voice.MicrophoneState
 import dev.lain.os.voice.MicrophoneStatus
+import dev.lain.os.voice.PlaybackFailure
+import dev.lain.os.voice.PlaybackState
+import dev.lain.os.voice.PlaybackStatus
+import dev.lain.os.voice.PlaybackStopReason
+import dev.lain.os.voice.SpeechPlaybackViewModel
 import dev.lain.os.voice.VoiceCaptureViewModel
 
 class MainActivity : AppCompatActivity() {
     private lateinit var ui: ActivityMainBinding
     private val model: WorkbenchViewModel by viewModels()
     private val voice: VoiceCaptureViewModel by viewModels()
+    private val playback: SpeechPlaybackViewModel by viewModels()
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
@@ -60,6 +66,7 @@ class MainActivity : AppCompatActivity() {
                 microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
             }
         }
+        ui.stopTalkingButton.setOnClickListener { playback.stopTalking() }
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
@@ -73,6 +80,7 @@ class MainActivity : AppCompatActivity() {
         }
         model.state.observe(this) { render(it) }
         voice.state.observe(this) { renderVoice(it) }
+        playback.state.observe(this) { renderPlayback(it) }
     }
 
     override fun onStart() { super.onStart(); model.attach() }
@@ -81,6 +89,7 @@ class MainActivity : AppCompatActivity() {
         voice.reconcilePermission()
     }
     override fun onStop() {
+        playback.onActivityStop(isChangingConfigurations)
         voice.onActivityStop(isChangingConfigurations)
         model.detach(isChangingConfigurations)
         super.onStop()
@@ -164,6 +173,32 @@ class MainActivity : AppCompatActivity() {
                     MicrophoneFailure.PERMISSION_REVOKED -> R.string.voice_permission_revoked
                     MicrophoneFailure.RESOURCE_LIMIT -> R.string.voice_resource_limit
                     else -> R.string.voice_capture_failed
+                }
+            )
+        }
+    }
+
+    private fun renderPlayback(state: PlaybackState) {
+        val active = state.status == PlaybackStatus.PLAYING ||
+            state.status == PlaybackStatus.DUCKED
+        ui.stopTalkingButton.isEnabled = active
+        ui.playbackStatus.text = when (state.status) {
+            PlaybackStatus.PLAYING -> getString(R.string.playback_speaking)
+            PlaybackStatus.DUCKED -> getString(R.string.playback_ducked)
+            PlaybackStatus.FAILED -> getString(
+                when (state.failure) {
+                    PlaybackFailure.AUDIO_FOCUS_DENIED -> R.string.playback_focus_denied
+                    PlaybackFailure.UNSUPPORTED_MEDIA -> R.string.playback_unsupported
+                    else -> R.string.playback_failed
+                }
+            )
+            PlaybackStatus.IDLE -> getString(
+                when (state.lastStopReason) {
+                    PlaybackStopReason.USER_CANCELLED -> R.string.playback_stopped
+                    PlaybackStopReason.COMPLETED -> R.string.playback_completed
+                    PlaybackStopReason.FOCUS_LOSS -> R.string.playback_focus_lost
+                    PlaybackStopReason.LIFECYCLE -> R.string.playback_backgrounded
+                    null -> R.string.playback_idle
                 }
             )
         }
