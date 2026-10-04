@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 45,
+  "nextId": 46,
   "states": [
     {
       "name": "Backlog",
@@ -271,10 +271,16 @@
         "title": "Execute exact approved YouTube publication",
         "priority": "P1",
         "order": 38
+      },
+      {
+        "id": "TASK-045",
+        "title": "Reconcile uncertain YouTube upload and publication effects",
+        "priority": "P1",
+        "order": 39
       }
     ],
     "issue": 6,
-    "repo_head": "8c538507f46c67734f4f72335516d830fb077098",
-    "next_action": "TASK-008 remains in progress on clean replacement PR #24 at 2117a62. Whole-diff review #5404244061 found no blocker; Verify #359 is running and Android #348 is queued. Merge #24 only after exact-head CI passes, then install that exact integrated artifact and capture physical Create demo file and Copy demo text receipts."
+    "repo_head": "438e746df485deb8a0442d746beb689eedd66906",
+    "next_action": "TASK-008 remains in progress on PR #24 at 2117a62. Verify #359 passed; Android #348 failed on an immediate post-click result race in the new packaged test and an API-24 Espresso event-injection failure in an existing demo-choice test. Patch the two deterministic test synchronization/input paths, rerun exact-head CI, then merge only after fresh review and green checks; physical Create demo file and Copy demo text acceptance remains separate and UNVERIFIED."
   }
 }
