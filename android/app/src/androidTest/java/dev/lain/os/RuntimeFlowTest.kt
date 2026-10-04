@@ -106,7 +106,11 @@ class RuntimeFlowTest {
     @Test fun shareWaitsForApprovalAndStopCancelsWithoutChooser() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             run(scenario, "Share demo text")
-            await(scenario) { it.findViewById<TextView>(R.id.task_status).text.toString() == "PAUSED CONFIRMATION" }
+            await(scenario) {
+                it.findViewById<TextView>(R.id.task_status).text.toString() == "PAUSED CONFIRMATION" &&
+                    it.findViewById<TextView>(R.id.approval_text).text.toString()
+                        .contains("android.share_text")
+            }
             scenario.onActivity { activity ->
                 val text = activity.findViewById<TextView>(R.id.approval_text).text.toString()
                 assertTrue(text.contains("android.share_text"))

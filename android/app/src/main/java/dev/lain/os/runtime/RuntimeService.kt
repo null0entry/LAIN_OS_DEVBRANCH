@@ -98,12 +98,14 @@ class RuntimeService : Service() {
         }
         return try {
             val result = pending.get(5, TimeUnit.SECONDS)
-            kick()
+            if (RuntimeProtocol.shouldAdvance(command, result)) kick()
             result
         } catch (_: Exception) {
             pending.cancel(false)
             // A started command may have settled. Never auto-retry ambiguous writes.
-            kick()
+            // New turn submissions deliberately do not wake unrelated active work
+            // when their outcome is uncertain; inspection/recovery remains explicit.
+            if (RuntimeProtocol.shouldAdvanceAfterUncertainOutcome(command)) kick()
             RuntimeProtocol.failure("APP_OUTCOME_UNCERTAIN")
         }
     }

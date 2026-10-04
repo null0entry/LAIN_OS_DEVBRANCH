@@ -31,17 +31,33 @@ from lain.app.planner_bridge import AndroidPlannerFactory
 from lain.app.native import NativeAndroidAdapter
 from lain.audit.logger import redact, redact_android_narratives
 from lain.config import RuntimeConfig
+from lain.conversation import (
+    ConversationTurnManager,
+    TurnKind,
+    TurnReference,
+    TurnRoute,
+    TurnSource,
+)
 from lain.errors import LainError
 from lain.protocol.models import ActionStatus
 from lain.runtime.engine import RuntimeEngine
 
 MAX_MESSAGE_BYTES = 65536
 APPROVAL_TTL_SECONDS = 120
+TURN_RESPONSE_WINDOW = 3
 _OPAQUE_CREDENTIAL_REF = re.compile(r"^cred_[0-9a-f]{32}$")
 _FIELDS = {
-    "start": {"goal"}, "inspect": {"session_id"}, "sessions": set(),
-    "approve": {"session_id", "token"}, "stop": {"session_id"}, "resume": {"session_id"},
+    "start": {"goal"},
+    "inspect": {"session_id"},
+    "sessions": set(),
+    "approve": {"session_id", "token"},
+    "stop": {"session_id"},
+    "resume": {"session_id"},
+    "turn_partial": {"text"},
+    "turn_submit": {"text", "source", "kind", "reference", "target_session_id"},
+    "turns": set(),
 }
+_SESSION_COMMANDS = {"inspect", "approve", "stop", "resume"}
 
 
 def _unique_object(pairs):
@@ -100,6 +116,7 @@ class AppController:
         workspace.mkdir(mode=0o700, exist_ok=True)
         config = RuntimeConfig.for_workspace(workspace)
         self.store = AgentSessionStore(root / "sessions")
+        self.turns = ConversationTurnManager(root / "conversation")
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
         self._planner_bridge = planner_bridge
         self.controller = AgentController(
@@ -130,7 +147,7 @@ class AppController:
                 raise ValueError("unknown command")
             if not isinstance(arguments, dict) or set(arguments) != _FIELDS[command]:
                 raise ValueError("invalid command arguments")
-            if command != "start" and command != "sessions":
+            if command in _SESSION_COMMANDS:
                 _session_id(arguments["session_id"])
             if command == "start":
                 result = self._start(arguments["goal"])
@@ -140,6 +157,18 @@ class AppController:
                 sessions = self.store.list_sessions()
                 result = {"sessions": [self._summary(s) for s in sessions[:20]],
                           "demo_commands": list(COMMANDS), "planner": "offline_demo"}
+            elif command == "turn_partial":
+                result = {"conversation": self.turns.update_partial(arguments["text"]).to_dict(max_turns=TURN_RESPONSE_WINDOW)}
+            elif command == "turn_submit":
+                result = self._submit_turn(
+                    arguments["text"],
+                    source=arguments["source"],
+                    kind=arguments["kind"],
+                    reference=arguments["reference"],
+                    target_session_id=arguments["target_session_id"],
+                )
+            elif command == "turns":
+                result = {"conversation": self.turns.snapshot().to_dict(max_turns=TURN_RESPONSE_WINDOW)}
             elif command == "approve":
                 result = self._approve(arguments["session_id"], arguments["token"])
             elif command == "resume":
@@ -165,6 +194,16 @@ class AppController:
         return [s for s in self.store.list_sessions() if s.status not in TERMINAL_AGENT_STATUSES]
 
     def _start(self, goal):
+        return self._submit_turn(
+            goal,
+            source=TurnSource.TYPED.value,
+            kind=TurnKind.TASK.value,
+            reference=TurnReference.NONE.value,
+            target_session_id=None,
+            legacy_start=True,
+        )
+
+    def _start_session(self, goal):
         if not isinstance(goal, str) or not goal.strip() or len(goal.encode("utf-8")) > 4096:
             raise ValueError("invalid goal")
         with self._lock:
@@ -175,7 +214,57 @@ class AppController:
             self._stopped.clear()
             self._confirmed = frozenset()
             self._grants.clear()
-        return {"session": self._snapshot(session)}
+            self.turns.set_active_task(session.session_id)
+        return session
+
+    def _submit_turn(
+        self,
+        text,
+        *,
+        source,
+        kind,
+        reference,
+        target_session_id,
+        legacy_start=False,
+    ):
+        source_value = TurnSource(source)
+        kind_value = TurnKind(kind)
+        reference_value = TurnReference(reference)
+
+        if kind_value is TurnKind.TASK:
+            if self._active or self._unfinished():
+                raise ValueError("another session needs attention")
+        elif reference_value is TurnReference.EXPLICIT:
+            target_session_id = _session_id(target_session_id)
+            self.store.load(target_session_id)
+
+        decision = self.turns.accept(
+            text,
+            source=source_value,
+            kind=kind_value,
+            reference=reference_value,
+            target_session_id=target_session_id,
+        )
+        record = decision.record
+
+        if record.route is TurnRoute.START_TASK:
+            session = self._start_session(record.text)
+            result = {"session": self._snapshot(session)}
+            if not legacy_start:
+                result["turn"] = record.to_dict()
+            return result
+        if record.route is TurnRoute.REVISION:
+            return {
+                "turn": record.to_dict(),
+                "revision_intent": {
+                    "turn_id": record.turn_id,
+                    "target_session_id": record.target_session_id,
+                },
+            }
+        return {
+            "turn": record.to_dict(),
+            "clarification_required": True,
+        }
 
     def _resume(self, sid):
         with self._lock:
