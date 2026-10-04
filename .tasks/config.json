@@ -376,7 +376,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "f72d51a96ec8f7ec8d3f1de5fdfd68a8bbddf516",
-    "next_action": "Diagnose and finish TASK-050 / PR #29 first. After durable Phase-3 foundation and TASK-056, implement TASK-061 visual planning before TASK-059 visual assets and TASK-027 timeline."
+    "repo_head": "32f6b57afaa9a09623adc7fd926c591181bbceae",
+    "next_action": "TASK-050 / PR #29 first: exact head 72a548d has fresh clear code review and Verify #479 green; require Android #468 success, then final mergeability/review gate. After TASK-050, continue Phase-2 TASK-053/TASK-054/TASK-055 before TASK-013/TASK-014/TASK-015; Phase-4 visual path TASK-061 -> TASK-059 -> TASK-027."
   }
 }
