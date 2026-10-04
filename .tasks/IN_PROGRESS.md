@@ -3,7 +3,6 @@
 ## TASK-012: Implement cancellable speech playback
 **Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, android-audio
 **Updated:** 2026-10-04
-**Integration:** PR #28 retargeted to `main` after TASK-011 integration; exact pre-retarget head passed Verify #418 while Android #407 remained in progress.
 
 ### Goal
 
