@@ -1,5 +1,60 @@
 # Next
 
+## TASK-052: Close 1.0 operator documentation and third-party notices
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, docs, licensing
+
+### Goal
+Produce the candidate-bound operator/release documentation and third-party notice surface required for a truthful 1.0 readiness decision.
+
+### Scope
+- Document install/upgrade, supported Android/API/device envelope, permissions, planner/provider configuration, privacy/data flow, local-vs-cloud/fallback semantics, recovery/Stop behavior, YouTube authorization, backup/export, troubleshooting, and known limitations.
+- Generate or maintain third-party notices/licenses from actual shipped dependencies and packaged components.
+- Bind documentation applicability to release/package/version behavior without embedding credentials or claiming unsupported environments.
+- Add deterministic checks for required sections, stale package/version references, broken internal references, and notice coverage where repository metadata permits.
+- Do not choose a distribution channel, publish a release, alter product behavior, or invent support guarantees.
+
+### Dependencies
+- Implemented behavior from phase tasks and final package semantics from TASK-049.
+- TASK-047 evidence manifest for candidate/version provenance.
+- Dependency/build metadata used by the actual release candidate.
+
+### Plan
+- Inventory existing README/docs against every Release Engineering documentation and release-artifact requirement.
+- Consolidate or add the minimum canonical operator docs rather than duplicating guidance.
+- Derive third-party notice entries from shipped dependency metadata and flag unknown license/provenance instead of guessing.
+- Add bounded documentation/release checks suitable for CI and TASK-051 consumption.
+- Record candidate-specific known limitations and unsupported paths explicitly.
+
+### Acceptance
+- Every roadmap-required documentation topic has one canonical, discoverable, behavior-matching source.
+- Install/upgrade and supported-device/API guidance matches TASK-049 package behavior.
+- Provider/privacy/local-vs-cloud and YouTube authority guidance matches implemented policy and does not expose secrets.
+- Stop/recovery/backup/export behavior is documented without promoting unverified behavior.
+- Third-party notices cover shipped dependencies/components or fail explicitly on unresolved license metadata.
+- Known limitations remain explicit and candidate-bound; docs cannot serialize an unsupported path as supported.
+- TASK-051 can mechanically verify documentation/notice presence and candidate applicability.
+
+### Verification
+- Required-section/link/reference checks.
+- Package/version/API/device consistency checks against TASK-049 metadata.
+- Dependency-to-notice coverage and unresolved-license negatives.
+- Secret scan of documentation/examples.
+- Review against observed UI/configuration/recovery/privacy behavior and the release evidence manifest.
+
+### Expected result
+The final 1.0 candidate has a complete, auditable operator/release documentation set and third-party notices that match shipped behavior and can be consumed as release evidence.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Release Engineering explicitly requires install/upgrade, supported Android versions/devices, permissions, provider configuration, privacy/data flow, local-vs-cloud semantics, recovery/Stop, YouTube authorization, known limitations, backup/export, troubleshooting, migration notes, third-party notices/licenses, and known issues. Existing TASK-047/049/051 cover evidence, packaging, and final gating but not the production of this documentation/notices set.
+
+### Projection basis
+TASK-051 cannot truthfully satisfy “documentation matches shipped behavior” or the required release-artifact set unless candidate-bound docs/notices are produced and checked before the terminal gate.
+
+### Risks / unknowns
+Dependency license metadata may be incomplete or ambiguous; unresolved provenance must block notice completeness rather than be inferred. Final supported-device wording may remain provisional until physical acceptance and TASK-049 packaging evidence exist.
+
+---
+
 ## TASK-051: Close installed 1.0 golden workflow and release-readiness gate
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, golden, acceptance
 **Updated:** 2026-10-04
