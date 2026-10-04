@@ -346,7 +346,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "9f5604347cdcbcaa3ebc2aa34bad1045345fe347",
-    "next_action": "Finish TASK-012 / PR #28 exact-head verification and integration; then TASK-050. TASK-056 closes the uncovered Phase-2 transcript surface; TASK-052 supplies release docs/notices before TASK-051."
+    "repo_head": "7cd0874dd9a7f0e8977c4774bf25dc248debb282",
+    "next_action": "TASK-012 / PR #28 exact head e9f399c7 fixes the invalid-replacement playback/focus defect; fresh review #5408575478 found no remaining code blocker. Verify #441 passed; Android #430 remains in progress and PR mergeability is not yet clear. Merge only after exact-head Android passes and GitHub reports mergeable; then TASK-050."
   }
 }
