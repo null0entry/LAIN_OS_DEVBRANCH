@@ -298,7 +298,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "731ef9aeb457f7689e1664ed4b1d32290d7ea86e",
-    "next_action": "PR #27 / TASK-011 is mergeable on exact head 874c9b7 with Verify #409 and Android #398 green plus fresh clear review. Review and integrate TASK-011 if still clear; then advance stacked TASK-012 PR #28. TASK-048 is queued after TASK-047 for Phase-7 adversarial release evidence."
+    "repo_head": "464ec87bdadcc54ea1b3a01f9281ddc92fc6c46e",
+    "next_action": "TASK-011 integrated through PR #27 as cc03a4a. TASK-012 is In Progress on PR #28, retargeted to main; Verify #418 passed on f773c74 and Android #407 remains pending/currently observed separately. Require mergeable current-base state plus fresh exact-head Android/review before merge."
   }
 }
