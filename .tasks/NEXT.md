@@ -1,5 +1,86 @@
 # Next
 
+## TASK-061: Implement bounded visual-planning workflow stage
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-4, workflow, visual-planning, artifacts
+**Updated:** 2026-10-04
+
+### Goal
+
+Add the missing visual-planning stage between the verified script artifact and TASK-059 visual-asset production so the visual-planner role emits one bounded, revision-bound plan instead of letting asset generation infer scene requirements ad hoc.
+
+### Scope
+
+- Consume only the verified current-revision script artifact and explicitly allowed workflow context.
+- Execute through the restricted visual-planner role from TASK-019; model output remains typed data with no capability, policy, approval, spending, or executor authority.
+- Produce one immutable visual-plan artifact describing an ordered bounded set of scene/asset intents sufficient for TASK-059 and TASK-027.
+- Bind each plan to workflow ID, revision, source script hash, producer identity, provenance, and deterministic ordering.
+- Bound scene count, text fields, requested asset types, dimensions/aspect hints, and total serialized size using existing workflow/provider budget intersections.
+- Reject unknown asset kinds, arbitrary paths/URLs/commands, stale script revisions, malformed/oversized output, and unsupported capability requests.
+- Preserve prior plan artifacts on revision and invalidate only dependent visual assets/timeline/render outputs through TASK-020.
+- Do not fetch/generate external media, render images, synthesize narration, construct the final timeline, or add provider-specific APIs here.
+
+### Dependencies
+
+- TASK-018 immutable artifact workspace.
+- TASK-019 restricted specialist roles.
+- TASK-020 workflow revision invalidation.
+- TASK-023 aggregate workflow budgets.
+- TASK-024 Phase-3 durable-workflow acceptance.
+- TASK-025 media artifact schema vocabulary where asset-kind/shape references are required.
+- TASK-056 bounded script-generation stage produces the verified source script.
+- TASK-059 consumes the verified plan when producing local image/title-card artifacts.
+
+### Plan
+
+- Define the smallest typed visual-plan request/result and immutable artifact representation that TASK-059/TASK-027 demonstrably need.
+- Reuse workflow role dispatch, artifact storage, revision, provenance, and budget primitives rather than adding a parallel planning subsystem.
+- Validate source script identity/revision before dispatch and validate every returned scene/asset intent before artifact acceptance.
+- Persist the verified plan artifact and expose its identity to downstream nodes.
+- Wire script revision to invalidate the plan and its transitive dependent outputs without mutating prior history.
+- Add deterministic fake-planner tests for ordering, malformed/oversized/hostile fields, stale revisions, restart/replay, cancellation, and budget limits.
+
+### Acceptance
+
+- One verified current-revision script produces exactly one verified current-revision visual-plan artifact with deterministic scene ordering and provenance.
+- Every plan references the exact source script hash/revision and cannot outlive or silently rebind to a changed script.
+- Unknown asset kinds, arbitrary path/URL/command instructions, malformed fields, oversized plans, stale revisions, timeout/cancellation, or exhausted budgets fail closed.
+- Visual-planner output cannot grant capabilities, authorize external media calls, approve spending/publication, or select arbitrary executors.
+- Revising the script preserves prior immutable visual plans while invalidating the current plan and only its dependent visual/timeline/render artifacts.
+- TASK-059 can consume the typed plan without parsing free-form planner prose or inventing its own scene-plan format.
+- Restart/resume cannot duplicate a completed current-revision visual-plan stage.
+
+### Verification
+
+- Typed request/result schema and deterministic-ordering unit tests.
+- Restricted-role context/capability and hostile-output authority negatives.
+- Source-script hash/revision mismatch and stale-plan invalidation tests.
+- Restart/replay/cancellation/timeout/aggregate-budget tests through the durable workflow boundary.
+- Deterministic fake visual-planner integration proving TASK-059 receives only verified plan artifacts.
+- Canonical Verify plus architecture/security review of script -> visual planner -> artifact -> asset-stage boundaries.
+
+### Expected result
+
+LAIN_OS gains one durable visual-planning source of truth: a verified script becomes a bounded immutable scene/asset plan that TASK-059 and the timeline consume without hidden inference, parallel state, or provider authority.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` defines a restricted **visual planner** role and the Phase-7 golden flow requires “visuals prepared” after script production/revision.
+- `docs/specs/2026-10-01-voice-agent-suite-1.0-design.md` explicitly names a visual planner that exchanges durable typed artifacts rather than unlimited transcripts.
+- TASK-059 currently consumes “script/visual-plan inputs” but no TaskPlanner item produces a visual-plan artifact; repository search found no visual-planning workflow-stage implementation task.
+
+### Projection basis
+
+- Without an explicit plan producer, TASK-059 must infer visual requirements directly from script/model prose, creating a second implicit planning boundary and making revision provenance ambiguous.
+- A small typed stage decouples content planning from asset realization and lets local assets now and TASK-034 external generation later share the same verified intent contract.
+
+### Risks / unknowns
+
+- Keep the plan schema minimal and driven by TASK-059/TASK-027 consumers; do not build a general storyboard/NLE format.
+- Exact asset-kind vocabulary should reuse TASK-025 media contracts where available instead of adding another enum hierarchy.
+- Provider/model quality is not an acceptance criterion; only bounded lifecycle, provenance, authority isolation, and deterministic validation are.
+
+---
+
 ## TASK-060: Establish 1.0 performance and resource acceptance evidence
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, performance, resources, release-evidence
 **Updated:** 2026-10-04
