@@ -281,6 +281,6 @@
     ],
     "issue": 6,
     "repo_head": "df846918e13134461470d27e0a171420ba23d585",
-    "next_action": "TASK-008 closed on 2026-10-04 after exact PR #24 head f05a931 passed Verify #365 and Android #354 plus owner-reported completion of the required physical acceptance matrix with all tests green. TASK-009 is now In Progress: define bounded provider-neutral transcription/synthesis request-result contracts, cancellation/timeout/error semantics, provenance, and deterministic contract tests without granting speech providers capability authority."
+    "next_action": "TASK-009 integrated through PR #25 and merged as 414bcce after Verify #371 and Android #360 passed. TASK-010 is now In Progress: implement explicit user-started Android microphone capture with permission handling, visible truthful state, bounded in-memory audio, deterministic release on Stop/lifecycle teardown, fail-closed background/revocation behavior, and no raw-audio persistence."
   }
 }

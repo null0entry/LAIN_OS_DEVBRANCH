@@ -1,72 +1,75 @@
 # In Progress
 
-## TASK-009: Define bounded speech provider interfaces
-**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, provider-contract
+## TASK-010: Implement Android microphone lifecycle
+**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, android-audio
 **Updated:** 2026-10-04
 
 ### Goal
 
-Establish the provider-neutral speech contracts that Phase 2 can build on without coupling Android microphone/playback lifecycle or trusted task authority to any specific STT/TTS vendor.
+Add the bounded Android microphone lifecycle required for user-started voice sessions, with explicit permission, visible recording state, cancellation, and rotation/background safety while preserving typed input as a complete fallback.
 
 ### Scope
 
-- Define bounded transcription request/result and synthesis request/result contracts.
-- Include provider identity/provenance, explicit timeout/cancellation semantics, media format metadata, and bounded payload/duration fields needed by later Android adapters.
-- Keep speech providers outside capability authorization, policy, approval, execution, verification, audit, and durable workflow authority.
-- Preserve typed text as a complete fallback path.
-- Define failure categories sufficient for unavailable provider, timeout, cancellation, malformed response, unsupported media, and bounded-resource rejection.
-- Do not implement microphone capture, playback, provider SDKs, or vendor credentials in this task.
+- Implement microphone permission request/revocation handling for explicit user-started capture only.
+- Add start/stop capture lifecycle with visible recording state.
+- Define bounded audio capture ownership and cleanup across activity/service lifecycle transitions.
+- Handle rotation, rebind, foreground/background transitions, and permission revocation without leaving hidden capture active.
+- Produce bounded audio input suitable for the TASK-009 transcription interface without embedding provider-specific logic.
+- Default to no raw audio retention beyond the active bounded request unless an explicit later feature requires durable audio.
+- Do not implement speech provider SDKs, turn management, playback, barge-in, or always-listening/wake-word behavior.
 
 ### Dependencies
 
-- TASK-008 complete: Phase-1 planner acceptance/adversarial gate.
-- Existing trusted session/controller contracts must remain authoritative.
-- Existing secret-handling boundary remains unchanged for any future provider credential references.
+- TASK-009 complete: bounded speech provider interfaces.
+- Existing Android runtime/service lifecycle and Stop/rebind patterns.
+- Existing permission and UI-state conventions where reusable.
 
 ### Plan
 
-- Inventory existing voice/speech references and reusable cancellation/error patterns.
-- Define the smallest provider-neutral speech request/result interfaces and error model.
-- Specify cancellation/timeout ownership and provenance fields without granting provider-side execution authority.
-- Add deterministic contract tests for valid, malformed, cancelled, timed-out, and oversized inputs/results.
-- Document the seam expected by later Android microphone lifecycle and playback tasks without pre-implementing those layers.
+- Inventory current Activity/RuntimeService lifecycle and permission patterns.
+- Add the smallest microphone capture controller/state model with explicit start/stop ownership.
+- Route capture output only through the provider-neutral transcription seam.
+- Make rotation/rebind/background/revocation transitions fail closed and release microphone resources deterministically.
+- Add focused JVM/instrumentation coverage for permission, lifecycle, and no-hidden-capture invariants.
 
 ### Acceptance
 
-- Transcription and synthesis each have explicit provider-neutral request/result contracts.
-- Contracts carry enough format/provenance metadata for later Android adapters without embedding vendor-specific fields.
-- Cancellation and timeout produce explicit non-success outcomes.
-- Oversized or malformed provider data fails closed.
-- Speech provider output cannot authorize capabilities, approve consequential actions, or mutate durable task state directly.
-- Typed interaction remains independent of speech-provider availability.
-- No raw provider credential is introduced into speech request/result payloads or durable artifacts.
+- Recording starts only after an explicit user action and granted microphone permission.
+- Recording state is visibly surfaced while capture is active.
+- Stop releases microphone resources and prevents further audio delivery after cancellation settles.
+- Rotation/rebind preserves truthful visible state or terminates capture cleanly according to the chosen lifecycle contract.
+- Permission revocation terminates capture and surfaces a recoverable non-success state.
+- Background transitions cannot create a hidden always-listening state.
+- Captured audio is bounded and not durably retained by default.
+- Typed interaction remains fully usable when microphone permission is denied or capture fails.
 
 ### Verification
 
-- Focused unit tests for request/result validation, bounds, cancellation, timeout, and malformed provider data.
-- Static inspection confirming no capability/policy/executor authority is exposed through the speech interface.
-- Canonical portable verification after implementation.
-- Android build remains a downstream verification requirement when the interface is wired into platform adapters.
+- Focused microphone controller/state tests.
+- Android instrumentation for permission denied/granted/revoked, start/stop, rotation/rebind, and background transitions.
+- Resource-release assertions after cancellation and lifecycle teardown.
+- Negative inspection proving no default raw-audio persistence.
+- Canonical Android build/lint/instrumentation gates after implementation.
 
 ### Expected result
 
-Phase 2 has a stable, bounded speech-provider seam that can support replaceable STT/TTS adapters while preserving LAIN_OS authority boundaries and allowing microphone, turn-management, and playback work to proceed independently.
+LAIN_OS can explicitly capture bounded user speech on Android and hand it to the provider-neutral transcription layer without hidden listening, lifecycle leaks, or coupling microphone state to provider or capability authority.
 
 ### Evidence basis
 
-- `docs/ROADMAP_1.0.md` defines Phase 2 Voice Conversation and explicitly lists R2.1 Speech provider interfaces as the first work package.
-- The 1.0 dependency graph sequences Phase 2 after the Phase-1 planner runtime gate.
-- No current TaskPlanner task, open issue, or open PR represents R2.1.
+- `docs/ROADMAP_1.0.md` defines R2.2 Android microphone lifecycle immediately after R2.1 speech provider interfaces.
+- The Phase-2 feature list requires user-started microphone sessions, visible recording state, permission/revocation handling, background/rotation behavior, typed fallback, and no raw audio retention by default.
+- No current TaskPlanner task, open issue, or open PR represents R2.2.
 
 ### Projection basis
 
-- Stabilizing speech request/result, cancellation, timeout, provenance, and failure contracts before microphone/playback integration reduces cross-module churn across R2.2-R2.6.
-- This interface is a necessary dependency seam for replaceable speech providers and the voice-first 1.0 release outcome.
+- Stabilizing microphone ownership and lifecycle before turn management and playback prevents later voice features from inheriting hidden-capture, permission, or rotation defects.
+- R2.2 is a direct dependency for R2.3 turn management and the Phase-2 installed voice-session exit gate.
 
 ### Risks / unknowns
 
-- Concrete codec/container choices may need adjustment when Android capture/playback constraints are implemented; keep the initial interface minimal and extensible rather than provider-specific.
-- Streaming/partial-transcript support may require a later compatible extension; do not over-specify it before turn-manager requirements are implemented.
-- Provider credential storage/selection may share later settings infrastructure, but this task must not invent that UI or persistence prematurely.
+- Exact Android audio API choice may depend on latency and device support; prefer the smallest platform primitive that satisfies lifecycle/cancellation requirements.
+- Background behavior may require a deliberate foreground-service policy; do not broaden scope unless existing Android constraints make it necessary.
+- Physical-device latency and OEM microphone behavior remain separate acceptance evidence from emulator instrumentation.
 
 ---

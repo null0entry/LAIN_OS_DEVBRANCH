@@ -1,5 +1,19 @@
 # Done
 
+## TASK-009: Define bounded speech provider interfaces
+**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, provider-contract
+**Updated:** 2026-10-04
+
+### Done summary
+
+- Added provider-neutral bounded transcription/synthesis contracts, provenance, cancellation seam, media metadata, and explicit bounded failure vocabulary under `lain.speech`.
+- Added deterministic speech contract tests and `specs/SPEECH_PROVIDER_PROTOCOL.md`; speech contracts contain no provider credentials or capability/policy/approval/execution authority.
+- TDD evidence: Verify #370 failed at the test-only RED head because `lain.speech` was absent; exact implementation head `e6e671c121cd57818d8bbabad608582f493427b1` passed Verify #371 with 292 tests and Android #360 on API 24 and API 35.
+- PR #25 merged to `main` as `414bccec30268a464ef2bd0c12bbad3a7b2992e7`.
+- TASK-010 is promoted to begin Android microphone lifecycle work.
+
+---
+
 ## TASK-008: Close Phase-1 planner acceptance and adversarial gate
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-1, acceptance, adversarial
 **Updated:** 2026-10-04

@@ -1,5 +1,8 @@
 # Work Log
 
+## 2026-10-04 — TASK-009
+PR #25 merged to `main` as `414bccec30268a464ef2bd0c12bbad3a7b2992e7`. Exact implementation head `e6e671c121cd57818d8bbabad608582f493427b1` passed Verify #371 (292 tests) and Android #360 (API 24/API 35). Provider-neutral speech contracts are integrated and TASK-010 is promoted to In Progress.
+
 ## 2026-10-04 — TASK-008
 PR #24 exact head `f05a9317dfea53a98d8ee4ecee4963cb4250b19a` passed Verify #365 and Android #354. Owner then reported the required physical TASK-008 acceptance matrix complete with all tests green. Hardware completion is recorded as owner-provided evidence rather than connector-observed traces. TASK-008 moved to Done and TASK-009 was promoted to In Progress.
 
