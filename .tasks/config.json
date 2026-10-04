@@ -256,7 +256,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "bfe73bcf49fbda18d6b47f8595a77774ad69615c",
-    "next_action": "TASK-008 remains in progress. PR #21 integrated the RuntimeClient seam and a basic installed acceptance test, but fresh review 5403701261 proves PR #20 retains distinct acceptance hardening: profile lifecycle through installed UI plus rendered capability/execution/verification evidence. PR #20 is diverged and non-mergeable with no head CI. Reconcile only that test delta onto current main, run fresh Verify + Android API24/API35, then build/install the exact integrated APK and run the full physical Galaxy suite."
+    "repo_head": "884779e13c11afe6bfcd9eed74133af213908997",
+    "next_action": "TASK-008 remains in progress. PR #22 at e85745a reconciles only PR #20's distinct installed-UI profile lifecycle and rendered action-evidence assertions onto current main; fresh whole-diff review 5403704971 has no findings. Verify #344 and Android #333 are running. Merge only after fresh head-specific CI is clear and the draft/review gate is resolved; then build/install the exact integrated APK and run the full physical Galaxy suite."
   }
 }
