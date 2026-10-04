@@ -59,6 +59,7 @@ The 1.0 candidate has an evidence-backed upgrade/state-migration story: supporte
 - Existing debug/release identities may make in-place upgrade impossible; that is an acceptable truthful result when proven.
 - Some state classes may not exist until later phases complete; mark them non-applicable rather than inventing coverage.
 - Physical install/upgrade evidence may require owner-controlled signed artifacts; absent signing material remains UNTESTED.
+- **Overseer assignment receipt (current run):** semantic dedupe found this concurrently-created task already covers the highest-value migration boundary; assignment is adopted in place rather than duplicated.
 
 ---
 
