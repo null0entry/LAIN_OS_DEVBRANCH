@@ -36,10 +36,7 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
     val state: LiveData<PlaybackState> = mutable
     private val synthesisMutable = MutableLiveData(SpeechSynthesisUiState())
     val synthesisState: LiveData<SpeechSynthesisUiState> = synthesisMutable
-    private val speech = OnDeviceSpeechAdapter(
-        apiLevel = android.os.Build.VERSION.SDK_INT,
-        backend = speechBackendFactory(application),
-    )
+    private var speech: OnDeviceSpeechAdapter? = null
 
     private val controller = SpeechPlaybackController(
         engine = engineFactory(application),
@@ -53,7 +50,7 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
 
     fun speak(text: String) {
         publishSynthesis(SpeechSynthesisUiState(active = true))
-        speech.synthesize(text, null) { result ->
+        speechAdapter().synthesize(text, null) { result ->
             val deliver = {
                 publishSynthesis(SpeechSynthesisUiState(active = false, failure = result.failure))
                 val audio = result.audio
@@ -77,17 +74,26 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
     }
 
     fun stopTalking() {
-        speech.cancelSynthesis()
+        speech?.cancelSynthesis()
         publishSynthesis(SpeechSynthesisUiState())
         controller.stopTalking()
     }
 
     fun onActivityStop(changingConfigurations: Boolean) {
         if (!changingConfigurations) {
-            speech.cancelSynthesis()
+            speech?.cancelSynthesis()
             publishSynthesis(SpeechSynthesisUiState())
         }
         controller.onActivityStop(changingConfigurations)
+    }
+
+    private fun speechAdapter(): OnDeviceSpeechAdapter {
+        val current = speech
+        if (current != null) return current
+        return OnDeviceSpeechAdapter(
+            apiLevel = android.os.Build.VERSION.SDK_INT,
+            backend = speechBackendFactory(getApplication()),
+        ).also { speech = it }
     }
 
     private fun publish(next: PlaybackState) {
@@ -107,7 +113,8 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
     }
 
     override fun onCleared() {
-        speech.close()
+        speech?.close()
+        speech = null
         controller.close()
         main.removeCallbacksAndMessages(null)
         super.onCleared()
