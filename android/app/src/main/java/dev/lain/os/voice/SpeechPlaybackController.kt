@@ -88,7 +88,12 @@ class SpeechPlaybackController(
 
     @Synchronized
     fun play(audio: SynthesizedAudio) {
-        if (state.status == PlaybackStatus.PLAYING || state.status == PlaybackStatus.DUCKED) {
+        val replacingActivePlayback = active()
+        if (replacingActivePlayback) {
+            // Revoke the old callback generation before teardown. Engines are
+            // allowed to report completion while stop() is in flight; that
+            // completion belongs to the replaced playback, not the new slot.
+            generation += 1
             stopEngine()
             releaseFocus()
         }
@@ -104,7 +109,9 @@ class SpeechPlaybackController(
             return
         }
 
-        generation += 1
+        if (!replacingActivePlayback) {
+            generation += 1
+        }
         val token = generation
         val granted = try {
             focus.request { change -> onFocusChange(token, change) }
