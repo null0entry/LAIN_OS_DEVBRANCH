@@ -1,5 +1,62 @@
 # Next
 
+## TASK-047: Define 1.0 release evidence manifest and provenance contract
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, evidence, provenance
+
+### Goal
+Define one machine-readable release-evidence contract that binds a 1.0 candidate to its exact source, signed artifact, verification runs, installed-device evidence, external-service evidence, known limitations, and independently verified outputs without overstating weaker evidence.
+
+### Scope
+- Define a versioned manifest for source commit, package/version/signing identity, artifact checksum, supported API/ABI declarations, verification classes, evidence provenance, known limitations, and final external-result identities.
+- Represent automated, emulator, physical-device, owner-reported, and live-service evidence as distinct typed classes with timestamps and source references.
+- Require explicit UNTESTED/UNVERIFIED/FAILED states; prohibit promotion of stale, mocked, emulator-only, owner-reported, or planner assertions into stronger evidence.
+- Bind Phase-2/3/4/5/6 acceptance receipts and the Phase-7 golden scenario to one release candidate without copying secrets or raw credentials.
+- Define deterministic validation and redaction rules plus an artifact-manifest export suitable for release review.
+- Do not implement signing infrastructure, distribution, deployment, publication, or the Phase-7 golden workflow itself.
+
+### Dependencies
+- Acceptance/evidence producers from TASK-015, TASK-024, TASK-031, TASK-036, and TASK-046.
+- Existing audit, artifact hashing/provenance, verification, and redaction contracts.
+- Release-candidate package identity/signing work may populate the contract later without changing evidence semantics.
+
+### Plan
+- Inventory current evidence identities and strength classes already emitted by canonical, Android, physical-device, media, provider, and publication gates.
+- Specify a minimal versioned schema with immutable release/source/artifact identity and typed evidence records.
+- Add deterministic validation rejecting missing identity, contradictory status, stale-source binding, strength escalation, duplicate evidence identity, and secret-bearing fields.
+- Add fixtures covering mixed evidence classes, partial gates, failed gates, owner-reported hardware evidence, live-service evidence, and final independently retrieved external results.
+- Document how release review consumes the manifest without treating it as execution authority.
+
+### Acceptance
+- One manifest identifies exactly one source commit and release artifact/checksum.
+- Every required 1.0 verification class is present with explicit status and provenance; missing evidence cannot serialize as PASS.
+- Evidence strength cannot be upgraded by aggregation or wording.
+- Stale evidence from a different source/artifact/revision is rejected or explicitly non-applicable.
+- Owner-reported physical evidence remains distinguishable from connector/CI/device-captured evidence.
+- Secrets, credentials, authorization tokens, raw provider payloads, and private media content are excluded/redacted.
+- Manifest validation is deterministic and does not itself grant capability, approval, signing, upload, publication, or release authority.
+
+### Verification
+- Schema round-trip and canonical serialization tests.
+- Missing/stale/mismatched source-artifact identity negatives.
+- Evidence-strength escalation and contradictory-status negatives.
+- Duplicate/stale/live/owner-reported/emulator/physical evidence fixtures.
+- Secret/redaction scans and bounded-size tests.
+- Architecture/security/release review against the 1.0 definition of done.
+
+### Expected result
+A release reviewer can mechanically determine exactly what was built, what evidence applies to it, which checks are weaker or missing, and whether a 1.0 claim is supportable without relying on prose or stale evidence.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Phase 7 and Release Engineering require recorded source identity, signed artifact/checksum, automated/emulator/physical/external-service evidence kept separate and truthful, an artifact manifest, known limitations, and no skipped/mocked/debug evidence presented as release proof. No existing TaskPlanner task represents the cross-phase release-evidence contract.
+
+### Projection basis
+Phase-7 adversarial/golden acceptance and final release packaging will otherwise accumulate heterogeneous receipts with no single deterministic binding to the candidate artifact, increasing the risk of stale or overstated evidence at the release boundary.
+
+### Risks / unknowns
+The final signing/distribution mechanism is intentionally unresolved; the schema must bind opaque signing/package identities without selecting a distribution channel. Live-service and physical evidence may remain unavailable until late acceptance and must remain explicit rather than blocking local schema/test work.
+
+---
+
 ## TASK-046: Close Phase-6 YouTube live acceptance gate
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, acceptance, external-effect
 
