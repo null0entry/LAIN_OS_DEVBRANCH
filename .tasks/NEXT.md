@@ -1,5 +1,57 @@
 # Next
 
+## TASK-046: Close Phase-6 YouTube live acceptance gate
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, acceptance, external-effect
+
+### Goal
+Prove the complete Phase-6 YouTube path with user-provided authorization and separately authorized real effects, keeping staging private/unlisted until exact publication approval and independently retrieving the final result.
+
+### Scope
+- Exercise TASK-039 through TASK-045 as one installed-product acceptance path.
+- Bind one exact verified artifact, authorization profile/channel, immutable upload intent, resumable staged upload, processing evidence, exact publication approval, publication attempt, and final independently retrieved metadata/visibility.
+- Keep live uploads private/unlisted until explicit exact publication approval.
+- Record exact source/build/workflow/artifact/video/effect identities, provider evidence, budgets, redacted audit receipts, and any reconciliation path.
+- Do not create reusable credentials, generic YouTube/HTTP authority, automatic publication, or a release claim.
+
+### Dependencies
+- TASK-039 through TASK-045 complete.
+- Required Phase-3/5 trust, reconciliation, budget, retry, privacy, and artifact dependencies already named by those tasks.
+- User-provided YouTube authorization and separate explicit authorization for any real upload/publication effect.
+
+### Plan
+- Build deterministic fake-provider acceptance fixtures for the complete R6.1–R6.7 chain before live execution.
+- Run installed Android acceptance through authorization, immutable intent, private/unlisted upload, processing lookup, exact approval, publication, and final independent retrieval.
+- Exercise at least one bounded interrupted/uncertain-effect reconciliation path without duplicate writes.
+- Persist a redacted evidence manifest that separates automated, emulator, physical-device, and live-service evidence.
+- Fail closed on unavailable authorization, quota, processing failure, approval mismatch/expiry, uncertain write, or final metadata mismatch.
+
+### Acceptance
+- Exact artifact/channel/title/description/visibility/revision identities remain bound end-to-end.
+- No upload/publication occurs without the required current explicit authority; no staged upload becomes public implicitly.
+- Processing and final publication state are established by independent authenticated retrieval, not mutation responses.
+- Ambiguous external effects reconcile without blind replay or duplicate upload.
+- Credentials/tokens are absent from planner payloads, durable workflow state, audit, logs, IPC, exports, and evidence artifacts.
+- Evidence records exact build/source identity and truthfully labels any unperformed live/physical checks.
+
+### Verification
+- Canonical Python and Android API-matrix checks for the integrated Phase-6 path.
+- Fake-provider success/failure/crash/restart/duplicate/approval-substitution/visibility mismatch matrix.
+- Installed-device live acceptance using user-provided authorization, with upload and publication separately authorized.
+- Independent final metadata/visibility lookup and exact identity comparison.
+- Secret scan plus architecture/security/privacy review of the integrated path.
+
+### Expected result
+LAIN_OS can truthfully demonstrate the Phase-6 exit gate: stage the exact artifact, verify processing, require exact publication approval, publish once, independently retrieve final state, and reconcile uncertainty without leaking credentials or duplicating effects.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` R6.8 explicitly requires live acceptance with user-provided authorization, separate authorization for real upload/publication, private live tests until explicit publication approval, and exact retrieved-result evidence. TASK-039 through TASK-045 represent R6.1–R6.7; no existing task represents R6.8.
+
+### Projection basis
+Phase 7 hardening and the 1.0 golden scenario should consume a proven publication vertical slice rather than independently implemented pieces with no integrated live acceptance.
+
+### Risks / unknowns
+Live execution depends on owner-provided authorization, current YouTube API/quota/policy behavior, and explicit approval for consequential writes. Those external dependencies may remain UNTESTED without blocking deterministic local/fake-provider implementation.
+
 ## TASK-045: Reconcile uncertain YouTube upload and publication effects
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, reconciliation, idempotency, external-effect
 
