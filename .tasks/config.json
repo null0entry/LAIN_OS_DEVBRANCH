@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 53,
+  "nextId": 56,
   "states": [
     {
       "name": "Backlog",
@@ -325,10 +325,28 @@
         "title": "Close 1.0 operator documentation and third-party notices",
         "priority": "P1",
         "order": 46
+      },
+      {
+        "id": "TASK-053",
+        "title": "Implement selectable agent speech voices",
+        "priority": "P1",
+        "order": 47
+      },
+      {
+        "id": "TASK-054",
+        "title": "Add conversational transcript UI",
+        "priority": "P1",
+        "order": 48
+      },
+      {
+        "id": "TASK-055",
+        "title": "Implement progressive assistant speech delivery",
+        "priority": "P1",
+        "order": 49
       }
     ],
     "issue": 6,
-    "repo_head": "dace1b4ef47468c2f5a8c508fea949c6dc44b9a2",
-    "next_action": "Finish TASK-012 / PR #28 exact-head Android verification and merge if clear; then TASK-050 before TASK-013. Release path adds TASK-052 documentation/notices before terminal TASK-051."
+    "repo_head": "f211d746fad08d48aa4c6ab4a0f6dd1d813bbeb0",
+    "next_action": "Finish TASK-012 / PR #28 with fresh exact-head Android + whole-diff review and merge only if clear; then TASK-050. Phase-2 follow-on: TASK-053 selectable voices + TASK-054 transcript UI -> TASK-055 progressive assistant speech -> TASK-013 barge-in/echo -> TASK-014 progress narration -> TASK-015 acceptance."
   }
 }
