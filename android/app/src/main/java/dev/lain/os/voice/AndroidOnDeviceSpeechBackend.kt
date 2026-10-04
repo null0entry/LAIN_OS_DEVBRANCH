@@ -59,7 +59,9 @@ class AndroidOnDeviceSpeechBackend(
             callback(BackendTranscriptionResult(failure = SpeechAdapterFailure.UNSUPPORTED_MEDIA))
             return
         }
-        if (!transcriptionAvailable) {
+        // Keep the API guard in this call path so Android lint can prove the
+        // API-33-only captured-audio implementation is unreachable on minSdk 24.
+        if (Build.VERSION.SDK_INT < 33 || !transcriptionAvailable) {
             callback(BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE))
             return
         }
