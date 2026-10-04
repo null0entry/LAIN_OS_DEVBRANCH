@@ -250,7 +250,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "3bfd3414b099c7b40b47b1f4259118536c416880",
-    "next_action": "TASK-008 remains in progress. PR #21 merged as 3bfd3414 after Verify #337 passed and Android #326 passed on API 35 plus the successful API 24 failed-job rerun; installed Cloud/Local GUI acceptance is now integrated. Build/install the exact integrated APK and rerun the full physical Galaxy TASK-008 suite, including all six Workbench flows, Share approval-before-chooser, real selected Cloud planner path, session pinning, lifecycle/rebind/background recovery, stale approval rejection, secret isolation, no Local-to-Cloud fallback, safe connection statuses, truthful LIMITED semantics, and deliberately in-flight Stop cancellation."
+    "repo_head": "7dac7c284cca55d70bd2e3c8139fdeae4db2202c",
+    "next_action": "TASK-008 remains in progress. PR #20 head 6e5bfd4 contains the installed Cloud/Local GUI acceptance and minimal RuntimeClient test seam after review fixes. Verify #335 passed on predecessor c06d5e1; Android #324 exposed and the branch fixed the noncanonical execution-status assertion, but GitHub has not created checks for e67d152 or 6e5bfd4. Obtain fresh Verify + API24/API35 checks for 6e5bfd4 before review/merge, then build/install that exact integrated APK and run the physical Galaxy suite."
   }
 }
