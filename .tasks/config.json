@@ -256,7 +256,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "4a7bce2f9522cae16df4d335721a6e47b07a2df7",
-    "next_action": "TASK-008 remains in progress. PR #22 at e85745a strengthens installed-UI profile lifecycle and rendered action-evidence acceptance; review 5403704971 has no findings and Verify #344 passed. Android #333 is in progress. Merge remains blocked by Android CI and draft/review state; physical Galaxy acceptance remains UNVERIFIED."
+    "repo_head": "16cefe51810aca56a73b06d4e46934841d154630",
+    "next_action": "TASK-008 remains in progress. PR #22 at e85745a strengthens installed-UI profile lifecycle and rendered action-evidence acceptance; review 5403704971 has no findings and Verify #344 passed. Android #333 is in progress. Merge remains blocked by Android CI; physical Galaxy acceptance remains UNVERIFIED."
   }
 }
