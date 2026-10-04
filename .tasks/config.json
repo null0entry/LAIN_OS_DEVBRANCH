@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 50,
+  "nextId": 51,
   "states": [
     {
       "name": "Backlog",
@@ -301,10 +301,16 @@
         "title": "Build reproducible 1.0 release-candidate packaging path",
         "priority": "P1",
         "order": 43
+      },
+      {
+        "id": "TASK-050",
+        "title": "Implement first on-device Phase-2 speech adapter",
+        "priority": "P1",
+        "order": 44
       }
     ],
     "issue": 6,
-    "repo_head": "6aab1260e7ed02bfb43aa261d92616f2a10f7cf6",
-    "next_action": "TASK-011 merged concurrently as cc03a4a. Review/reconcile PR #28 / TASK-012 against current main and fresh CI/review; TASK-049 is queued after TASK-047 for release-candidate packaging before final Phase-7 golden evidence."
+    "repo_head": "c60cd0169bc066c35fe84d4ee8a1713c07241389",
+    "next_action": "Review/reconcile PR #28 / TASK-012 against current main with fresh exact-head CI/review; after TASK-012 integrates, implement TASK-050 before TASK-013 so Phase-2 has a concrete on-device speech path. TASK-047–049 remain queued for Phase-7/release work."
   }
 }
