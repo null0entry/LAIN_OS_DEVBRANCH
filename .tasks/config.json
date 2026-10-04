@@ -262,7 +262,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "41f61d02adb35c73d87a845b02c814faea250797",
+    "repo_head": "0502308ec412a86221f933f794fce13115a66ac2",
     "next_action": "TASK-008 remains in progress. PR #22 merged as 6985cbb and current-main Verify #348 plus Android #337 passed. A recent owner-reported physical run says Create demo file and Copy demo text remain red while the other presets are green, but exact build identity and detailed failure receipts are not yet repository-native. Capture those two exact failure traces/build SHA before any fix, then diagnose under TDD; preserve the complete physical Galaxy gate."
   }
 }
