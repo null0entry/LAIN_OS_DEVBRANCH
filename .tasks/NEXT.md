@@ -1,5 +1,66 @@
 # Next
 
+
+## TASK-049: Build reproducible 1.0 release-candidate packaging path
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, android, signing, reproducibility
+**Updated:** 2026-10-04
+
+### Goal
+Create the bounded release-candidate packaging path required for 1.0 so one exact source commit deterministically produces a versioned Android release artifact whose package identity, checksum, supported API/ABI set, signing identity, and migration semantics can be bound into TASK-047 evidence without storing or inventing signing secrets.
+
+### Scope
+- Add/finish a reproducible Android release build path with explicit package/version identity and supported API/ABI declarations.
+- Wire release signing configuration to maintainer-supplied key material by reference/environment only; never commit, generate, export, rotate, or persist private signing secrets.
+- Define deterministic artifact checksum/provenance output consumable by TASK-047.
+- Define migration/upgrade behavior from the current debug/private state where applicable, including explicit incompatibility/fresh-install cases.
+- Keep debug and release identities visibly distinct; no debug artifact may satisfy release evidence.
+- Do not publish, deploy, upload, create credentials, choose a distribution channel, or claim 1.0 readiness.
+
+### Dependencies
+- Existing Android build/package structure and current CI verification.
+- TASK-047 release evidence manifest contract for the final provenance binding.
+- Maintainer-provided signing material/configuration is required only for producing a release-signed artifact; local/CI structural verification must remain possible without exposing that key.
+
+### Plan
+- Inventory current Gradle package/version/signing/ABI/API behavior and existing build/CI outputs.
+- Add the smallest release configuration that reuses current Android structure and accepts signing inputs without embedding secrets.
+- Emit deterministic artifact identity/checksum metadata tied to source commit and version.
+- Add migration/install-path documentation and tests for debug-vs-release identity boundaries.
+- Add CI-safe checks that validate release configuration without requiring private key material.
+- Document the exact owner-only step required to supply persistent signing material for final candidate production.
+
+### Acceptance
+- One documented command/path produces the release variant from a recorded source commit when authorized signing inputs are present.
+- Package/application ID, version code/name, supported API/ABI declarations, source identity, signer identity/fingerprint, and artifact checksum are independently inspectable and bindable to TASK-047.
+- Release configuration contains no committed secret, password, token, private key, or generated substitute credential.
+- Missing signing inputs fail explicitly; they never silently fall back to debug signing.
+- Debug artifacts cannot serialize or report themselves as release-signed evidence.
+- Upgrade/fresh-install expectations from current debug/private builds are explicit and testable.
+- No distribution, publication, deployment, or 1.0 claim occurs in this task.
+
+### Verification
+- Gradle configuration/build checks that do not expose signing secrets.
+- Release-vs-debug package/signing identity negative tests.
+- Deterministic version/source/checksum metadata tests.
+- Supported API/ABI inspection on the produced candidate when authorized key material is available.
+- Secret scan of repository/build logs/artifact metadata.
+- Install/upgrade or explicit fresh-install acceptance on supported emulator/device paths when candidate signing material is available.
+- Architecture/security/release review; any unavailable private-key/device evidence remains UNTESTED, never inferred.
+
+### Expected result
+LAIN_OS has a repeatable, evidence-producing release-candidate build boundary: exact source in, exact versioned artifact/checksum/signer identity out, with debug fallback forbidden and private signing authority remaining maintainer-controlled.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Release Engineering requires a reproducible release build, maintainer-controlled persistent signing key, release package identity/versioning, supported ABI/API declaration, migration behavior, signed artifact, checksum, version/tag, and source commit. The 1.0 definition of done requires a release-signed Android artifact built from a recorded source commit and forbids presenting a debug APK as release evidence. No existing TaskPlanner task represents this packaging/signing boundary.
+
+### Projection basis
+TASK-047 can define evidence semantics and TASK-048 can exercise adversarial release checks, but the Phase-7 golden workflow and final 1.0 evidence need one concrete candidate artifact identity. Establishing this boundary before final golden acceptance prevents late-stage rebuild/signing drift from invalidating otherwise-good evidence.
+
+### Risks / unknowns
+Persistent signing material and any credential-bearing configuration remain owner-controlled and may block final artifact production. Existing debug application identity may make in-place upgrade impossible; if so, the task must document and verify the truthful fresh-install/migration boundary rather than weakening package or signing guarantees.
+
+---
+
 ## TASK-048: Close Phase-7 adversarial release matrix
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, adversarial
 **Updated:** 2026-10-04
