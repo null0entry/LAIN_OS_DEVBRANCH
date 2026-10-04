@@ -8,6 +8,8 @@ import android.os.Parcel
 import android.os.SystemClock
 import android.view.View
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -15,7 +17,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
-import dev.lain.os.planner.PlannerProfile
 import dev.lain.os.planner.PlannerProfileStore
 import dev.lain.os.runtime.NativeCapabilities
 import dev.lain.os.runtime.RuntimeBinding
@@ -131,29 +132,9 @@ class PlannerRuntimeGuiAcceptanceTest {
 
         for (mode in listOf("cloud", "local")) {
             val suffix = UUID.randomUUID().toString().replace("-", "").take(12)
-            val profileId = "gui-$mode-$suffix"
-            val profile = PlannerProfile(
-                id = profileId,
-                name = "GUI $mode $suffix",
-                mode = mode,
-                protocol = "openai_compatible_v1",
-                baseUrl = "https://planner.example.invalid/v1",
-                model = "model-a",
-                credentialRef = if (mode == "cloud") {
-                    "cred_0123456789abcdef0123456789abcdef"
-                } else {
-                    null
-                },
-                timeoutSeconds = 30.0,
-                maxResponseBytes = 1_048_576,
-                responseMode = "json_schema",
-                allowInsecureLanHttp = false,
-            )
-            store.upsert(profile)
-            store.select(profileId)
-
+            val name = "GUI $mode $suffix"
             val bridge = FakePlannerBridge()
-            val root = File(context.filesDir, "lain-gui-acceptance/$profileId")
+            val root = File(context.filesDir, "lain-gui-acceptance/$mode-$suffix")
             val controller = Python.getInstance().getModule("lain.app.control").callAttr(
                 "create_controller",
                 root.absolutePath,
@@ -169,9 +150,25 @@ class PlannerRuntimeGuiAcceptanceTest {
             try {
                 ActivityScenario.launch(MainActivity::class.java).use { scenario ->
                     await(scenario) {
-                        it.findViewById<View>(R.id.run_button).isEnabled &&
-                            it.findViewById<TextView>(R.id.active_planner).text.toString()
-                                .contains(profile.name)
+                        it.findViewById<View>(R.id.run_button).isEnabled
+                    }
+                    scenario.onActivity {
+                        assertTrue(it.findViewById<View>(R.id.planner_new).performClick())
+                        it.findViewById<EditText>(R.id.planner_name).setText(name)
+                        it.findViewById<Spinner>(R.id.planner_mode)
+                            .setSelection(if (mode == "local") 1 else 0)
+                        it.findViewById<EditText>(R.id.planner_endpoint)
+                            .setText("https://planner.example.invalid/v1")
+                        it.findViewById<EditText>(R.id.planner_model).setText("model-a")
+                        if (mode == "cloud") {
+                            it.findViewById<EditText>(R.id.planner_credential)
+                                .setText("gui-secret-$suffix")
+                        }
+                        assertTrue(it.findViewById<View>(R.id.planner_save).performClick())
+                    }
+                    await(scenario) {
+                        it.findViewById<TextView>(R.id.active_planner).text.toString()
+                            .contains(name)
                     }
                     scenario.onActivity {
                         it.findViewById<EditText>(R.id.command_input).setText("Read battery")
@@ -181,15 +178,24 @@ class PlannerRuntimeGuiAcceptanceTest {
                         it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE"
                     }
                     scenario.onActivity {
-                        val results = it.findViewById<TextView>(R.id.task_status).text.toString()
-                        assertEquals("COMPLETE", results)
+                        val results = it.findViewById<LinearLayout>(R.id.results)
+                        val text = (0 until results.childCount).joinToString("\n") {
+                            (results.getChildAt(it) as TextView).text
+                        }
+                        assertTrue(text.contains("android.battery_status"))
+                        assertTrue(text.contains("Execution: success", ignoreCase = true))
+                        assertTrue(text.contains("Verification: passed", ignoreCase = true))
+                        assertTrue(text.contains("percentage"))
+                        assertTrue(it.findViewById<View>(R.id.planner_delete).performClick())
+                    }
+                    await(scenario) {
+                        it.findViewById<TextView>(R.id.active_planner).text.toString()
+                            .contains("Offline Demo · offline_demo")
                     }
                 }
                 assertEquals(listOf(mode, mode), bridge.modes)
             } finally {
                 WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application) }
-                store.select(PlannerProfile.DEMO_ID)
-                store.remove(profileId)
                 root.deleteRecursively()
             }
         }
