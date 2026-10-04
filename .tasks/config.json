@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 52,
+  "nextId": 53,
   "states": [
     {
       "name": "Backlog",
@@ -313,10 +313,16 @@
         "title": "Close installed 1.0 golden workflow and release-readiness gate",
         "priority": "P1",
         "order": 45
+      },
+      {
+        "id": "TASK-052",
+        "title": "Build Phase-2 conversational transcript UI",
+        "priority": "P2",
+        "order": 46
       }
     ],
     "issue": 6,
-    "repo_head": "37cd3b1aa433bf52afc655b2f341393689862908",
-    "next_action": "Finish TASK-012 / PR #28 exact-head Android verification and review; integrate if clear, then TASK-050 before TASK-013. Final release path: TASK-047 -> TASK-049 -> TASK-048 -> TASK-051."
+    "repo_head": "a4fbc5395e905005226fe63e49d3eeab087fe281",
+    "next_action": "Finish TASK-012 / PR #28 exact-head verification and integration; then implement TASK-050 before TASK-052. TASK-052 closes the next uncovered Phase-2 product-surface requirement."
   }
 }
