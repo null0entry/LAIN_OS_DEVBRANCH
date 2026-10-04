@@ -184,7 +184,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                             (results.getChildAt(it) as TextView).text
                         }
                         assertTrue(text.contains("android.battery_status"))
-                        assertTrue(text.contains("Execution: succeeded", ignoreCase = true))
+                        assertTrue(text.contains("Execution: success", ignoreCase = true))
                         assertTrue(text.contains("Verification: passed", ignoreCase = true))
                         assertTrue(text.contains("percentage"))
                         assertTrue(it.findViewById<View>(R.id.planner_delete).performClick())
