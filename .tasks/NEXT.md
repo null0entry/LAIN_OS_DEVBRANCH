@@ -1,5 +1,67 @@
 # Next
 
+## TASK-057: Verify installed release upgrade and state-migration boundary
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, migration, android, recovery
+**Updated:** 2026-10-04
+
+### Goal
+Prove the truthful installed upgrade/state-migration behavior for the 1.0 release candidate so package/signing changes cannot silently strand, corrupt, over-trust, or misrepresent existing private application state.
+
+### Scope
+- Consume the release package identity and migration semantics established by TASK-049.
+- Exercise supported upgrade paths using exact candidate/source identities and representative durable state.
+- When in-place upgrade is intentionally unsupported, prove the declared fresh-install boundary rather than weakening package/signing guarantees.
+- Verify preserved state remains schema-valid, authority-bounded, and consistent with current secret/approval/revision semantics.
+- Detect incompatible/corrupt/stale state explicitly and fail closed without fabricating successful migration.
+- Record migration evidence through TASK-047 provenance rules for TASK-051 consumption.
+- Do not create signing credentials, alter package identity merely to force compatibility, publish artifacts, or invent backup/import functionality outside the documented release contract.
+
+### Dependencies
+- TASK-047 release evidence manifest/provenance contract.
+- TASK-049 release-candidate packaging path and its package/signing/migration semantics.
+- Existing durable-state, secret-store, approval, audit, conversation, and workflow schema/version rules remain authoritative.
+
+### Plan
+- Inventory persisted app/runtime state affected by candidate install/upgrade.
+- Define representative pre-upgrade fixtures plus incompatible/corrupt cases.
+- Exercise the exact supported upgrade or declared fresh-install boundary.
+- Verify post-transition state integrity, authority isolation, secret handling, and restart behavior.
+- Emit candidate-bound PASS/FAIL/UNTESTED evidence for TASK-051.
+
+### Acceptance
+- Supported upgrade paths preserve only state valid under the candidate schema and authority model.
+- Unsupported package/signing transitions are rejected or explicitly documented as fresh-install boundaries; no test weakens signing/package guarantees.
+- Corrupt, stale, or incompatible state cannot become approval, capability, provider, or execution authority.
+- Secrets do not enter logs, manifests, planner state, or migration evidence.
+- Migration evidence is bound to exact source/package/artifact identity and becomes stale when candidate identity changes.
+- TASK-051 can mechanically distinguish supported upgrade, required fresh install, and unverified migration cases.
+
+### Verification
+- Deterministic persisted-state fixtures and schema/version-transition tests.
+- Android install/upgrade instrumentation where package/signing identity permits; explicit negative evidence where it does not.
+- Restart/rebind plus approval/revision/secret-store integrity checks after transition.
+- Corrupt/incompatible/stale-state negatives and no-authority-escalation checks.
+- TASK-047 candidate/provenance validation plus canonical Verify and Android gates.
+
+### Expected result
+The 1.0 candidate has an evidence-backed upgrade/state-migration story: supported paths are proven, unsupported paths are explicit, and no release claim depends on silently discarding or over-trusting prior private state.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` Release Engineering requires migration from current debug/private state where applicable.
+- The 1.0 design requires reviewed update/state migration behavior and forbids a public release claim for a debug APK.
+- TASK-049 defines packaging/migration semantics, but no existing task proves those semantics against installed persisted state.
+
+### Projection basis
+- TASK-051 is an installed release-readiness gate; without candidate-bound migration evidence it could certify a fresh install while upgrade/data-loss behavior remains unverified.
+- Separating migration acceptance from packaging keeps build/signing mechanics and state-transition correctness independently reviewable.
+
+### Risks / unknowns
+- Existing debug/release identities may make in-place upgrade impossible; that is an acceptable truthful result when proven.
+- Some state classes may not exist until later phases complete; mark them non-applicable rather than inventing coverage.
+- Physical install/upgrade evidence may require owner-controlled signed artifacts; absent signing material remains UNTESTED.
+
+---
+
 ## TASK-056: Implement bounded script-generation workflow stage
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, phase-4, workflow, script, artifacts
 **Updated:** 2026-10-04
