@@ -202,6 +202,22 @@ class SpeechPlaybackControllerTest {
         assertEquals(1, focus.abandons)
     }
 
+    @Test fun invalidReplacementStopsExistingPlaybackAndReleasesFocus() {
+        val focus = FakeFocus()
+        val engine = FakeEngine()
+        val controller = SpeechPlaybackController(engine, focus)
+        controller.play(audio())
+        assertTrue(engine.playing)
+
+        controller.play(audio(mime = "audio/mpeg"))
+
+        assertEquals(PlaybackStatus.FAILED, controller.state.status)
+        assertEquals(PlaybackFailure.UNSUPPORTED_MEDIA, controller.state.failure)
+        assertFalse(engine.playing)
+        assertEquals(1, engine.stops)
+        assertEquals(1, focus.abandons)
+    }
+
     @Test fun unsupportedOrMalformedPcmNeverAcquiresFocus() {
         val invalid = listOf(
             audio(mime = "audio/mpeg"),
