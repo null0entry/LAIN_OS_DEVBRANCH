@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 49,
+  "nextId": 50,
   "states": [
     {
       "name": "Backlog",
@@ -295,10 +295,16 @@
         "title": "Close Phase-7 adversarial release matrix",
         "priority": "P1",
         "order": 42
+      },
+      {
+        "id": "TASK-049",
+        "title": "Build reproducible 1.0 release-candidate packaging path",
+        "priority": "P1",
+        "order": 43
       }
     ],
     "issue": 6,
-    "repo_head": "464ec87bdadcc54ea1b3a01f9281ddc92fc6c46e",
-    "next_action": "TASK-011 integrated through PR #27 as cc03a4a. TASK-012 is In Progress on PR #28, retargeted to main; Verify #418 passed on f773c74 and Android #407 remains pending/currently observed separately. Require mergeable current-base state plus fresh exact-head Android/review before merge."
+    "repo_head": "6aab1260e7ed02bfb43aa261d92616f2a10f7cf6",
+    "next_action": "TASK-011 merged concurrently as cc03a4a. Review/reconcile PR #28 / TASK-012 against current main and fresh CI/review; TASK-049 is queued after TASK-047 for release-candidate packaging before final Phase-7 golden evidence."
   }
 }
