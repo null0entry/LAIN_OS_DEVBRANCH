@@ -1,5 +1,71 @@
 # Next
 
+## TASK-042: Verify YouTube processing status independently
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, processing, verification, polling, provenance
+
+### Goal
+Independently retrieve and durably verify the processing state of the exact private/unlisted YouTube upload produced by TASK-041 so LAIN_OS records the authoritative video identity, processing outcome, and failure reason without treating upload completion or planner/provider assertions as publication success.
+
+### Scope
+- Define a narrow `youtube.status` read capability bound to one TASK-040 upload intent, TASK-041 upload attempt/session, provider video ID, authorization profile, destination channel, artifact hash, and workflow revision.
+- Query only the official authenticated YouTube status/metadata endpoint required to determine processing state, visibility, identity, and provider failure reason.
+- Normalize provider states into explicit pending, processing, succeeded, failed, unavailable, cancelled/stale, and reconciliation-required trusted states.
+- Persist independently retrieved observations, timestamps, attempt counters, deadlines, and terminal evidence without storing credentials or sensitive response bodies.
+- Poll through TASK-021 durable waits under TASK-023/TASK-035 budgets and TASK-037 retry rules; restart must preserve deadlines, counters, and identity.
+- Treat missing/mismatched video, channel, visibility, intent, artifact, profile, or revision as non-success and route ambiguous identity/effect outcomes through TASK-022 reconciliation.
+- Do not add upload, re-upload, deletion, metadata mutation, thumbnails, playlists, scheduling, exact publication approval, visibility promotion, or publish behavior.
+
+### Dependencies
+- TASK-018, TASK-020, TASK-021, TASK-022, and TASK-023: immutable artifact identity, revision invalidation, durable waits, reconciliation, and aggregate budgets.
+- TASK-032, TASK-035, TASK-037, and TASK-038: bounded provider lifecycle, spending controls, retry semantics, and data-sharing disclosure.
+- TASK-039, TASK-040, and TASK-041: YouTube authorization, exact upload intent, and resumable private/unlisted upload with stable provider video identity.
+- Current official YouTube processing-status and video-resource requirements verified during implementation.
+
+### Plan
+- Specify the minimal versioned processing-observation/status state machine and provider-to-trusted-state mapping.
+- Bind every lookup and persisted observation to the exact upload operation, video ID, artifact hash, authorization profile/channel, visibility, and workflow revision.
+- Implement a bounded YouTube-specific authenticated read transport with strict response validation and safe error mapping.
+- Integrate durable polling intervals, deadlines, call/cost ceilings, retry eligibility, cancellation, restart, and stale-revision checks.
+- Persist authoritative terminal evidence and provider failure detail in redacted normalized form.
+- Add deterministic fake-provider polling/restart matrices and Android integration coverage; keep live owner-account evidence separately labeled.
+
+### Acceptance
+- A valid TASK-041 private/unlisted upload can be looked up independently and yields one durable normalized processing state tied to the exact video and intent.
+- Pending/processing never becomes COMPLETE or published; only an independently retrieved provider terminal success becomes processing-succeeded.
+- Provider failure reason is preserved safely and explicitly without leaking credentials or sensitive raw response bodies.
+- Video ID, channel, artifact, intent, profile, visibility, operation, or workflow-revision substitution fails closed.
+- Missing/deleted/inaccessible video, auth failure, quota/rate-limit, malformed/oversized response, timeout, cancellation, deadline exhaustion, stale revision, and uncertain identity settle explicitly.
+- Restart preserves video identity, last authoritative observation, next poll deadline, attempts, and consumed budgets without resetting authority.
+- The capability grants no upload, mutation, approval, publication, generic HTTP, or visibility-promotion authority.
+- No planner/provider claim alone can mark processing verified or published.
+
+### Verification
+- Provider-state normalization and deterministic serialization/round-trip tests.
+- Durable poll/wait/restart/deadline/cancellation matrix with monotonic attempt and budget accounting.
+- Video/intent/artifact/profile/channel/visibility/operation/revision substitution negatives.
+- Pending-to-terminal, terminal-regression, missing/deleted/private-inaccessible, and failure-reason fixtures.
+- Auth, quota, 429/5xx, timeout, malformed/oversized payload, unknown-state, and Retry-After bound tests.
+- Assertions that upload completion, planner text, cached data, or stale observations cannot satisfy verification.
+- Secret/raw-response leakage scans, canonical verification, Android matrix, and architecture/security/privacy review.
+- Live owner-authorized processing lookup remains UNVERIFIED unless separately executed against the exact private/unlisted upload.
+
+### Expected result
+LAIN_OS can truthfully distinguish uploaded, still processing, processed, and failed YouTube videos through durable independent evidence, providing the exact stable video identity required for later publication approval without publishing or mutating anything.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.4 explicitly requires independent authenticated lookup of processing state, video ID, and failure reason, and forbids a published claim while processing is incomplete.
+- TASK-039 through TASK-041 cover authorization, exact intent, and resumable staging upload; no current task, open issue, or open PR represents independent processing-status verification.
+
+### Projection basis
+- R6.5 exact publication approval must bind a provider video whose processing readiness and identity were independently retrieved rather than inferred from upload transport completion.
+- A durable read-only status boundary prevents later publication code from inventing its own polling, retry, identity, or truth semantics.
+
+### Risks / unknowns
+- YouTube processing/status fields, required scopes, quota cost, eventual-consistency behavior, and failure-detail availability can change and must be checked against current official documentation.
+- Private/unlisted visibility and Brand Account channel identity must remain explicit and independently matched.
+- Provider terminal-state regressions or missing resources after prior observation must fail closed and may require reconciliation.
+- Live verification requires owner-controlled authorization, quota, and an exact private/unlisted upload and must remain distinct from deterministic fixtures.
+
 ## TASK-041: Implement resumable private YouTube upload
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, upload, resumable, reconciliation, privacy
 
