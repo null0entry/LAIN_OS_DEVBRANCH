@@ -268,7 +268,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "b8fe30a1678fb2abccf4ce655cc49d828c4a2061",
-    "next_action": "TASK-008 remains in progress on PR #23. Verify #353 passed but Android #342 failed on head 4b46d6c; diagnose the exact failing job/log, patch under TDD if deterministic, rerun fresh CI, and preserve the physical Galaxy gate. Copy demo text production behavior remains unchanged until a reproducible physical trace proves its root cause."
+    "repo_head": "ae99271cbf4ad43e739f29cffea5d4fb3160252d",
+    "next_action": "TASK-008 remains in progress on PR #23. Verify #353 passed. Android #342 built, linted, unit-tested, and packaged successfully but instrumentation failed with API-35 window-focus loss across new and existing tests plus an API-24 emulator system death; failed jobs were retried once. Require a green retry before merge, then install the exact artifact and capture physical Create demo file and Copy demo text receipts. Clipboard production behavior remains unchanged until a reproducible physical trace proves its root cause."
   }
 }
