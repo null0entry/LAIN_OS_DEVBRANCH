@@ -256,7 +256,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "3f482af84004b0750493d8921d414f1ba8058ebc",
-    "next_action": "TASK-008 remains in progress. PR #21 merged as 3bfd3414 after Verify #337 and Android #326 passed on API 35 plus a successful API 24 failed-job rerun, integrating the installed Cloud/Local GUI acceptance. PR #20 is superseded. Build/install the exact current integrated main APK and run the full physical Galaxy suite; only after TASK-008 closes may TASK-009 begin."
+    "repo_head": "bfe73bcf49fbda18d6b47f8595a77774ad69615c",
+    "next_action": "TASK-008 remains in progress. PR #21 integrated the RuntimeClient seam and a basic installed acceptance test, but fresh review 5403701261 proves PR #20 retains distinct acceptance hardening: profile lifecycle through installed UI plus rendered capability/execution/verification evidence. PR #20 is diverged and non-mergeable with no head CI. Reconcile only that test delta onto current main, run fresh Verify + Android API24/API35, then build/install the exact integrated APK and run the full physical Galaxy suite."
   }
 }
