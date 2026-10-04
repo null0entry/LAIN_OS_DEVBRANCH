@@ -113,10 +113,7 @@ class MainActivity : AppCompatActivity() {
         ui.reconnectButton.visibility = if (!state.connected || state.startupFailed) View.VISIBLE else View.GONE
         ui.message.text = state.message
         ui.runButton.isEnabled = state.ready && !state.pending && !active && !recovery
-        val recording = voice.state.value?.status == MicrophoneStatus.RECORDING
-        val transcribing = voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
-        ui.voiceRecordButton.isEnabled = recording ||
-            (state.ready && !state.pending && !active && !recovery && !transcribing)
+        updateVoiceRecordEnabled()
         ui.stopButton.isEnabled = state.connected && (active || recovery)
         ui.commandInput.isEnabled = !state.pending && !active
         for (i in 0 until ui.demoCommands.childCount) ui.demoCommands.getChildAt(i).isEnabled = !active && !state.pending
@@ -186,6 +183,7 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
+        updateVoiceRecordEnabled()
     }
 
     private fun renderSpeechInput(state: SpeechInputState) {
@@ -211,6 +209,7 @@ class MainActivity : AppCompatActivity() {
             )
             SpeechInputStatus.READY -> getString(R.string.voice_transcription_ready)
         }
+        updateVoiceRecordEnabled()
         if (state.status == SpeechInputStatus.READY) {
             val text = state.result?.text
             if (text != null && model.submitSpeech(text)) voice.consumeFinalTranscript()
@@ -260,6 +259,17 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
+    }
+
+    private fun updateVoiceRecordEnabled() {
+        val runtime = model.state.value
+        val session = runtime?.session
+        val active = session?.optBoolean("active") == true
+        val recovery = session?.optBoolean("recovery_required") == true
+        val recording = voice.state.value?.status == MicrophoneStatus.RECORDING
+        val transcribing = voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
+        ui.voiceRecordButton.isEnabled = recording ||
+            (runtime?.ready == true && runtime.pending.not() && !active && !recovery && !transcribing)
     }
 
     private fun updateStopTalkingEnabled() {

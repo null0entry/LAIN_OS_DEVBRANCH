@@ -2,6 +2,7 @@ package dev.lain.os.voice
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
@@ -30,6 +31,7 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
+    private val main = Handler(Looper.getMainLooper())
     private val mutable = MutableLiveData(PlaybackState())
     val state: LiveData<PlaybackState> = mutable
     private val synthesisMutable = MutableLiveData(SpeechSynthesisUiState())
@@ -52,22 +54,25 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
     fun speak(text: String) {
         publishSynthesis(SpeechSynthesisUiState(active = true))
         speech.synthesize(text, null) { result ->
-            publishSynthesis(SpeechSynthesisUiState(active = false, failure = result.failure))
-            val audio = result.audio
-            if (result.ok && audio != null) {
-                controller.play(audio)
-            } else if (result.failure != SpeechAdapterFailure.CANCELLED) {
-                publish(
-                    PlaybackState(
-                        status = PlaybackStatus.FAILED,
-                        failure = if (result.failure == SpeechAdapterFailure.PROVIDER_UNAVAILABLE) {
-                            PlaybackFailure.SYNTHESIS_UNAVAILABLE
-                        } else {
-                            PlaybackFailure.SYNTHESIS_FAILED
-                        },
+            val deliver = {
+                publishSynthesis(SpeechSynthesisUiState(active = false, failure = result.failure))
+                val audio = result.audio
+                if (result.ok && audio != null) {
+                    controller.play(audio)
+                } else if (result.failure != SpeechAdapterFailure.CANCELLED) {
+                    publish(
+                        PlaybackState(
+                            status = PlaybackStatus.FAILED,
+                            failure = if (result.failure == SpeechAdapterFailure.PROVIDER_UNAVAILABLE) {
+                                PlaybackFailure.SYNTHESIS_UNAVAILABLE
+                            } else {
+                                PlaybackFailure.SYNTHESIS_FAILED
+                            },
+                        )
                     )
-                )
+                }
             }
+            if (Looper.myLooper() == Looper.getMainLooper()) deliver() else main.post(deliver)
         }
     }
 
@@ -104,6 +109,7 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
     override fun onCleared() {
         speech.close()
         controller.close()
+        main.removeCallbacksAndMessages(null)
         super.onCleared()
     }
 }
