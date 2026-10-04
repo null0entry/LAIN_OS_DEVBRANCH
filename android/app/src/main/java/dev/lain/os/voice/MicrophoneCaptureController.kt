@@ -125,7 +125,21 @@ class MicrophoneCaptureController(
     @Synchronized
     fun reconcilePermission(granted: Boolean) {
         if (granted || state.status != MicrophoneStatus.RECORDING) return
-        failAndDiscard(MicrophoneFailure.PERMISSION_REVOKED)
+        permissionRevoked()
+    }
+
+    @Synchronized
+    fun permissionRevoked() {
+        if (state.status == MicrophoneStatus.RECORDING) {
+            try { engine.stop() } catch (_: Exception) { }
+        }
+        discardBuffer()
+        publish(
+            MicrophoneState(
+                status = MicrophoneStatus.FAILED,
+                failure = MicrophoneFailure.PERMISSION_REVOKED,
+            )
+        )
     }
 
     @Synchronized
