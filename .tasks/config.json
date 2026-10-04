@@ -319,10 +319,16 @@
         "title": "Build Phase-2 conversational transcript UI",
         "priority": "P2",
         "order": 46
+      },
+      {
+        "id": "TASK-052",
+        "title": "Close 1.0 operator documentation and third-party notices",
+        "priority": "P1",
+        "order": 46
       }
     ],
     "issue": 6,
-    "repo_head": "a4fbc5395e905005226fe63e49d3eeab087fe281",
-    "next_action": "Finish TASK-012 / PR #28 exact-head verification and integration; then implement TASK-050 before TASK-052. TASK-052 closes the next uncovered Phase-2 product-surface requirement."
+    "repo_head": "dace1b4ef47468c2f5a8c508fea949c6dc44b9a2",
+    "next_action": "Finish TASK-012 / PR #28 exact-head Android verification and merge if clear; then TASK-050 before TASK-013. Release path adds TASK-052 documentation/notices before terminal TASK-051."
   }
 }
