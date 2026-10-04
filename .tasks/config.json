@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 51,
+  "nextId": 52,
   "states": [
     {
       "name": "Backlog",
@@ -307,10 +307,16 @@
         "title": "Implement first on-device Phase-2 speech adapter",
         "priority": "P1",
         "order": 44
+      },
+      {
+        "id": "TASK-051",
+        "title": "Close installed 1.0 golden workflow and release-readiness gate",
+        "priority": "P1",
+        "order": 45
       }
     ],
     "issue": 6,
-    "repo_head": "c60cd0169bc066c35fe84d4ee8a1713c07241389",
-    "next_action": "Review/reconcile PR #28 / TASK-012 against current main with fresh exact-head CI/review; after TASK-012 integrates, implement TASK-050 before TASK-013 so Phase-2 has a concrete on-device speech path. TASK-047–049 remain queued for Phase-7/release work."
+    "repo_head": "37cd3b1aa433bf52afc655b2f341393689862908",
+    "next_action": "Finish TASK-012 / PR #28 exact-head Android verification and review; integrate if clear, then TASK-050 before TASK-013. Final release path: TASK-047 -> TASK-049 -> TASK-048 -> TASK-051."
   }
 }
