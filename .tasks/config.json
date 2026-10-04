@@ -256,7 +256,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "884779e13c11afe6bfcd9eed74133af213908997",
-    "next_action": "TASK-008 remains in progress. PR #22 at e85745a reconciles only PR #20's distinct installed-UI profile lifecycle and rendered action-evidence assertions onto current main; fresh whole-diff review 5403704971 has no findings. Verify #344 and Android #333 are running. Merge only after fresh head-specific CI is clear and the draft/review gate is resolved; then build/install the exact integrated APK and run the full physical Galaxy suite."
+    "repo_head": "4a7bce2f9522cae16df4d335721a6e47b07a2df7",
+    "next_action": "TASK-008 remains in progress. PR #22 at e85745a strengthens installed-UI profile lifecycle and rendered action-evidence acceptance; review 5403704971 has no findings and Verify #344 passed. Android #333 is in progress. Merge remains blocked by Android CI and draft/review state; physical Galaxy acceptance remains UNVERIFIED."
   }
 }
