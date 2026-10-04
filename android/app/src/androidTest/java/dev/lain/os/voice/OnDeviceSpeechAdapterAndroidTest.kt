@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.os.Looper
 import android.os.Parcel
 import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
@@ -21,6 +22,8 @@ import dev.lain.os.runtime.RuntimeProtocol
 import dev.lain.os.ui.WorkbenchViewModel
 import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -59,13 +62,20 @@ class OnDeviceSpeechAdapterAndroidTest {
         override val model = "fixture"
         var transcriptions = 0
         var syntheses = 0
+        var holdTranscription = false
+        var synthesizeOnBackground = false
+        private var heldTranscription: ((BackendTranscriptionResult) -> Unit)? = null
 
         override fun transcribe(
             audio: CapturedAudio,
             callback: (BackendTranscriptionResult) -> Unit,
         ) {
             transcriptions += 1
-            callback(BackendTranscriptionResult(text = "Show battery", language = "en-US"))
+            if (holdTranscription) {
+                heldTranscription = callback
+            } else {
+                callback(BackendTranscriptionResult(text = "Show battery", language = "en-US"))
+            }
         }
 
         override fun synthesize(
@@ -74,20 +84,24 @@ class OnDeviceSpeechAdapterAndroidTest {
             callback: (BackendSynthesisResult) -> Unit,
         ) {
             syntheses += 1
-            callback(
-                BackendSynthesisResult(
-                    audio = SynthesizedAudio(
-                        bytes = ByteArray(3_200),
-                        mimeType = "audio/pcm;codec=s16le",
-                        sampleRateHz = 16_000,
-                        channels = 1,
-                        durationMs = 100,
-                        providerId = ON_DEVICE_PROVIDER_ID,
-                        implementation = implementation,
-                        model = model,
+            val complete = {
+                callback(
+                    BackendSynthesisResult(
+                        audio = SynthesizedAudio(
+                            bytes = ByteArray(3_200),
+                            mimeType = "audio/pcm;codec=s16le",
+                            sampleRateHz = 16_000,
+                            channels = 1,
+                            durationMs = 100,
+                            providerId = ON_DEVICE_PROVIDER_ID,
+                            implementation = implementation,
+                            model = model,
+                        )
                     )
                 )
-            )
+            }
+            if (synthesizeOnBackground) Thread(complete, "speech-test-completion").start()
+            else complete()
         }
 
         override fun cancelTranscription() = Unit
@@ -156,6 +170,8 @@ class OnDeviceSpeechAdapterAndroidTest {
         override var playing = false
             private set
         var starts = 0
+        val started = CountDownLatch(1)
+        var startedOnMain = false
 
         override fun start(
             audio: SynthesizedAudio,
@@ -164,6 +180,8 @@ class OnDeviceSpeechAdapterAndroidTest {
         ) {
             starts += 1
             playing = true
+            startedOnMain = Looper.myLooper() == Looper.getMainLooper()
+            started.countDown()
         }
 
         override fun setVolume(value: Float) = Unit
@@ -265,6 +283,52 @@ class OnDeviceSpeechAdapterAndroidTest {
 
         assertEquals(0, speech.transcriptions)
         assertFalse(binding.requests.any { it.optString("command") == "turn_submit" })
+    }
+
+    @Test fun recordButtonLocksWhileFinalTranscriptionIsPending() {
+        assumeTrue(Build.VERSION.SDK_INT >= 33)
+        val capture = FakeCaptureEngine()
+        val speech = FakeSpeechBackend().apply { holdTranscription = true }
+        val binding = RecordingRuntimeBinding()
+        VoiceCaptureViewModel.engineFactory = { capture }
+        VoiceCaptureViewModel.permissionChecker = { true }
+        VoiceCaptureViewModel.speechBackendFactory = { speech }
+        WorkbenchViewModel.runtimeClientFactory = { application ->
+            RuntimeClient(application, binding)
+        }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) {
+                it.findViewById<android.view.View>(R.id.voice_record_button).isEnabled
+            }
+            scenario.onActivity {
+                assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
+                capture.emit(ByteArray(3_200) { 1 })
+                assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
+            }
+            scenario.onActivity {
+                assertFalse(it.findViewById<android.view.View>(R.id.voice_record_button).isEnabled)
+            }
+        }
+
+        assertEquals(1, speech.transcriptions)
+    }
+
+    @Test fun backgroundSynthesisCompletionEntersPlaybackOnMainThread() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app = instrumentation.targetContext.applicationContext as Application
+        val speech = FakeSpeechBackend().apply { synthesizeOnBackground = true }
+        val engine = FakePlaybackEngine()
+        SpeechPlaybackViewModel.engineFactory = { engine }
+        SpeechPlaybackViewModel.focusFactory = { FakeFocus() }
+        SpeechPlaybackViewModel.speechBackendFactory = { speech }
+
+        instrumentation.runOnMainSync {
+            SpeechPlaybackViewModel(app).speak("done")
+        }
+
+        assertTrue(engine.started.await(5, TimeUnit.SECONDS))
+        assertTrue(engine.startedOnMain)
     }
 
     @Test fun localSynthesisFeedsTask012Playback() {
