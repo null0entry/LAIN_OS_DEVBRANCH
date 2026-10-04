@@ -1,5 +1,71 @@
 # Next
 
+## TASK-044: Execute exact approved YouTube publication
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, publication, external-effect, approval, reconciliation
+
+### Goal
+Publish exactly one independently processed YouTube video by consuming the matching single-use TASK-043 approval through a narrow record-before-effect capability, then independently retrieve the resulting metadata and visibility without replaying an uncertain write or broadening authority.
+
+### Scope
+- Define a narrow `youtube.publish` effect that consumes one valid unexpired TASK-043 grant bound to the exact video, artifact, intent, channel, metadata, target visibility, profile, revision, nonce, and policy state.
+- Persist a durable publication-attempt record and consume the approval atomically before the provider mutation.
+- Perform only the exact approved visibility/metadata transition through the minimum official authenticated YouTube endpoint and scope.
+- Independently retrieve the exact video after the mutation and verify channel, metadata, visibility, identity, and current revision.
+- Route timeout, disconnect, crash, ambiguous response, duplicate invocation, or inconsistent retrieval through TASK-022 reconciliation; never blindly replay.
+- Preserve TASK-023/TASK-035 budgets, TASK-037 retry rules, TASK-038 disclosure, cancellation semantics, redacted audit evidence, and credential isolation.
+- Do not add upload/re-upload, deletion, arbitrary metadata editing, scheduling, playlists, comments, thumbnails, generic HTTP, or generic YouTube API authority.
+
+### Dependencies
+- TASK-018/TASK-020/TASK-021/TASK-022/TASK-023: immutable identity, revision invalidation, durable waits, reconciliation, and budgets.
+- TASK-032/TASK-035/TASK-037/TASK-038: bounded provider lifecycle, spending, retry, and disclosure controls.
+- TASK-039 through TASK-043: authorization profile, immutable intent, staged upload, independent processing evidence, and exact single-use publication approval.
+- Current official YouTube mutation/retrieval requirements verified during implementation.
+
+### Plan
+- Specify versioned publication-attempt, uncertain-effect, reconciliation, and verified-terminal states.
+- Canonicalize and revalidate the complete TASK-043 binding immediately before atomic approval consumption and attempt persistence.
+- Implement the minimal YouTube-specific mutation transport with strict request/response bounds and safe error mapping.
+- Persist effect identity before transmission; after any response or interruption, independently look up the exact video rather than trusting the mutation response.
+- Reconcile ambiguous outcomes by exact video/channel/metadata/visibility identity and prohibit automatic duplicate writes.
+- Add deterministic crash-boundary, replay, substitution, provider-failure, and Android confirmation/receipt tests.
+
+### Acceptance
+- Publication is impossible without one valid, unconsumed TASK-043 grant for a TASK-042 processing-succeeded video.
+- Attempt identity is durably recorded and approval consumed before the first provider-side mutation byte can be authorized.
+- The provider request cannot differ from approved video, channel, title, description, visibility, profile, workflow/policy revision, nonce, or expiry.
+- Success requires independent post-effect retrieval confirming the exact final metadata and visibility; provider response or planner text alone cannot satisfy verification.
+- Timeout, disconnect, crash, malformed/oversized response, auth/quota failure, stale revision, cancellation, duplicate invocation, and uncertain outcome settle explicitly without blind replay.
+- Restart preserves attempt/approval/effect identity, consumed budgets, and uncertain state without resetting authority.
+- The capability grants no upload, deletion, arbitrary mutation, generic authenticated HTTP, or reusable publication authority.
+- Secrets remain absent from planner payloads, durable workflow state, audit, logs, IPC, and exported settings.
+
+### Verification
+- State-machine serialization and record-before-effect ordering tests.
+- Exact-field approval/request substitution matrix and stale-revision/expiry/cancellation negatives.
+- Crash matrix before persistence, after persistence/before send, during send, after provider receipt, and before/after independent lookup.
+- Duplicate call, consumed approval, already-published, changed metadata/visibility, missing video, and cross-channel/profile negatives.
+- Auth, quota, 429/5xx, timeout, disconnect, Retry-After, malformed/oversized response, and unknown provider-state bounds.
+- Independent retrieval fixtures proving response-only success is rejected and exact retrieved state is required.
+- Secret scans, canonical verification, Android matrix, whole-diff architecture/security/privacy review.
+- Live publication remains UNVERIFIED unless separately owner-authorized for the exact payload and executed.
+
+### Expected result
+LAIN_OS can perform one exact approved YouTube publication as a crash-safe, non-replayable external effect and can report success only from independent retrieval of the precise final video state.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.6 requires publication only after exact approval, attempt persistence before the side effect, and independent lookup afterward.
+- TASK-043 covers approval but no existing task or open PR represents the actual bounded publication mutation and post-effect verification.
+
+### Projection basis
+- R6.7 duplicate/uncertain upload reconciliation and the Phase-6 exit gate require a concrete publication effect identity and independently retrieved terminal state.
+- A narrow publication capability prevents later acceptance work from bypassing approval, record-before-effect ordering, or reconciliation.
+
+### Risks / unknowns
+- Current YouTube endpoint semantics, minimum scopes, quota cost, metadata update behavior, and partial-failure response semantics may change and require official-document verification.
+- A visibility/metadata mutation can succeed despite transport failure; all ambiguous post-send outcomes must remain reconciliation-required until independent lookup settles them.
+- Provider normalization of titles/descriptions must not weaken exact approval binding or fabricate mismatch/success.
+- Live owner publication is consequential and remains separately authorized; deterministic fixtures cannot be promoted to live evidence.
+
 ## TASK-043: Require exact YouTube publication approval
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, approval, publication, authorization, security
 
