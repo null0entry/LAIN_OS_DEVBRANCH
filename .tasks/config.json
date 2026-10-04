@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 42,
+  "nextId": 43,
   "states": [
     {
       "name": "Backlog",
@@ -253,10 +253,16 @@
         "title": "Implement resumable private YouTube upload",
         "priority": "P1",
         "order": 35
+      },
+      {
+        "id": "TASK-042",
+        "title": "Verify YouTube processing status independently",
+        "priority": "P1",
+        "order": 36
       }
     ],
     "issue": 6,
-    "repo_head": "16cefe51810aca56a73b06d4e46934841d154630",
-    "next_action": "TASK-008 remains in progress. PR #22 at e85745a strengthens installed-UI profile lifecycle and rendered action-evidence acceptance; review 5403704971 has no findings and Verify #344 passed. Android #333 is in progress. Merge remains blocked by Android CI; physical Galaxy acceptance remains UNVERIFIED."
+    "repo_head": "41f61d02adb35c73d87a845b02c814faea250797",
+    "next_action": "TASK-008 remains in progress. PR #22 merged as 6985cbb and current-main Verify #348 plus Android #337 passed. A recent owner-reported physical run says Create demo file and Copy demo text remain red while the other presets are green, but exact build identity and detailed failure receipts are not yet repository-native. Capture those two exact failure traces/build SHA before any fix, then diagnose under TDD; preserve the complete physical Galaxy gate."
   }
 }
