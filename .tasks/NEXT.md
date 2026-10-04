@@ -1,5 +1,73 @@
 # Next
 
+## TASK-041: Implement resumable private YouTube upload
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, upload, resumable, reconciliation, privacy
+
+### Goal
+Upload the exact current TASK-040 intent artifact through one bounded YouTube-specific resumable transport into policy-selected private or unlisted staging, with durable progress, truthful cancellation, and crash-safe recovery that never invents success or blindly duplicates an uncertain upload.
+
+### Scope
+- Define a narrow `youtube.upload` execution boundary that consumes one immutable current-revision TASK-040 upload intent and one explicit TASK-039 authorization profile/channel.
+- Start uploads as private or unlisted staging only, according to trusted local policy; never publish or broaden visibility.
+- Persist resumable-session identity, acknowledged byte range, attempt state, deadlines, counters, and provider video identity as each becomes authoritative.
+- Stream only the bound immutable artifact with bounded chunks, response sizes, elapsed time, bytes, calls, retries, and cost.
+- Resume known-safe acknowledged progress after restart; route ambiguous post-write outcomes to TASK-022 reconciliation instead of restarting from byte zero.
+- Make cancellation stop future local work and report remote uncertainty truthfully; never claim provider rollback.
+- Expose safe progress/error state without tokens, upload-session URLs, credentials, or sensitive provider response bodies.
+- Do not add processing-status verification, thumbnails, playlists, scheduling, exact publication approval, visibility promotion, or publish behavior.
+
+### Dependencies
+- TASK-018, TASK-020, TASK-021, TASK-022, and TASK-023: immutable artifacts, revision invalidation, durable waits, external-effect reconciliation, and aggregate budgets.
+- TASK-032, TASK-035, TASK-037, and TASK-038: bounded provider jobs, spending controls, retry semantics, and data-sharing disclosure.
+- TASK-039: explicit identity-bound YouTube authorization profile/channel.
+- TASK-040: immutable exact upload-intent record and operation identity.
+- Current official YouTube resumable-upload requirements verified during implementation.
+
+### Plan
+- Specify the minimal versioned upload-attempt/resumable-session state machine and invariants.
+- Bind every attempt to the exact intent, artifact hash/size, workflow revision, authorization profile, destination channel, staging visibility, and operation identity.
+- Implement a YouTube-specific bounded transport for session creation, chunk upload, status query, cancellation, and reconciliation handoff.
+- Persist record-before-effect state and acknowledged progress atomically around every external write boundary.
+- Integrate trusted budgets, privacy disclosure, retry eligibility, deadlines, and cancellation without generic authenticated HTTP.
+- Add deterministic fake-provider crash/restart matrices plus bounded Android integration coverage; keep live owner-account upload evidence separately labeled.
+
+### Acceptance
+- One valid current TASK-040 intent can create one durable resumable upload attempt and transfer only its exact immutable artifact.
+- Initial visibility is policy-selected private or unlisted staging and cannot become public in this task.
+- Restart resumes only provider-acknowledged progress under the same operation/session identity; uncertain writes enter reconciliation and are never blindly replayed.
+- Artifact, intent, workflow revision, authorization profile, destination channel, visibility, or operation substitution fails closed.
+- Progress, cancellation, timeout, retry exhaustion, quota/rate-limit, provider rejection, and reconciliation-required states are explicit and durable.
+- Cancellation stops future chunks but does not claim that already accepted bytes or a remote video were rolled back.
+- No token, credential, upload-session URL, or sensitive provider body enters planner context, workflow exports, audit, logs, IPC, crash diagnostics, or UI.
+- The capability grants no generic HTTP, processing verification, approval, publication, scheduling, playlist, or visibility-promotion authority.
+
+### Verification
+- Versioned state-machine, deterministic serialization, and record-before-effect ordering tests.
+- Chunk-boundary, partial-acknowledgement, restart, duplicate-operation, stale-revision, and uncertain-write reconciliation matrix.
+- Artifact hash/size, intent/profile/channel/visibility/session substitution negatives.
+- Cancellation before session, between chunks, after provider acceptance, and during restart recovery.
+- Deadline, bytes, calls, retries, cost, 429/5xx/auth/quota/malformed/oversized response, and Retry-After bound tests.
+- Private/unlisted-only policy tests and assertions that no public visibility mutation exists.
+- Secret/upload-session leakage scans, canonical verification, Android matrix, and architecture/security/privacy review.
+- Live owner-authorized private upload remains UNVERIFIED unless separately executed with exact artifact and channel evidence.
+
+### Expected result
+LAIN_OS can durably stage the exact intended video as a bounded private or unlisted resumable upload, recover safely after interruption, and hand processing verification a stable video identity without leaking credentials, fabricating success, publishing, or duplicating uncertain external writes.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.3 explicitly requires private/unlisted staging, progress, cancellation semantics, resumable state, and crash recovery.
+- TASK-039 covers authorization and TASK-040 covers record-before-effect intent; no current task, open issue, or open PR represents resumable upload execution.
+
+### Projection basis
+- R6.4 processing verification and R6.5 exact publication approval require a stable provider video identity created from the exact immutable intent.
+- Building resumability atop TASK-022/TASK-037 before publication prevents network/crash ambiguity from creating duplicate uploads or hidden retry authority.
+
+### Risks / unknowns
+- YouTube resumable-upload protocol, quota accounting, required scopes, chunk rules, and session-expiry behavior can change and must be checked against current official documentation.
+- Provider acknowledgement may be ambiguous after connection loss; unresolved writes must remain in reconciliation.
+- Cancellation cannot guarantee deletion of provider-accepted bytes or a created private video.
+- Live verification requires owner-controlled authorization, quota, and channel access and must remain distinct from deterministic fixtures.
+
 ## TASK-040: Persist exact YouTube upload intent records
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, upload, intent, idempotency, provenance
 
