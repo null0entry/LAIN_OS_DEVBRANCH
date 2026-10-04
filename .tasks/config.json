@@ -280,7 +280,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "36a2c621c40d5ba1a9160fc6fb1a94817672126a",
-    "next_action": "TASK-008 remains in progress on PR #24 at f05a931. The Android #348 failures were patched at their proven test roots in b582c97/f05a931; fresh whole-diff review #5404560915 found no blocker. Verify #365 and Android #354 are running for the exact head. Merge only after both pass, then install the exact integrated artifact and capture physical Create demo file and Copy demo text receipts; the physical gate remains UNVERIFIED."
+    "repo_head": "df846918e13134461470d27e0a171420ba23d585",
+    "next_action": "TASK-008 implementation PR #24 merged as df846918 after fresh review #5404560915 and exact-head Verify #365 plus Android #354 passed. Keep TASK-008 In Progress: install the exact integrated artifact on the Galaxy device and capture complete action/session/execution/verification/error receipts for Create demo file and Copy demo text, then run the full six-preset physical matrix. Clipboard production behavior remains unchanged pending a reproducible defect trace."
   }
 }
