@@ -286,7 +286,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "8c865b92627a7a6b6d357545da9582872983b7dd",
-    "next_action": "TASK-010 is implementation-ready on PR #26 with exact-head Verify #386 and Android #375 green; review/merge under current run authority, then integrate stacked TASK-011 PR #27 and continue TASK-012. TASK-046 is queued after TASK-039 through TASK-045."
+    "repo_head": "c548324b77c32240e7d62cd108354e89446b39df",
+    "next_action": "TASK-010 merged as 204a20d7. TASK-011 is In Progress; PR #27 was retargeted to main and is non-mergeable. Reconcile the TASK-011 delta onto current main, run fresh exact-head Verify + Android + whole-diff review, then merge only if clear. TASK-012 remains dependency-blocked."
   }
 }
