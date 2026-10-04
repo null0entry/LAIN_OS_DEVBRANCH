@@ -88,6 +88,11 @@ class SpeechPlaybackController(
 
     @Synchronized
     fun play(audio: SynthesizedAudio) {
+        if (state.status == PlaybackStatus.PLAYING || state.status == PlaybackStatus.DUCKED) {
+            stopEngine()
+            releaseFocus()
+        }
+
         if (!supported(audio)) {
             publish(
                 PlaybackState(
@@ -97,11 +102,6 @@ class SpeechPlaybackController(
                 )
             )
             return
-        }
-
-        if (state.status == PlaybackStatus.PLAYING || state.status == PlaybackStatus.DUCKED) {
-            stopEngine()
-            releaseFocus()
         }
 
         generation += 1
