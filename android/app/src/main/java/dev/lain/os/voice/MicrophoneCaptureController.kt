@@ -32,7 +32,7 @@ data class MicrophoneState(
 
 data class CapturedAudio(
     val bytes: ByteArray,
-    val mimeType: String = "audio/L16",
+    val mimeType: String = "audio/pcm;codec=s16le",
     val sampleRateHz: Int = CAPTURE_SAMPLE_RATE_HZ,
     val channels: Int = CAPTURE_CHANNELS,
     val durationMs: Long,
@@ -71,8 +71,10 @@ class MicrophoneCaptureController(
             return
         }
         try {
-            engine.start(::acceptChunk, ::backendFailed)
+            // Publish before opening the engine so an implementation which emits
+            // its first frame synchronously cannot lose that frame as "not recording".
             publish(MicrophoneState(MicrophoneStatus.RECORDING))
+            engine.start(::acceptChunk, ::backendFailed)
         } catch (_: Exception) {
             try { engine.stop() } catch (_: Exception) { }
             discardBuffer()
