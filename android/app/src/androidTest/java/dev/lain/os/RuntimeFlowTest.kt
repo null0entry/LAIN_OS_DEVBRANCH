@@ -3,6 +3,7 @@ package dev.lain.os
 import android.os.SystemClock
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
+import java.io.File
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.*
 import androidx.test.espresso.matcher.ViewMatchers.withId
@@ -29,6 +30,56 @@ class RuntimeFlowTest {
         await(scenario) { it.findViewById<android.view.View>(R.id.run_button).isEnabled }
         onView(withId(R.id.command_input)).perform(replaceText(goal), closeSoftKeyboard())
         onView(withId(R.id.run_button)).perform(click())
+    }
+
+    private fun resultsText(activity: MainActivity): String {
+        val results = activity.findViewById<android.widget.LinearLayout>(R.id.results)
+        return (0 until results.childCount).joinToString("\n") {
+            (results.getChildAt(it) as TextView).text
+        }
+    }
+
+    @Test fun demoFilePresetCompletesWithVerifiedArtifact() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            run(scenario, "Create demo file")
+            await(scenario) {
+                it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE" &&
+                    resultsText(it).contains("file.write_text")
+            }
+            scenario.onActivity { activity ->
+                val text = resultsText(activity)
+                assertTrue(text.contains("file.write_text"))
+                assertTrue(text.contains("Execution: success", ignoreCase = true))
+                assertTrue(text.contains("Verification: passed", ignoreCase = true))
+                val workspace = File(activity.filesDir, "lain/workspace")
+                assertTrue(
+                    workspace.listFiles()?.any {
+                        it.name.matches(Regex("demo(?:-\\d+)?\\.txt")) &&
+                            it.readText() == "Hello from LAIN_OS.\n"
+                    } == true,
+                )
+            }
+        }
+    }
+
+    @Test fun clipboardPresetCompletesWithTruthfulNativeEvidence() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            run(scenario, "Copy demo text")
+            await(scenario) {
+                it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE" &&
+                    resultsText(it).contains("android.clipboard_set")
+            }
+            scenario.onActivity { activity ->
+                val text = resultsText(activity)
+                assertTrue(text.contains("android.clipboard_set"))
+                assertTrue(text.contains("Execution: success", ignoreCase = true))
+                assertTrue(
+                    text.contains("Verification: passed", ignoreCase = true) ||
+                        text.contains("Verification: limited", ignoreCase = true),
+                )
+                assertFalse(text.contains("Hello from LAIN_OS."))
+            }
+        }
     }
 
     @Test fun nativeBatteryProducesStructuredPassedResult() {
