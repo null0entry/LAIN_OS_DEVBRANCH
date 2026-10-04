@@ -262,7 +262,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "0502308ec412a86221f933f794fce13115a66ac2",
-    "next_action": "TASK-008 remains in progress. PR #22 merged as 6985cbb and current-main Verify #348 plus Android #337 passed. A recent owner-reported physical run says Create demo file and Copy demo text remain red while the other presets are green, but exact build identity and detailed failure receipts are not yet repository-native. Capture those two exact failure traces/build SHA before any fix, then diagnose under TDD; preserve the complete physical Galaxy gate."
+    "repo_head": "b546a98d114a52c1468ec4894c07790bb7ae7641",
+    "next_action": "TASK-008 remains in progress on PR #23. The deterministic Create demo file repeatability defect is fixed by bounded non-overwriting demo*.txt allocation; regression and packaged Android acceptance coverage were added. Whole-diff review found no blockers. Verify #352 and Android #341 are running and local tests were UNTESTED in this connector-only run. Copy demo text production behavior is unchanged because the owner-reported physical failure lacks an exact APK SHA and trace. After CI, install the exact artifact on the Galaxy device and capture fresh receipts for both presets."
   }
 }
