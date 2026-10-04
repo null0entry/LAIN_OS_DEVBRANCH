@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 48,
+  "nextId": 49,
   "states": [
     {
       "name": "Backlog",
@@ -289,10 +289,16 @@
         "title": "Define 1.0 release evidence manifest and provenance contract",
         "priority": "P1",
         "order": 41
+      },
+      {
+        "id": "TASK-048",
+        "title": "Close Phase-7 adversarial release matrix",
+        "priority": "P1",
+        "order": 42
       }
     ],
     "issue": 6,
-    "repo_head": "6b9824fa9070429e8282176e3fcbef172bd637e1",
-    "next_action": "PR #27 / TASK-011 is now mergeable on exact head 874c9b7 with Verify #409 and Android #398 green plus fresh clear review. Review and integrate TASK-011 if still clear; then advance stacked TASK-012 PR #28. TASK-047 is queued for Phase-7 release evidence."
+    "repo_head": "731ef9aeb457f7689e1664ed4b1d32290d7ea86e",
+    "next_action": "PR #27 / TASK-011 is mergeable on exact head 874c9b7 with Verify #409 and Android #398 green plus fresh clear review. Review and integrate TASK-011 if still clear; then advance stacked TASK-012 PR #28. TASK-048 is queued after TASK-047 for Phase-7 adversarial release evidence."
   }
 }
