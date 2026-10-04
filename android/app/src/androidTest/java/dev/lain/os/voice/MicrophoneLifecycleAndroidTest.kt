@@ -90,6 +90,29 @@ class MicrophoneLifecycleAndroidTest {
         }
     }
 
+    @Test fun permissionRevokedWhileBackgroundedIsReportedOnReturn() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val application = instrumentation.targetContext.applicationContext as Application
+        val engine = FakeEngine()
+        var granted = true
+        VoiceCaptureViewModel.engineFactory = { engine }
+        VoiceCaptureViewModel.permissionChecker = { granted }
+
+        instrumentation.runOnMainSync {
+            val model = VoiceCaptureViewModel(application)
+            assertTrue(model.start())
+            model.onActivityStop(changingConfigurations = false)
+            assertFalse(engine.recording)
+
+            granted = false
+            model.reconcilePermission()
+
+            assertEquals(MicrophoneStatus.FAILED, model.state.value!!.status)
+            assertEquals(MicrophoneFailure.PERMISSION_REVOKED, model.state.value!!.failure)
+            model.closeForTest()
+        }
+    }
+
     @Test fun visibleRecordingSurvivesRotationAndBackgroundReleasesCapture() {
         val engine = FakeEngine()
         VoiceCaptureViewModel.engineFactory = { engine }
