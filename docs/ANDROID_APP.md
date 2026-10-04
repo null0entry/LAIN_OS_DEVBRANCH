@@ -20,6 +20,11 @@ Termux, an external Python installation, a server, or a cloud account on the pho
 - Native adapters for the five existing expansion capabilities: battery,
   vibration, toast, clipboard write/private comparison, and confirmed share
   chooser. No receiver selection or generic clipboard read is exposed.
+- Explicit user-started microphone capture using bounded 16 kHz mono PCM16,
+  with a visible recording state. Rotation preserves truthful capture state;
+  ordinary backgrounding, permission loss, lifecycle teardown, capture failure,
+  and resource-limit failure release the microphone and discard buffered audio.
+  Raw microphone audio is not written to durable storage by this slice.
 - Native notification/URI operations and provider-backed planning remain
   unsupported in this interface. The portable CLI keeps its default adapters.
 
@@ -70,9 +75,12 @@ are redacted on the interface/history path; clipboard readback stays private.
 Data is scoped to the application's private `files/lain` directory. Checkpoints
 retain original supplied input and action payloads for trusted recovery, in private
 files, as the CLI does. History shows only fixed demo labels and structured results.
-Backups and cleartext traffic are disabled; no Internet/microphone/storage permission
-is requested by this offline slice. Uninstalling the application removes its
-private data through Android's normal behavior.
+Backups and cleartext traffic are disabled. Internet permission is used only by
+configured planner transports. `RECORD_AUDIO` is declared for voice input but capture
+is owner-started: the runtime permission flow begins only after tapping **Record
+voice**, and typed input remains available when permission is denied. No storage
+permission is requested. Uninstalling the application removes its private data
+through Android's normal behavior.
 
 Stop acknowledges the request while an operation already in flight may settle.
 It prevents further steps and records the actual outcome; it does not promise
@@ -115,8 +123,9 @@ python scripts/verify.py
 ```
 
 The current instrumentation set does not cover every physical-device failure
-contract. Foreign-application IPC rejection, in-flight rotation/rebind, clipboard
-restrictions, chooser behavior, stale approvals, backgrounding races, and measured
-Stop latency remain device acceptance work. Voice conversation, media workflows,
-provider integrations, and YouTube publishing are later product stages.
+contract. Foreign-application IPC rejection, clipboard restrictions, chooser behavior,
+stale approvals, backgrounding races, physical microphone behavior, and measured
+Stop latency remain device acceptance work. Voice turn management, speech playback,
+barge-in/echo handling, media workflows, provider integrations, and YouTube
+publishing are later product stages.
 
