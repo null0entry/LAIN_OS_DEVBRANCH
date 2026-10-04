@@ -2,7 +2,6 @@ package dev.lain.os.voice
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.media.AudioFormat
 import android.os.Bundle
 import android.os.Handler
@@ -32,15 +31,12 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     private var channels = 0
     private var pcm16 = false
     private var overflow = false
+    private val pendingVoiceCallbacks = mutableListOf<(List<LocalSpeechVoice>) -> Unit>()
 
     override val providerId: String = "android-on-device-tts"
     override val implementation: String
         get() = engine?.defaultEngine?.takeIf { it.isNotBlank() }
             ?: "android.speech.tts.TextToSpeech"
-
-    init {
-        main.post { ensureEngine() }
-    }
 
     fun hasService(): Boolean = try {
         app.packageManager.queryIntentServices(
@@ -70,6 +66,21 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
         }
     }
 
+    override fun prepareVoices(onReady: (List<LocalSpeechVoice>) -> Unit) {
+        main.post {
+            if (ready && engine != null) {
+                onReady(voices())
+                return@post
+            }
+            if (!hasService()) {
+                onReady(emptyList())
+                return@post
+            }
+            pendingVoiceCallbacks += onReady
+            ensureEngine()
+        }
+    }
+
     override fun synthesize(
         text: String,
         voice: LocalSpeechVoice,
@@ -88,6 +99,7 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     override fun stop() {
         synchronized(this) { generation += 1 }
         main.post {
+            pendingVoiceCallbacks.clear()
             try { engine?.stop() } catch (_: Exception) { }
             clearActive()
         }
@@ -96,6 +108,7 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     override fun close() {
         synchronized(this) { generation += 1 }
         main.post {
+            pendingVoiceCallbacks.clear()
             try { engine?.stop() } catch (_: Exception) { }
             clearActive()
             try { engine?.shutdown() } catch (_: Exception) { }
@@ -105,14 +118,35 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     }
 
     private fun ensureEngine() {
-        if (engine != null || !hasService()) return
+        if (engine != null) return
+        if (!hasService()) {
+            drainVoiceCallbacks(success = false)
+            return
+        }
         try {
             engine = TextToSpeech(app) { status ->
-                ready = status == TextToSpeech.SUCCESS
+                main.post {
+                    ready = status == TextToSpeech.SUCCESS && engine != null
+                    if (!ready) {
+                        try { engine?.shutdown() } catch (_: Exception) { }
+                        engine = null
+                    }
+                    drainVoiceCallbacks(success = ready)
+                }
             }
         } catch (_: Exception) {
             engine = null
             ready = false
+            drainVoiceCallbacks(success = false)
+        }
+    }
+
+    private fun drainVoiceCallbacks(success: Boolean) {
+        val callbacks = pendingVoiceCallbacks.toList()
+        pendingVoiceCallbacks.clear()
+        val available = if (success) voices() else emptyList()
+        callbacks.forEach { callback ->
+            try { callback(available) } catch (_: Exception) { }
         }
     }
 
