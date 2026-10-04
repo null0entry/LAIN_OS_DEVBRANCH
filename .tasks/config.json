@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 46,
+  "nextId": 47,
   "states": [
     {
       "name": "Backlog",
@@ -277,10 +277,16 @@
         "title": "Reconcile uncertain YouTube upload and publication effects",
         "priority": "P1",
         "order": 39
+      },
+      {
+        "id": "TASK-046",
+        "title": "Close Phase-6 YouTube live acceptance gate",
+        "priority": "P1",
+        "order": 40
       }
     ],
     "issue": 6,
-    "repo_head": "df846918e13134461470d27e0a171420ba23d585",
-    "next_action": "TASK-009 integrated through PR #25 and merged as 414bcce after Verify #371 and Android #360 passed. TASK-010 is now In Progress: implement explicit user-started Android microphone capture with permission handling, visible truthful state, bounded in-memory audio, deterministic release on Stop/lifecycle teardown, fail-closed background/revocation behavior, and no raw-audio persistence."
+    "repo_head": "8c865b92627a7a6b6d357545da9582872983b7dd",
+    "next_action": "TASK-010 is implementation-ready on PR #26 with exact-head Verify #386 and Android #375 green; review/merge under current run authority, then integrate stacked TASK-011 PR #27 and continue TASK-012. TASK-046 is queued after TASK-039 through TASK-045."
   }
 }
