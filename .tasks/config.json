@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 58,
+  "nextId": 59,
   "states": [
     {
       "name": "Backlog",
@@ -349,10 +349,16 @@
         "title": "Verify installed release upgrade and state-migration boundary",
         "priority": "P1",
         "order": 51
+      },
+      {
+        "id": "TASK-058",
+        "title": "Define 1.0 app-data backup and export boundary",
+        "priority": "P1",
+        "order": 52
       }
     ],
     "issue": 6,
-    "repo_head": "d39a585453415627d417abf90ca3322c992cd6e3",
-    "next_action": "TASK-050 is In Progress after TASK-012 / PR #28 merged green. Implement the bounded on-device speech adapter before TASK-013. Release-path tasks remain dependency-blocked behind phase completion."
+    "repo_head": "dd408146ad64807457569ddb1c198420e09cbc8d",
+    "next_action": "TASK-050 / PR #29 remains the active Phase-2 path: complete exact-head review and the safe captured-PCM STT boundary, then merge only with fresh green CI and mergeability. TASK-058 is release-path work before TASK-048/TASK-052/TASK-051."
   }
 }
