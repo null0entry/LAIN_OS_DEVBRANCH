@@ -1,5 +1,69 @@
 # Next
 
+## TASK-043: Require exact YouTube publication approval
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, approval, publication, authorization, security
+
+### Goal
+Create a single-use, expiring approval boundary that authorizes publication only for the exact independently processed YouTube video and immutable upload intent selected by the owner, without allowing changed metadata, visibility, destination, artifact, or policy state to inherit earlier consent.
+
+### Scope
+- Define a narrow publication-approval record bound to the exact provider video ID, TASK-040 intent, artifact hash, destination channel, title, description, target visibility, authorization profile, workflow/policy revision, nonce, and expiry.
+- Present the complete publication payload and current independently verified TASK-042 processing evidence for explicit owner confirmation.
+- Issue approval only after the video is processing-succeeded and all bound identities match current trusted state.
+- Consume approval atomically at the later publication attempt; reject reuse, expiry, cancellation, revision drift, metadata changes, destination/profile substitution, or visibility broadening.
+- Persist request, grant/denial, consumption, invalidation, and redacted audit evidence without credentials or generic authenticated API authority.
+- Do not implement the publication side effect, upload/re-upload, deletion, metadata mutation, scheduling, or generic YouTube access.
+
+### Dependencies
+- TASK-018, TASK-020, TASK-022, and TASK-023: immutable artifact identity, revision invalidation, effect reconciliation, and aggregate budgets.
+- TASK-038 through TASK-042: disclosure, YouTube identity, immutable intent, staged upload, and independent processing verification.
+- Current repository approval/policy/audit primitives; extend shared interfaces only where the exact binding cannot be represented safely.
+
+### Plan
+- Specify the versioned approval-request/grant/consumption state model and canonical payload digest.
+- Build the trusted UI boundary that displays every approval-bound field and authoritative processing evidence.
+- Generate a cryptographically strong nonce, bounded expiry, and single-use durable grant tied to the current workflow/policy revision.
+- Validate the entire binding immediately before grant and again before consumption; fail closed on any drift.
+- Integrate cancellation, restart, stale-revision invalidation, duplicate-submit protection, and redacted audit receipts.
+- Add deterministic state-machine, lifecycle, substitution, replay, and Android UI tests.
+
+### Acceptance
+- Publication cannot be authorized until TASK-042 independently records processing-succeeded for the exact private/unlisted video.
+- The confirmation surface shows exact video ID, artifact hash, channel, title, description, current and target visibility, profile, revision, nonce context, and expiry.
+- A vague or earlier instruction such as “post it” cannot authorize a later or changed payload.
+- Any bound-field change, stale revision, expired nonce, cancellation, denial, duplicate consumption, missing processing evidence, or mismatched identity yields explicit non-authorization.
+- One grant can authorize at most one exact future publication attempt and grants no upload, deletion, arbitrary metadata mutation, or generic HTTP authority.
+- Restart preserves valid unexpired grants and consumed/invalidated state without resetting expiry or enabling replay.
+- Secrets remain absent from approval payloads, durable workflow state, audit, logs, IPC, and exported settings.
+
+### Verification
+- Canonical payload serialization/digest and round-trip tests.
+- Exact-field substitution matrix covering video, artifact, intent, channel, title, description, visibility, profile, workflow, policy revision, nonce, and expiry.
+- Grant/deny/cancel/expire/consume/replay/restart/crash-boundary state-machine tests.
+- Missing, pending, failed, stale, or regressed TASK-042 processing evidence negatives.
+- Concurrent duplicate approval/consumption and stale UI submission tests.
+- Android UI assertions that the complete exact payload is visible before confirmation and changed state forces re-approval.
+- Secret-leak scans, canonical verification, Android matrix, and architecture/security/privacy review.
+- Live publication remains UNVERIFIED and out of scope unless separately authorized and executed.
+
+### Expected result
+LAIN_OS can obtain one durable, auditable, single-use approval for one exact processed video publication payload, ensuring later publication code cannot reuse vague consent or silently change what, where, or how it publishes.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` R6.5 explicitly binds approval to video ID, artifact hash, destination channel, title, description, visibility, policy revision, nonce, and expiry.
+- The roadmap states that a generic earlier phrase such as “post it” does not authorize a later changed payload.
+- TASK-039 through TASK-042 represent authorization, intent, staging upload, and processing verification; no current TaskPlanner task or open PR represents exact publication approval.
+
+### Projection basis
+- R6.6 publication must consume explicit exact authority; defining this boundary first prevents publication transport from inventing weaker consent semantics.
+- Durable single-use approval also supplies the identity required by R6.7 uncertain-write and duplicate-publication reconciliation.
+
+### Risks / unknowns
+- Existing approval records may not bind all metadata, expiry, nonce, revision, and provider identity fields; any extension must remain capability-agnostic where practical.
+- Title/description normalization and Unicode rendering must be identical between displayed, hashed, and executed payloads.
+- Clock rollback, process death, concurrent UI actions, and delayed provider state changes must not extend or replay authority.
+- Live owner-account approval and publication evidence remain separate from deterministic fixtures.
+
 ## TASK-042: Verify YouTube processing status independently
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-6, youtube, processing, verification, polling, provenance
 
