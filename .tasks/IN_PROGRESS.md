@@ -1,75 +1,72 @@
 # In Progress
 
-## TASK-008: Close Phase-1 planner acceptance and adversarial gate
-**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-1, acceptance, adversarial
-**Updated:** 2026-10-03
+## TASK-009: Define bounded speech provider interfaces
+**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, provider-contract
+**Updated:** 2026-10-04
 
 ### Goal
 
-Prove the installed Android planner runtime is safe, durable, and truthful across Demo, Cloud, and Local modes before Voice Conversation work begins.
+Establish the provider-neutral speech contracts that Phase 2 can build on without coupling Android microphone/playback lifecycle or trusted task authority to any specific STT/TTS vendor.
 
 ### Scope
 
-- Add end-to-end acceptance coverage spanning profile persistence, native transport, runtime bridge, settings selection, and trusted execution.
-- Exercise Cloud and Local happy paths through the installed Android GUI/runtime using controlled test endpoints or injected equivalents appropriate to each layer.
-- Cover DNS/unreachable, refused connection, TLS, 401/403, model/404, timeout/408, 429, 5xx, cancellation, oversized response, malformed JSON, schema-invalid model output, unknown capability, provider outage during session, local endpoint loss, missing credential, and no-cloud-fallback behavior.
-- Verify restart/profile persistence and exact session pinning.
-- Verify provider credentials are absent from profile files, Python checkpoints, Binder/IPC responses, audit, logs, crash-facing diagnostics, and exported settings.
-- Preserve the existing trust boundary: model output must still traverse trusted validation, policy, approval, execution, verification, and audit.
+- Define bounded transcription request/result and synthesis request/result contracts.
+- Include provider identity/provenance, explicit timeout/cancellation semantics, media format metadata, and bounded payload/duration fields needed by later Android adapters.
+- Keep speech providers outside capability authorization, policy, approval, execution, verification, audit, and durable workflow authority.
+- Preserve typed text as a complete fallback path.
+- Define failure categories sufficient for unavailable provider, timeout, cancellation, malformed response, unsupported media, and bounded-resource rejection.
+- Do not implement microphone capture, playback, provider SDKs, or vendor credentials in this task.
 
 ### Dependencies
 
-- TASK-005 complete: persistent PlannerProfile selection.
-- TASK-006 complete: profile-selected planner runtime bridge.
-- TASK-007 complete: Planner Settings and inert connection diagnostics.
-- TASK-003 integrated: bounded native planner transport.
+- TASK-008 complete: Phase-1 planner acceptance/adversarial gate.
+- Existing trusted session/controller contracts must remain authoritative.
+- Existing secret-handling boundary remains unchanged for any future provider credential references.
 
 ### Plan
 
-- Inventory the integrated Phase-1 GUI/runtime/transport acceptance already covered and map only the missing adversarial cases.
-
-- Build the smallest acceptance harness around the integrated Phase-1 implementation.
-- Reuse existing deterministic fakes/emulator infrastructure where they truthfully exercise failure contracts; use Android instrumentation for platform/runtime behavior that JVM tests cannot establish.
-- Add explicit negative assertions for secret leakage, fabricated completion, capability-authority bypass, and Local-to-Cloud fallback.
-- Run canonical portable verification plus the Android API matrix.
-- Record any physical-device-only acceptance debt separately; do not promote emulator evidence to hardware evidence.
+- Inventory existing voice/speech references and reusable cancellation/error patterns.
+- Define the smallest provider-neutral speech request/result interfaces and error model.
+- Specify cancellation/timeout ownership and provenance fields without granting provider-side execution authority.
+- Add deterministic contract tests for valid, malformed, cancelled, timed-out, and oversized inputs/results.
+- Document the seam expected by later Android microphone lifecycle and playback tasks without pre-implementing those layers.
 
 ### Acceptance
 
-- Installed GUI can select Demo, Cloud, or Local planner mode and complete a typed natural-language request through the existing trusted action pipeline.
-- Cloud and Local success paths produce validated planner decisions without changing authority semantics.
-- Every required transport/provider failure maps to an explicit non-success state.
-- Invalid or malicious planner output cannot execute an unknown/unauthorized capability.
-- Provider outage or endpoint loss cannot fabricate progress or completion.
-- Local mode never silently falls back to Cloud.
-- Restart preserves profile selection and active sessions remain pinned to their original planner identity.
-- Secret scan/inspection finds no raw provider credential in durable or returned LAIN artifacts.
-- Existing canonical verification and Android emulator gates remain green or any failure is persisted as an explicit blocker.
+- Transcription and synthesis each have explicit provider-neutral request/result contracts.
+- Contracts carry enough format/provenance metadata for later Android adapters without embedding vendor-specific fields.
+- Cancellation and timeout produce explicit non-success outcomes.
+- Oversized or malformed provider data fails closed.
+- Speech provider output cannot authorize capabilities, approve consequential actions, or mutate durable task state directly.
+- Typed interaction remains independent of speech-provider availability.
+- No raw provider credential is introduced into speech request/result payloads or durable artifacts.
 
 ### Verification
 
-- Focused planner acceptance/adversarial test suite.
-- Canonical `python scripts/verify.py`.
-- Android build/lint/unit/instrumentation on supported API matrix.
-- Fresh secret-leak scan of relevant persisted/runtime surfaces.
-- Fresh whole-diff review before integration.
-- Physical-device-only claims remain UNVERIFIED unless actually exercised on hardware.
+- Focused unit tests for request/result validation, bounds, cancellation, timeout, and malformed provider data.
+- Static inspection confirming no capability/policy/executor authority is exposed through the speech interface.
+- Canonical portable verification after implementation.
+- Android build remains a downstream verification requirement when the interface is wired into platform adapters.
 
 ### Expected result
 
-Phase 1 has a reproducible acceptance gate demonstrating that real selectable planner intelligence works end to end without bypassing LAIN's local authority, secrecy, recovery, cancellation, or verification guarantees.
+Phase 2 has a stable, bounded speech-provider seam that can support replaceable STT/TTS adapters while preserving LAIN_OS authority boundaries and allowing microphone, turn-management, and playback work to proceed independently.
 
-### Evidence / projection basis
+### Evidence basis
 
-- Current TaskPlanner covers R1.2/R1.5/R1.6 as TASK-005/006/007, but no task represents R1.7/P2-07.
-- `docs/ROADMAP_1.0.md` explicitly requires a Planner acceptance and adversarial suite before Phase 1 exits.
-- `docs/PLUGGABLE_MODEL_RUNTIME.md` defines P2-07 as end-to-end Android acceptance around planner modes and provider failures.
-- Voice Conversation is sequenced after a stable planner phase, so this gate prevents carrying unresolved model-runtime trust defects into the next public interface.
+- `docs/ROADMAP_1.0.md` defines Phase 2 Voice Conversation and explicitly lists R2.1 Speech provider interfaces as the first work package.
+- The 1.0 dependency graph sequences Phase 2 after the Phase-1 planner runtime gate.
+- No current TaskPlanner task, open issue, or open PR represents R2.1.
+
+### Projection basis
+
+- Stabilizing speech request/result, cancellation, timeout, provenance, and failure contracts before microphone/playback integration reduces cross-module churn across R2.2-R2.6.
+- This interface is a necessary dependency seam for replaceable speech providers and the voice-first 1.0 release outcome.
 
 ### Risks / unknowns
 
-- Some network/provider failure cases may require deterministic injected transports rather than live external services for reproducibility.
-- Physical-device acceptance is distinct from emulator/instrumentation evidence and must remain labeled separately.
-- If TASK-005/006/007 alter public seams, this task should adapt to the integrated contracts rather than freeze speculative test APIs.
+- Concrete codec/container choices may need adjustment when Android capture/playback constraints are implemented; keep the initial interface minimal and extensible rather than provider-specific.
+- Streaming/partial-transcript support may require a later compatible extension; do not over-specify it before turn-manager requirements are implemented.
+- Provider credential storage/selection may share later settings infrastructure, but this task must not invent that UI or persistence prematurely.
 
 ---

@@ -1,5 +1,18 @@
 # Done
 
+## TASK-008: Close Phase-1 planner acceptance and adversarial gate
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-1, acceptance, adversarial
+**Updated:** 2026-10-04
+
+### Done summary
+
+- Phase-1 planner acceptance/adversarial implementation is integrated through PR #24, including repeatable demo-file behavior and packaged Android file/clipboard acceptance coverage.
+- Exact PR #24 head `f05a9317dfea53a98d8ee4ecee4963cb4250b19a` passed Verify #365 and Android #354.
+- On 2026-10-04 the owner reported the required physical TASK-008 acceptance matrix complete with all tests green. This records owner-provided hardware acceptance; the GitHub connector did not independently observe the physical-device traces.
+- Phase 1 is accepted complete and TASK-009 is promoted to begin Phase 2 Voice Conversation.
+
+---
+
 ## TASK-007: Build Planner Settings and inert connection diagnostics
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-1, android-ui
 **Updated:** 2026-10-03

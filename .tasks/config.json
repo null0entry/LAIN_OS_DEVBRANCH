@@ -281,6 +281,6 @@
     ],
     "issue": 6,
     "repo_head": "df846918e13134461470d27e0a171420ba23d585",
-    "next_action": "TASK-008 implementation PR #24 merged as df846918 after fresh review #5404560915 and exact-head Verify #365 plus Android #354 passed. Keep TASK-008 In Progress: install the exact integrated artifact on the Galaxy device and capture complete action/session/execution/verification/error receipts for Create demo file and Copy demo text, then run the full six-preset physical matrix. Clipboard production behavior remains unchanged pending a reproducible defect trace."
+    "next_action": "TASK-008 closed on 2026-10-04 after exact PR #24 head f05a931 passed Verify #365 and Android #354 plus owner-reported completion of the required physical acceptance matrix with all tests green. TASK-009 is now In Progress: define bounded provider-neutral transcription/synthesis request-result contracts, cancellation/timeout/error semantics, provenance, and deterministic contract tests without granting speech providers capability authority."
   }
 }

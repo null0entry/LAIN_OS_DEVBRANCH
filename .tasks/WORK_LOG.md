@@ -1,5 +1,8 @@
 # Work Log
 
+## 2026-10-04 — TASK-008
+PR #24 exact head `f05a9317dfea53a98d8ee4ecee4963cb4250b19a` passed Verify #365 and Android #354. Owner then reported the required physical TASK-008 acceptance matrix complete with all tests green. Hardware completion is recorded as owner-provided evidence rather than connector-observed traces. TASK-008 moved to Done and TASK-009 was promoted to In Progress.
+
 ## 2026-10-03 — TASK-007
 PR #12 head `8ce8a99a720cc5f9dfc0e6310fd29bcf4ce58f3f` passed Verify #230 and Android #219 after a targeted rerun of one unrelated API-24 RuntimeFlow timing failure. API 24/API 35 build, JVM tests, lint, and instrumentation were green; final review `5401183419` found no actionable blocker. PR #12 squash-merged as `be4e1d273e05784beeb5783c811d19d40a8a1930`. Physical-device acceptance remains unverified.
 
