@@ -11,7 +11,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Test
 import org.junit.Assert.*
 import org.junit.runner.RunWith
-import org.hamcrest.Matchers.allOf
 
 /** History persists across launches and test methods, as it does for the owner. */
 @RunWith(AndroidJUnit4::class)
@@ -56,7 +55,14 @@ class WorkbenchTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             awaitReady(scenario)
             val before = sessions(scenario)
-            onView(allOf(withText("Show battery"), isDescendantOfA(withId(R.id.demo_commands)))).perform(click())
+            scenario.onActivity { activity ->
+                val commands = activity.findViewById<android.widget.LinearLayout>(R.id.demo_commands)
+                val choice = (0 until commands.childCount)
+                    .map { commands.getChildAt(it) }
+                    .filterIsInstance<TextView>()
+                    .first { it.text.toString() == "Show battery" }
+                assertTrue(choice.performClick())
+            }
             onView(withId(R.id.command_input)).check(matches(withText("Show battery")))
             assertEquals(before, sessions(scenario))
         }
