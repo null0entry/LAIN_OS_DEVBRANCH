@@ -11,6 +11,16 @@
     <string name="demo_notice">Planner selection is pinned when a task starts. Changing it affects future tasks only.</string>
     <string name="command_hint">Describe a task…</string>
     <string name="run">Run task</string>
+    <string name="voice_record">Record voice</string>
+    <string name="voice_stop">Stop voice</string>
+    <string name="voice_idle">Voice input ready · microphone is off</string>
+    <string name="voice_recording">● Recording · tap Stop voice to finish</string>
+    <string name="voice_permission_required">Microphone permission required. Typed input still works.</string>
+    <string name="voice_permission_denied">Microphone permission denied. Typed input still works.</string>
+    <string name="voice_permission_revoked">Microphone permission was revoked; recording stopped.</string>
+    <string name="voice_capture_failed">Microphone capture failed; recording stopped.</string>
+    <string name="voice_resource_limit">Voice capture reached its bounded limit and was discarded.</string>
+    <string name="voice_captured">Captured %1$d ms · raw audio not retained</string>
     <string name="stop">Stop task</string>
     <string name="resume">Resume interrupted task</string>
     <string name="task_heading">CURRENT TASK</string>
