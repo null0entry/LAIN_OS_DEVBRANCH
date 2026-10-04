@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 61,
+  "nextId": 62,
   "states": [
     {
       "name": "Backlog",
@@ -367,10 +367,16 @@
         "title": "Establish 1.0 performance and resource acceptance evidence",
         "priority": "P1",
         "order": 54
+      },
+      {
+        "id": "TASK-061",
+        "title": "Implement bounded visual-planning workflow stage",
+        "priority": "P1",
+        "order": 55
       }
     ],
     "issue": 6,
-    "repo_head": "14c5d059edec5113e6eba9b9cd76a86a7a6e210d",
-    "next_action": "Finish TASK-050 / PR #29 captured-PCM STT safety boundary and exact-head Android gate; then TASK-013. Phase-7 performance evidence: TASK-015/TASK-024/TASK-031/TASK-036 + TASK-047/TASK-049 -> TASK-060 -> TASK-048/TASK-051."
+    "repo_head": "f72d51a96ec8f7ec8d3f1de5fdfd68a8bbddf516",
+    "next_action": "Diagnose and finish TASK-050 / PR #29 first. After durable Phase-3 foundation and TASK-056, implement TASK-061 visual planning before TASK-059 visual assets and TASK-027 timeline."
   }
 }
