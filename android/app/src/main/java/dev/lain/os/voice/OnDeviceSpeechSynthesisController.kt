@@ -43,6 +43,7 @@ interface LocalSpeechSynthesisBackend {
     val providerId: String
     val implementation: String
     fun voices(): List<LocalSpeechVoice>
+    fun prepareVoices(onReady: (List<LocalSpeechVoice>) -> Unit) = onReady(voices())
     fun synthesize(
         text: String,
         voice: LocalSpeechVoice,
@@ -83,21 +84,36 @@ class OnDeviceSpeechSynthesisController(
             return
         }
 
+        publish(LocalSynthesisState(LocalSynthesisStatus.SYNTHESIZING))
+        try {
+            backend.prepareVoices { voices -> beginSynthesis(token, text, voices) }
+        } catch (_: Exception) {
+            fail(token, LocalSynthesisFailure.SYNTHESIS_FAILED)
+        }
+    }
+
+    @Synchronized
+    private fun beginSynthesis(
+        token: Long,
+        text: String,
+        voices: List<LocalSpeechVoice>,
+    ) {
+        if (token != generation || state.status != LocalSynthesisStatus.SYNTHESIZING) return
         val voice = try {
-            backend.voices()
-                .asSequence()
-                .filter { it.installed && !it.requiresNetwork && it.id.isNotBlank() && it.engineId.isNotBlank() }
+            voices.asSequence()
+                .filter {
+                    it.installed && !it.requiresNetwork &&
+                        it.id.isNotBlank() && it.engineId.isNotBlank()
+                }
                 .sortedBy { it.id }
                 .firstOrNull()
         } catch (_: Exception) {
             null
         }
         if (voice == null) {
-            publish(LocalSynthesisState(LocalSynthesisStatus.FAILED, LocalSynthesisFailure.PROVIDER_UNAVAILABLE))
+            fail(token, LocalSynthesisFailure.PROVIDER_UNAVAILABLE)
             return
         }
-
-        publish(LocalSynthesisState(LocalSynthesisStatus.SYNTHESIZING))
         try {
             backend.synthesize(
                 text = text,
