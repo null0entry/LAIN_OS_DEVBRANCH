@@ -24,6 +24,10 @@ import dev.lain.os.voice.MicrophoneFailure
 import dev.lain.os.voice.MicrophoneState
 import dev.lain.os.voice.MicrophoneStatus
 import dev.lain.os.voice.PlaybackFailure
+import dev.lain.os.voice.SpeechAdapterFailure
+import dev.lain.os.voice.SpeechInputState
+import dev.lain.os.voice.SpeechInputStatus
+import dev.lain.os.voice.SpeechSynthesisUiState
 import dev.lain.os.voice.PlaybackState
 import dev.lain.os.voice.PlaybackStatus
 import dev.lain.os.voice.PlaybackStopReason
@@ -80,7 +84,9 @@ class MainActivity : AppCompatActivity() {
         }
         model.state.observe(this) { render(it) }
         voice.state.observe(this) { renderVoice(it) }
+        voice.speechState.observe(this) { renderSpeechInput(it) }
         playback.state.observe(this) { renderPlayback(it) }
+        playback.synthesisState.observe(this) { renderSynthesis(it) }
     }
 
     override fun onStart() { super.onStart(); model.attach() }
@@ -107,6 +113,10 @@ class MainActivity : AppCompatActivity() {
         ui.reconnectButton.visibility = if (!state.connected || state.startupFailed) View.VISIBLE else View.GONE
         ui.message.text = state.message
         ui.runButton.isEnabled = state.ready && !state.pending && !active && !recovery
+        val recording = voice.state.value?.status == MicrophoneStatus.RECORDING
+        val transcribing = voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
+        ui.voiceRecordButton.isEnabled = recording ||
+            (state.ready && !state.pending && !active && !recovery && !transcribing)
         ui.stopButton.isEnabled = state.connected && (active || recovery)
         ui.commandInput.isEnabled = !state.pending && !active
         for (i in 0 until ui.demoCommands.childCount) ui.demoCommands.getChildAt(i).isEnabled = !active && !state.pending
@@ -178,10 +188,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun renderSpeechInput(state: SpeechInputState) {
+        ui.voiceStatus.text = when (state.status) {
+            SpeechInputStatus.IDLE -> {
+                val microphone = voice.state.value ?: MicrophoneState()
+                when (microphone.status) {
+                    MicrophoneStatus.IDLE -> microphone.lastCaptureDurationMs?.let {
+                        getString(R.string.voice_captured, it)
+                    } ?: getString(R.string.voice_idle)
+                    MicrophoneStatus.PERMISSION_REQUIRED -> getString(R.string.voice_permission_required)
+                    MicrophoneStatus.RECORDING -> getString(R.string.voice_recording)
+                    MicrophoneStatus.FAILED -> getString(R.string.voice_capture_failed)
+                }
+            }
+            SpeechInputStatus.TRANSCRIBING -> getString(R.string.voice_transcribing)
+            SpeechInputStatus.FAILED -> getString(
+                if (state.result?.failure == SpeechAdapterFailure.PROVIDER_UNAVAILABLE) {
+                    R.string.voice_transcription_unavailable
+                } else {
+                    R.string.voice_transcription_failed
+                }
+            )
+            SpeechInputStatus.READY -> getString(R.string.voice_transcription_ready)
+        }
+        if (state.status == SpeechInputStatus.READY) {
+            val text = state.result?.text
+            if (text != null && model.submitSpeech(text)) voice.consumeFinalTranscript()
+        }
+    }
+
+    private fun renderSynthesis(state: SpeechSynthesisUiState) {
+        if (state.active) {
+            ui.playbackStatus.text = getString(R.string.playback_synthesizing)
+        } else if (state.failure != null && state.failure != SpeechAdapterFailure.CANCELLED) {
+            ui.playbackStatus.text = getString(
+                if (state.failure == SpeechAdapterFailure.PROVIDER_UNAVAILABLE) {
+                    R.string.playback_synthesis_unavailable
+                } else {
+                    R.string.playback_failed
+                }
+            )
+        } else {
+            renderPlayback(playback.state.value ?: PlaybackState())
+        }
+        updateStopTalkingEnabled()
+    }
+
     private fun renderPlayback(state: PlaybackState) {
         val active = state.status == PlaybackStatus.PLAYING ||
             state.status == PlaybackStatus.DUCKED
-        ui.stopTalkingButton.isEnabled = active
+        updateStopTalkingEnabled()
+        if (playback.synthesisState.value?.active == true) return
         ui.playbackStatus.text = when (state.status) {
             PlaybackStatus.PLAYING -> getString(R.string.playback_speaking)
             PlaybackStatus.DUCKED -> getString(R.string.playback_ducked)
@@ -189,6 +246,7 @@ class MainActivity : AppCompatActivity() {
                 when (state.failure) {
                     PlaybackFailure.AUDIO_FOCUS_DENIED -> R.string.playback_focus_denied
                     PlaybackFailure.UNSUPPORTED_MEDIA -> R.string.playback_unsupported
+                    PlaybackFailure.SYNTHESIS_UNAVAILABLE -> R.string.playback_synthesis_unavailable
                     else -> R.string.playback_failed
                 }
             )
@@ -202,6 +260,13 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
+    }
+
+    private fun updateStopTalkingEnabled() {
+        val playbackActive = playback.state.value?.status in
+            setOf(PlaybackStatus.PLAYING, PlaybackStatus.DUCKED)
+        val synthesisActive = playback.synthesisState.value?.active == true
+        ui.stopTalkingButton.isEnabled = playbackActive || synthesisActive
     }
 
     private fun resultText(value: String) = TextView(this).apply {

@@ -17,6 +17,8 @@ enum class PlaybackStatus {
 enum class PlaybackFailure {
     AUDIO_FOCUS_DENIED,
     UNSUPPORTED_MEDIA,
+    SYNTHESIS_UNAVAILABLE,
+    SYNTHESIS_FAILED,
     PLAYBACK_FAILED,
 }
 
