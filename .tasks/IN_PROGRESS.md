@@ -1,75 +1,74 @@
 # In Progress
 
-## TASK-010: Implement Android microphone lifecycle
-**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, android-audio
+## TASK-011: Implement bounded voice turn manager
+**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, conversation
 **Updated:** 2026-10-04
+**Integration:** PR #27 retargeted to `main`; branch is currently non-mergeable after TASK-010 squash integration and requires conflict reconciliation.
 
 ### Goal
 
-Add the bounded Android microphone lifecycle required for user-started voice sessions, with explicit permission, visible recording state, cancellation, and rotation/background safety while preserving typed input as a complete fallback.
+Add the durable conversation-turn coordination layer that converts final transcripts or typed revisions into ordered task-facing turns without allowing partial speech or ambiguous references to authorize consequential work.
 
 ### Scope
 
-- Implement microphone permission request/revocation handling for explicit user-started capture only.
-- Add start/stop capture lifecycle with visible recording state.
-- Define bounded audio capture ownership and cleanup across activity/service lifecycle transitions.
-- Handle rotation, rebind, foreground/background transitions, and permission revocation without leaving hidden capture active.
-- Produce bounded audio input suitable for the TASK-009 transcription interface without embedding provider-specific logic.
-- Default to no raw audio retention beyond the active bounded request unless an explicit later feature requires durable audio.
-- Do not implement speech provider SDKs, turn management, playback, barge-in, or always-listening/wake-word behavior.
+- Assign monotonic turn IDs for each accepted user turn.
+- Keep partial/interim transcripts separate from final accepted transcripts.
+- Track an explicit active-task reference for conversational follow-ups.
+- Route clear revisions to the referenced task/workflow without mutating already-approved consequential payloads in place.
+- Surface ambiguous referents as a clarification-required state rather than guessing.
+- Preserve typed input as an equivalent complete turn source.
+- Do not implement microphone capture, speech playback, barge-in, workflow DAG semantics, or provider-specific speech logic in this task.
 
 ### Dependencies
 
 - TASK-009 complete: bounded speech provider interfaces.
-- Existing Android runtime/service lifecycle and Stop/rebind patterns.
-- Existing permission and UI-state conventions where reusable.
+- TASK-010 complete: Android microphone lifecycle producing final/partial capture results.
+- Existing durable agent-session identifiers and approval semantics remain authoritative.
 
 ### Plan
 
-- Inventory current Activity/RuntimeService lifecycle and permission patterns.
-- Add the smallest microphone capture controller/state model with explicit start/stop ownership.
-- Route capture output only through the provider-neutral transcription seam.
-- Make rotation/rebind/background/revocation transitions fail closed and release microphone resources deterministically.
-- Add focused JVM/instrumentation coverage for permission, lifecycle, and no-hidden-capture invariants.
+- Define the smallest turn record/state model with monotonic IDs and explicit source/finality fields.
+- Add active-task reference tracking without duplicating durable workflow authority.
+- Route only final accepted turns into task/planner input; partial transcripts remain non-authoritative UI state.
+- Add explicit ambiguous-reference and revision-routing outcomes.
+- Add deterministic tests for turn ordering, partial/final separation, active-task reference, ambiguity, and revision routing.
 
 ### Acceptance
 
-- Recording starts only after an explicit user action and granted microphone permission.
-- Recording state is visibly surfaced while capture is active.
-- Stop releases microphone resources and prevents further audio delivery after cancellation settles.
-- Rotation/rebind preserves truthful visible state or terminates capture cleanly according to the chosen lifecycle contract.
-- Permission revocation terminates capture and surfaces a recoverable non-success state.
-- Background transitions cannot create a hidden always-listening state.
-- Captured audio is bounded and not durably retained by default.
-- Typed interaction remains fully usable when microphone permission is denied or capture fails.
+- Accepted turns receive strictly monotonic IDs.
+- Partial transcripts cannot start work, grant approval, or alter durable task state.
+- Final transcripts and typed messages enter the same bounded turn pipeline.
+- Follow-up references resolve only when an active target is unambiguous.
+- Ambiguous referents require clarification and execute nothing.
+- Revision routing preserves prior approvals/effects and creates a new revision intent rather than silently mutating an approved consequential payload.
+- Turn state contains no raw provider credential or hidden capability authority.
 
 ### Verification
 
-- Focused microphone controller/state tests.
-- Android instrumentation for permission denied/granted/revoked, start/stop, rotation/rebind, and background transitions.
-- Resource-release assertions after cancellation and lifecycle teardown.
-- Negative inspection proving no default raw-audio persistence.
-- Canonical Android build/lint/instrumentation gates after implementation.
+- Focused unit tests for ordering, finality, reference resolution, ambiguity, and revisions.
+- Negative tests proving partial transcripts and ambiguous turns cannot trigger planner/executor work.
+- Regression proving typed input follows the same turn contract.
+- Canonical portable verification and Android integration checks after platform wiring.
 
 ### Expected result
 
-LAIN_OS can explicitly capture bounded user speech on Android and hand it to the provider-neutral transcription layer without hidden listening, lifecycle leaks, or coupling microphone state to provider or capability authority.
+LAIN_OS has a deterministic conversation-turn boundary that later playback, barge-in, and workflow features can consume without conflating speech fragments with authoritative user intent.
 
 ### Evidence basis
 
-- `docs/ROADMAP_1.0.md` defines R2.2 Android microphone lifecycle immediately after R2.1 speech provider interfaces.
-- The Phase-2 feature list requires user-started microphone sessions, visible recording state, permission/revocation handling, background/rotation behavior, typed fallback, and no raw audio retention by default.
-- No current TaskPlanner task, open issue, or open PR represents R2.2.
+- `docs/ROADMAP_1.0.md` defines R2.3 Turn manager with monotonic turn IDs, final-vs-partial transcript separation, active-task reference, ambiguous referent clarification, and revision routing.
+- No current TaskPlanner task, open issue, or open PR represents R2.3.
 
 ### Projection basis
 
-- Stabilizing microphone ownership and lifecycle before turn management and playback prevents later voice features from inheriting hidden-capture, permission, or rotation defects.
-- R2.2 is a direct dependency for R2.3 turn management and the Phase-2 installed voice-session exit gate.
+- A stable turn boundary is required before speech playback/barge-in can safely distinguish conversational interruption from task cancellation or authorization.
+- Explicit finality and reference semantics prevent later voice features from treating low-confidence/partial speech as consequential intent.
 
 ### Risks / unknowns
 
-- Exact Android audio API choice may depend on latency and device support; prefer the smallest platform primitive that satisfies lifecycle/cancellation requirements.
-- Background behavior may require a deliberate foreground-service policy; do not broaden scope unless existing Android constraints make it necessary.
-- Physical-device latency and OEM microphone behavior remain separate acceptance evidence from emulator instrumentation.
+- Full workflow revision invalidation belongs to Phase 3; this task should expose revision intent/reference only, not pre-build the DAG scheduler.
+- Multi-workflow targeting is beyond the current single-active-workflow 1.0 scope and should not broaden this contract.
+- Low-confidence STT scoring may be provider-specific later; this task should depend on explicit finality/clarification semantics rather than a hard-coded confidence model.
 
 ---
+
