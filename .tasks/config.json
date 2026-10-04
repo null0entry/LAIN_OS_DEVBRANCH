@@ -274,7 +274,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "836c750f776794938328fb2f3dc317992bfdeb98",
-    "next_action": "TASK-008 remains in progress on PR #23. Verify #353 and the retried Android #342 are green at head 4b46d6c with no open review threads. Perform fresh post-retry whole-diff review; merge only if the head remains unchanged and no independent blocker appears. Then install the exact integrated artifact and capture physical Create demo file and Copy demo text receipts."
+    "repo_head": "8c538507f46c67734f4f72335516d830fb077098",
+    "next_action": "TASK-008 remains in progress on clean replacement PR #24 at 2117a62. Whole-diff review #5404244061 found no blocker; Verify #359 is running and Android #348 is queued. PR #23 passed Verify #353 plus retried Android #342 but remains non-mergeable because its obsolete TaskPlanner delta conflicts with newer canonical sequencing. Merge #24 only after exact-head CI passes, then install that exact integrated artifact and capture physical Create demo file and Copy demo text receipts."
   }
 }
