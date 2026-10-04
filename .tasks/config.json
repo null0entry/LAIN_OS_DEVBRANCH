@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 57,
+  "nextId": 58,
   "states": [
     {
       "name": "Backlog",
@@ -343,10 +343,16 @@
         "title": "Implement progressive assistant speech delivery",
         "priority": "P1",
         "order": 49
+      },
+      {
+        "id": "TASK-057",
+        "title": "Verify installed release upgrade and state-migration boundary",
+        "priority": "P1",
+        "order": 51
       }
     ],
     "issue": 6,
-    "repo_head": "de2c5a933fce109545063a6e086e86e359dbde94",
-    "next_action": "Finish TASK-012 / PR #28; then TASK-050. TASK-053–055 complete Phase-2 presentation gaps. TASK-056 is the next uncovered workflow/media critical-path stage before narration/timeline integration."
+    "repo_head": "2e01d83a6772843425ca7aeaec9237df4c697360",
+    "next_action": "Finish TASK-012 / PR #28 exact-head Android verification and integrate if clear; then TASK-050 before TASK-013. Release path includes TASK-047 -> TASK-049 -> TASK-057 -> TASK-052/TASK-048 -> TASK-051."
   }
 }
