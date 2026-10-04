@@ -1,6 +1,7 @@
 # In Progress
 
 ## TASK-012: Implement cancellable speech playback
+**Integration:** PR #28 exact head `4852392`; stale-callback blocker fixed with fresh clear review; Verify #451 passed; Android #440 remains in progress, so merge is blocked on exact-head Android completion.
 **Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, android-audio
 **Updated:** 2026-10-04
 
