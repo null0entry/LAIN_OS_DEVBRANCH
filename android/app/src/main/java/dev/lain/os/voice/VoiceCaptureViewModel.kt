@@ -23,6 +23,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
 
     private val mutable = MutableLiveData(MicrophoneState())
     val state: LiveData<MicrophoneState> = mutable
+    private var lastPermissionGranted = permissionChecker(application)
 
     private val controller = MicrophoneCaptureController(
         engine = engineFactory(application),
@@ -36,11 +37,13 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
 
     fun start(): Boolean {
         val granted = permissionChecker(getApplication())
+        lastPermissionGranted = granted
         controller.start(granted)
         return granted
     }
 
     fun onPermissionResult(granted: Boolean) {
+        lastPermissionGranted = granted
         controller.onPermissionResult(granted)
     }
 
@@ -49,7 +52,13 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun reconcilePermission() {
-        controller.reconcilePermission(permissionChecker(getApplication()))
+        val granted = permissionChecker(getApplication())
+        if (lastPermissionGranted && !granted) {
+            controller.permissionRevoked()
+        } else {
+            controller.reconcilePermission(granted)
+        }
+        lastPermissionGranted = granted
     }
 
     fun onActivityStop(changingConfigurations: Boolean) {
