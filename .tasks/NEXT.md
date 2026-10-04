@@ -1,5 +1,79 @@
 # Next
 
+## TASK-056: Implement bounded script-generation workflow stage
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, phase-4, workflow, script, artifacts
+**Updated:** 2026-10-04
+
+### Goal
+
+Implement the roadmap's missing script-generation workflow stage so a bounded writer role can turn an accepted workflow brief into a versioned, immutable, verifiable script artifact that downstream narration and revision invalidation can consume without granting the model execution authority.
+
+### Scope
+
+- Add one typed script-stage input/output contract using the durable workflow/artifact foundations from TASK-016 through TASK-024.
+- Execute the writer through the restricted specialist-role boundary from TASK-019; model output remains data, never direct capability or policy authority.
+- Store the accepted script as a current-revision immutable artifact with hash, provenance, source workflow/revision identity, and bounded metadata.
+- Route user-requested script revisions through the existing revision/invalidation model so downstream narration/media artifacts become stale rather than silently mutated.
+- Enforce bounded input/output size, timeout/provider budget intersections, cancellation, and explicit malformed/unavailable outcomes.
+- Keep provider-specific remote transport behind existing planner/provider abstractions; do not add arbitrary tool execution, publication, or media rendering here.
+- Do not implement narration generation, visual-asset generation, timeline/rendering, or publication in this task.
+
+### Dependencies
+
+- TASK-016 through TASK-024: durable workflow state, scheduling, immutable artifacts, restricted roles, revision invalidation, waits/reconciliation/budgets, and Phase-3 acceptance.
+- Existing planner/provider boundaries supply bounded model execution when configured.
+- TASK-026 consumes the verified script artifact for narration; this task must stabilize that input first.
+
+### Plan
+
+- Reuse the existing workflow-node, specialist-role, artifact, revision, and budget contracts; add only the minimum script-stage types and adapter glue.
+- Define deterministic validation for script request/result identity, size, provenance, revision, and expected artifact type.
+- Materialize a successful current-revision script into the immutable artifact workspace and expose its artifact identity to downstream nodes.
+- Wire revision handling so a new script revision creates a new artifact and invalidates only dependent outputs.
+- Add deterministic fake-writer tests for success, malformed/oversized output, timeout/cancel, stale revision, replay/restart, and budget exhaustion.
+
+### Acceptance
+
+- One accepted workflow brief can produce exactly one verified current-revision script artifact with hash and provenance.
+- Script generation cannot grant capabilities, change policy, approve consequential work, or choose arbitrary executors.
+- Malformed, oversized, timed-out, cancelled, budget-exhausted, or stale-revision output never becomes a verified script artifact.
+- Restart/resume cannot duplicate an already completed current-revision script stage.
+- A user revision produces a new revision-bound script artifact and deterministically invalidates dependent narration/media outputs without mutating prior immutable history.
+- Downstream narration receives only the verified current-revision script artifact identity/content allowed by the artifact contract.
+- No provider credential, raw authorization secret, or unrestricted transcript is persisted in the script artifact or audit surface.
+
+### Verification
+
+- Focused unit tests for typed script-stage validation, artifact hashing/provenance, and specialist-role authority boundaries.
+- Revision/invalidation, stale-artifact, restart/replay, cancellation, timeout, and aggregate-budget negatives.
+- Deterministic fake-writer integration through the real workflow scheduler/artifact path.
+- Canonical portable verification plus architecture/security review of the workflow→role→artifact boundary.
+- Live provider behavior, when unavailable, remains separately UNTESTED and cannot substitute for deterministic contract proof.
+
+### Expected result
+
+LAIN_OS gains the first real content-producing workflow node: an accepted idea/brief becomes a bounded, revision-aware, immutable script artifact that safely feeds narration and later media stages.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` sequential product item 42 explicitly requires “Build the script-generation workflow stage.”
+- The Phase-7 golden scenario requires “script produced” before verbal revision, downstream invalidation/rebuild, narration, visuals, rendering, and publication.
+- Current TaskPlanner state through TASK-055 includes restricted specialist roles, durable workflow/artifact infrastructure, narration, timeline/rendering, release work, and Phase-2 presentation slices, but no dedicated script-generation workflow-stage task.
+- Repository search finds the roadmap/design requirement and narration consumers, but no current task representing the script producer.
+
+### Projection basis
+
+- TASK-026 narration and the Phase-7 golden flow need a stable verified script artifact; without a dedicated producer, later media work would either invent a parallel script representation or couple narration directly to free-form planner/model output.
+- Building this stage immediately after the durable workflow foundation preserves one source of truth for revision identity, artifact provenance, budgets, cancellation, and replay safety.
+
+### Risks / unknowns
+
+- Exact script schema richness should stay minimal for 1.0; avoid speculative screenplay/scene abstractions beyond what narration/timeline consumers demonstrably need.
+- External provider quality and cost are provider concerns; this task owns bounded lifecycle and truthful failure, not content-quality guarantees.
+- If TASK-019's restricted-role contract lacks one required writer seam, extend that seam minimally rather than introducing a parallel role framework.
+
+---
+
 ## TASK-053: Implement selectable agent speech voices
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
 **Updated:** 2026-10-04
