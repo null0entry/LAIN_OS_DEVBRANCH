@@ -61,7 +61,7 @@ class MicrophoneCaptureControllerTest {
         assertEquals(CAPTURE_SAMPLE_RATE_HZ, captured!!.sampleRateHz)
         assertEquals(CAPTURE_CHANNELS, captured!!.channels)
         assertEquals(100L, captured!!.durationMs)
-        assertEquals("audio/L16", captured!!.mimeType)
+        assertEquals("audio/pcm;codec=s16le", captured!!.mimeType)
         assertEquals(100L, controller.state.lastCaptureDurationMs)
     }
 
