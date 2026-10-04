@@ -43,7 +43,8 @@ class RuntimeFlowTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             run(scenario, "Create demo file")
             await(scenario) {
-                it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE"
+                it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE" &&
+                    resultsText(it).contains("file.write_text")
             }
             scenario.onActivity { activity ->
                 val text = resultsText(activity)
@@ -65,7 +66,8 @@ class RuntimeFlowTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             run(scenario, "Copy demo text")
             await(scenario) {
-                it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE"
+                it.findViewById<TextView>(R.id.task_status).text.toString() == "COMPLETE" &&
+                    resultsText(it).contains("android.clipboard_set")
             }
             scenario.onActivity { activity ->
                 val text = resultsText(activity)
