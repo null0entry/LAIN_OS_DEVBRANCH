@@ -33,6 +33,7 @@ class SpeechPlaybackControllerTest {
         var starts = 0
         var stops = 0
         var currentVolume = 1.0f
+        var completeOnStop = false
         var lastAudio: SynthesizedAudio? = null
         private var onComplete: (() -> Unit)? = null
         private var onFailure: (() -> Unit)? = null
@@ -55,8 +56,10 @@ class SpeechPlaybackControllerTest {
         }
 
         override fun stop() {
+            val completion = onComplete
             if (playing) stops += 1
             playing = false
+            if (completeOnStop) completion?.invoke()
         }
 
         fun complete() {
@@ -199,6 +202,25 @@ class SpeechPlaybackControllerTest {
         controller.onActivityStop(changingConfigurations = false)
         assertFalse(engine.playing)
         assertEquals(PlaybackStopReason.LIFECYCLE, controller.state.lastStopReason)
+        assertEquals(1, focus.abandons)
+    }
+
+    @Test fun replacementInvalidatesOldCompletionBeforeEngineStop() {
+        val focus = FakeFocus()
+        val engine = FakeEngine()
+        val states = mutableListOf<PlaybackState>()
+        val controller = SpeechPlaybackController(engine, focus, states::add)
+        controller.play(audio())
+        states.clear()
+        engine.completeOnStop = true
+
+        controller.play(audio(sampleRate = 22_050))
+
+        assertFalse(states.any { it.lastStopReason == PlaybackStopReason.COMPLETED })
+        assertEquals(PlaybackStatus.PLAYING, controller.state.status)
+        assertTrue(engine.playing)
+        assertEquals(2, engine.starts)
+        assertEquals(1, engine.stops)
         assertEquals(1, focus.abandons)
     }
 
