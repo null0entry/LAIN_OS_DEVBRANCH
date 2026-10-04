@@ -109,6 +109,24 @@ class AppControlTests(unittest.TestCase):
         self.assertEqual(state["session"]["status"], "complete")
         self.assertEqual(state["session"]["actions"][0]["verification"], "passed")
 
+    def test_demo_file_preset_is_repeatable_without_overwrite(self):
+        first = self.send("start", goal="Create demo file")
+        self.assertTrue(first["ok"])
+        self.settle()
+        first_state = self.send("inspect", session_id=first["session"]["session_id"])
+        self.assertEqual(first_state["session"]["status"], "complete")
+
+        second = self.send("start", goal="Create demo file")
+        self.assertTrue(second["ok"])
+        self.settle()
+        second_state = self.send("inspect", session_id=second["session"]["session_id"])
+        self.assertEqual(second_state["session"]["status"], "complete")
+
+        workspace = Path(self.directory.name) / "workspace"
+        self.assertEqual((workspace / "demo.txt").read_text(), "Hello from LAIN_OS.\n")
+        self.assertEqual((workspace / "demo-2.txt").read_text(), "Hello from LAIN_OS.\n")
+        self.assertEqual(second_state["session"]["actions"][0]["verification"], "passed")
+
     def test_stop_prevents_next_action(self):
         reply = self.send("start", goal="Create demo file")
         sid = reply["session"]["session_id"]
