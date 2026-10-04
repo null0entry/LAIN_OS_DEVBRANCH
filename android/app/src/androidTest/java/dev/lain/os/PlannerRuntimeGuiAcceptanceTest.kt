@@ -17,7 +17,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.PyObject
 import com.chaquo.python.Python
 import com.chaquo.python.android.AndroidPlatform
-import dev.lain.os.planner.PlannerProfile
 import dev.lain.os.planner.PlannerProfileStore
 import dev.lain.os.runtime.NativeCapabilities
 import dev.lain.os.runtime.RuntimeBinding
@@ -197,7 +196,6 @@ class PlannerRuntimeGuiAcceptanceTest {
                 assertEquals(listOf(mode, mode), bridge.modes)
             } finally {
                 WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application) }
-                store.select(PlannerProfile.DEMO_ID)
                 root.deleteRecursively()
             }
         }
