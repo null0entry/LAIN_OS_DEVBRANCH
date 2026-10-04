@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 56,
+  "nextId": 57,
   "states": [
     {
       "name": "Backlog",
@@ -315,10 +315,10 @@
         "order": 45
       },
       {
-        "id": "TASK-052",
+        "id": "TASK-056",
         "title": "Build Phase-2 conversational transcript UI",
         "priority": "P2",
-        "order": 46
+        "order": 50
       },
       {
         "id": "TASK-052",
@@ -346,7 +346,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "f211d746fad08d48aa4c6ab4a0f6dd1d813bbeb0",
-    "next_action": "Finish TASK-012 / PR #28 with fresh exact-head Android + whole-diff review and merge only if clear; then TASK-050. Phase-2 follow-on: TASK-053 selectable voices + TASK-054 transcript UI -> TASK-055 progressive assistant speech -> TASK-013 barge-in/echo -> TASK-014 progress narration -> TASK-015 acceptance."
+    "repo_head": "9f5604347cdcbcaa3ebc2aa34bad1045345fe347",
+    "next_action": "Finish TASK-012 / PR #28 exact-head verification and integration; then TASK-050. TASK-056 closes the uncovered Phase-2 transcript surface; TASK-052 supplies release docs/notices before TASK-051."
   }
 }
