@@ -388,7 +388,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "91bc43fef2d0bdd5a1f2a49d24c973285fc9e213",
-    "next_action": "Finish TASK-050 correction PR #30 first; then TASK-013 barge-in/echo protection; then TASK-063 applies accepted final revision turns to the active AgentSession before TASK-015 Phase-2 acceptance."
+    "repo_head": "42c86b93a534b74328bf7baec4fe3d1cf42ec901",
+    "next_action": "PR #30 TASK-050 correction is active and blocked on exact-head conflict/scope/CI review. Reconcile current main without dropping TASK-063, restore one accepted speech-output ownership path, obtain current-head Verify+Android, then fresh review/merge; next TASK-013 → TASK-063."
   }
 }
