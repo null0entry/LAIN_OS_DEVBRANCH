@@ -9,6 +9,8 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
 import android.speech.RecognitionListener
+import android.speech.RecognitionSupport
+import android.speech.RecognitionSupportCallback
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.annotation.RequiresApi
@@ -115,6 +117,60 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
         recognizer = local
         local.setRecognitionListener(listener(token))
 
+        // EXTRA_AUDIO_SOURCE is optional. Android documents that an implementation
+        // which does not support it may open the microphone itself, so fail closed
+        // unless this exact captured-PCM intent is positively supported.
+        val probe = try {
+            ParcelFileDescriptor.createPipe()
+        } catch (_: Exception) {
+            finish(
+                token,
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
+                cancelFirst = true,
+            )
+            return
+        }
+        try {
+            probe[1].close()
+            local.checkRecognitionSupport(
+                recognitionIntent(probe[0], audio),
+                app.mainExecutor,
+                object : RecognitionSupportCallback {
+                    override fun onSupportResult(recognitionSupport: RecognitionSupport) {
+                        try { probe[0].close() } catch (_: Exception) { }
+                        if (current(token)) beginListeningApi33(token, local, audio)
+                    }
+
+                    override fun onError(error: Int) {
+                        try { probe[0].close() } catch (_: Exception) { }
+                        finish(
+                            token,
+                            BackendTranscriptionResult(
+                                failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE,
+                            ),
+                            cancelFirst = true,
+                        )
+                    }
+                },
+            )
+        } catch (_: Exception) {
+            try { probe[0].close() } catch (_: Exception) { }
+            try { probe[1].close() } catch (_: Exception) { }
+            finish(
+                token,
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
+                cancelFirst = true,
+            )
+        }
+    }
+
+    @RequiresApi(33)
+    private fun beginListeningApi33(
+        token: Long,
+        local: SpeechRecognizer,
+        audio: CapturedAudio,
+    ) {
+        if (!current(token) || recognizer !== local) return
         val pipe = try {
             ParcelFileDescriptor.createPipe()
         } catch (_: Exception) {
