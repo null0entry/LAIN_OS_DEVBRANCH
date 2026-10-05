@@ -52,7 +52,7 @@ Typed input remains independent and available.
 - STT finality RED: `58b03b4`; GREEN: `c038ecf`.
 - Direct TTS RED: `ef78668`; Android API 24 compile failed on the intentionally missing `speak` seam.
 - Direct TTS GREEN: `12ed589`; exact-head Android JVM/build passed on API 24 and API 35.
-- End-to-end reply RED: `2d9c62c` plus `b9cf348`; Verify failed on missing `speech_text`, and Android run 37255038645 failed on the intentionally missing speech backend/output wiring.
+- End-to-end reply RED: `2d9c62c` plus `b9cf348`; Verify failed on missing `speech_text`, and Android run 37255038645 failed on the intentionally missing speech backend/output wiring. Runtime reply GREEN: `f2b01a1` with canonical Verify passing.
 
 ### Verification
 
