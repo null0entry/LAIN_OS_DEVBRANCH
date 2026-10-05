@@ -77,6 +77,29 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
         mutate("start", JSONObject().put("goal", goal.trim()))
     }
 
+    fun submitSpeech(text: String): Boolean {
+        val snapshot = current()
+        val session = snapshot.session
+        if (
+            snapshot.pending ||
+            !snapshot.ready ||
+            text.isBlank() ||
+            session?.optBoolean("active") == true ||
+            session?.optBoolean("recovery_required") == true ||
+            text.toByteArray(Charsets.UTF_8).size > 4096
+        ) return false
+        mutate(
+            "turn_submit",
+            JSONObject()
+                .put("text", text.trim())
+                .put("source", "speech")
+                .put("kind", "task")
+                .put("reference", "none")
+                .put("target_session_id", JSONObject.NULL),
+        )
+        return true
+    }
+
     fun reconnect() {
         if (current().connected && current().ready) return
         // Inspect durable state after rebinding; no saved mutation is replayed.
