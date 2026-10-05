@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 63,
+  "nextId": 64,
   "states": [
     {
       "name": "Backlog",
@@ -379,10 +379,16 @@
         "title": "Implement bounded media timeline assembly workflow",
         "priority": "P1",
         "order": 56
+      },
+      {
+        "id": "TASK-063",
+        "title": "Apply accepted conversational revisions to active task sessions",
+        "priority": "P1",
+        "order": 57
       }
     ],
     "issue": 6,
-    "repo_head": "33968f736e195cdcb1661eb116f7f099165a88aa",
-    "next_action": "TASK-050 is integrated via PR #29 / merge 4f10b082. TASK-013 is the next Phase-2 task; its existing bounded design is ready for explicit implementation approval before product-code changes."
+    "repo_head": "91bc43fef2d0bdd5a1f2a49d24c973285fc9e213",
+    "next_action": "Finish TASK-050 correction PR #30 first; then TASK-013 barge-in/echo protection; then TASK-063 applies accepted final revision turns to the active AgentSession before TASK-015 Phase-2 acceptance."
   }
 }
