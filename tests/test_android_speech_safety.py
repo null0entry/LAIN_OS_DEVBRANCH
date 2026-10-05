@@ -26,11 +26,9 @@ class AndroidSpeechSafetySourceTests(unittest.TestCase):
         support = source.index("checkRecognitionSupport(", entry)
         callback = source.index("RecognitionSupportCallback", support)
         error = source.index("override fun onError", callback)
-        begin = source.index("beginListeningApi33", callback)
+        callback_end = source.index("\n                },", error)
 
-        self.assertLess(error, begin)
-        error_block = source[error:begin]
-        self.assertIn("PROVIDER_UNAVAILABLE", error_block)
+        self.assertIn("PROVIDER_UNAVAILABLE", source[error:callback_end])
 
 
 if __name__ == "__main__":
