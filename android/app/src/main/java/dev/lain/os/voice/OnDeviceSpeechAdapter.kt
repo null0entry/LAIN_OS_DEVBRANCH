@@ -2,17 +2,15 @@ package dev.lain.os.voice
 
 const val ON_DEVICE_PROVIDER_ID = "android-on-device"
 const val MAX_ON_DEVICE_TRANSCRIPT_BYTES = 32_768
-const val MAX_ON_DEVICE_SYNTHESIS_TEXT_BYTES = 32_768
 private const val CAPTURED_PCM_STT_API_FLOOR = 33
 private const val PCM16_LE_MIME = "audio/pcm;codec=s16le"
 
 enum class SpeechAdapterFailure {
     PROVIDER_UNAVAILABLE,
-    TIMEOUT,
     CANCELLED,
-    MALFORMED_RESPONSE,
-    UNSUPPORTED_MEDIA,
     RESOURCE_LIMIT,
+    UNSUPPORTED_MEDIA,
+    PROVIDER_FAILED,
 }
 
 data class BackendTranscriptionResult(
@@ -109,7 +107,7 @@ class OnDeviceSpeechAdapter(
         } catch (_: Exception) {
             finishTranscription(
                 token,
-                BackendTranscriptionResult(failure = SpeechAdapterFailure.MALFORMED_RESPONSE),
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
             )
         }
     }
@@ -138,15 +136,6 @@ class OnDeviceSpeechAdapter(
     ) {
         synthesisGeneration += 1
         val token = synthesisGeneration
-        val textBytes = try {
-            text.toByteArray(Charsets.UTF_8).size
-        } catch (_: Exception) {
-            MAX_ON_DEVICE_SYNTHESIS_TEXT_BYTES + 1
-        }
-        if (text.isBlank() || textBytes > MAX_ON_DEVICE_SYNTHESIS_TEXT_BYTES) {
-            callback(SpeechSynthesisResult(failure = SpeechAdapterFailure.RESOURCE_LIMIT))
-            return
-        }
 
         if (!backend.synthesisAvailable) {
             callback(SpeechSynthesisResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE))
@@ -160,7 +149,7 @@ class OnDeviceSpeechAdapter(
         } catch (_: Exception) {
             finishSynthesis(
                 token,
-                BackendSynthesisResult(failure = SpeechAdapterFailure.MALFORMED_RESPONSE),
+                BackendSynthesisResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
             )
         }
     }
@@ -212,7 +201,7 @@ class OnDeviceSpeechAdapter(
         val text = result.text
         if (text.isNullOrBlank()) {
             callback?.invoke(
-                SpeechTranscriptionResult(failure = SpeechAdapterFailure.MALFORMED_RESPONSE)
+                SpeechTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED)
             )
             return
         }
@@ -259,7 +248,7 @@ class OnDeviceSpeechAdapter(
         val audio = result.audio
         if (audio == null) {
             callback?.invoke(
-                SpeechSynthesisResult(failure = SpeechAdapterFailure.MALFORMED_RESPONSE)
+                SpeechSynthesisResult(failure = SpeechAdapterFailure.PROVIDER_FAILED)
             )
             return
         }

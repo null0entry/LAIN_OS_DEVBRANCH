@@ -2,16 +2,10 @@ package dev.lain.os.voice
 
 import android.app.Application
 import android.content.Context
-import android.os.Handler
 import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-
-data class SpeechSynthesisUiState(
-    val active: Boolean = false,
-    val failure: SpeechAdapterFailure? = null,
-)
 
 class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(application) {
     companion object {
@@ -24,19 +18,10 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
         var focusFactory: (Context) -> AudioFocusController = { context ->
             AndroidAudioFocusController(context)
         }
-
-        @Volatile
-        var speechBackendFactory: (Application) -> OnDeviceSpeechBackend = {
-            AndroidOnDeviceSpeechBackend(it)
-        }
     }
 
-    private val main = Handler(Looper.getMainLooper())
     private val mutable = MutableLiveData(PlaybackState())
     val state: LiveData<PlaybackState> = mutable
-    private val synthesisMutable = MutableLiveData(SpeechSynthesisUiState())
-    val synthesisState: LiveData<SpeechSynthesisUiState> = synthesisMutable
-    private var speech: OnDeviceSpeechAdapter? = null
 
     private val controller = SpeechPlaybackController(
         engine = engineFactory(application),
@@ -48,52 +33,12 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
         controller.play(audio)
     }
 
-    fun speak(text: String) {
-        publishSynthesis(SpeechSynthesisUiState(active = true))
-        speechAdapter().synthesize(text, null) { result ->
-            val deliver = {
-                publishSynthesis(SpeechSynthesisUiState(active = false, failure = result.failure))
-                val audio = result.audio
-                if (result.ok && audio != null) {
-                    controller.play(audio)
-                } else if (result.failure != SpeechAdapterFailure.CANCELLED) {
-                    publish(
-                        PlaybackState(
-                            status = PlaybackStatus.FAILED,
-                            failure = if (result.failure == SpeechAdapterFailure.PROVIDER_UNAVAILABLE) {
-                                PlaybackFailure.SYNTHESIS_UNAVAILABLE
-                            } else {
-                                PlaybackFailure.SYNTHESIS_FAILED
-                            },
-                        )
-                    )
-                }
-            }
-            if (Looper.myLooper() == Looper.getMainLooper()) deliver() else main.post(deliver)
-        }
-    }
-
     fun stopTalking() {
-        speech?.cancelSynthesis()
-        publishSynthesis(SpeechSynthesisUiState())
         controller.stopTalking()
     }
 
     fun onActivityStop(changingConfigurations: Boolean) {
-        if (!changingConfigurations) {
-            speech?.cancelSynthesis()
-            publishSynthesis(SpeechSynthesisUiState())
-        }
         controller.onActivityStop(changingConfigurations)
-    }
-
-    private fun speechAdapter(): OnDeviceSpeechAdapter {
-        val current = speech
-        if (current != null) return current
-        return OnDeviceSpeechAdapter(
-            apiLevel = android.os.Build.VERSION.SDK_INT,
-            backend = speechBackendFactory(getApplication()),
-        ).also { speech = it }
     }
 
     private fun publish(next: PlaybackState) {
@@ -104,19 +49,8 @@ class SpeechPlaybackViewModel(application: Application) : AndroidViewModel(appli
         }
     }
 
-    private fun publishSynthesis(next: SpeechSynthesisUiState) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            synthesisMutable.value = next
-        } else {
-            synthesisMutable.postValue(next)
-        }
-    }
-
     override fun onCleared() {
-        speech?.close()
-        speech = null
         controller.close()
-        main.removeCallbacksAndMessages(null)
         super.onCleared()
     }
 }

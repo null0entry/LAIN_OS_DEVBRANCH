@@ -21,21 +21,8 @@ class OnDeviceSpeechSynthesisControllerTest {
         var lastVoice: LocalSpeechVoice? = null
         var success: ((EncodedSpeechAudio) -> Unit)? = null
         var failure: (() -> Unit)? = null
-        var preparationPending = false
-        var prepareCalls = 0
-        private var prepared: ((List<LocalSpeechVoice>) -> Unit)? = null
 
         override fun voices(): List<LocalSpeechVoice> = listedVoices
-
-        override fun prepareVoices(onReady: (List<LocalSpeechVoice>) -> Unit) {
-            prepareCalls += 1
-            if (preparationPending) prepared = onReady else onReady(listedVoices)
-        }
-
-        fun finishPreparation() {
-            prepared?.invoke(listedVoices)
-            prepared = null
-        }
 
         override fun synthesize(
             text: String,
@@ -78,36 +65,6 @@ class OnDeviceSpeechSynthesisControllerTest {
             .putInt(pcm.size)
             .put(pcm)
             .array()
-    }
-
-    @Test fun waitsForAsyncVoicePreparationBeforeStartingSynthesis() {
-        val backend = FakeBackend().apply { preparationPending = true }
-        val controller = OnDeviceSpeechSynthesisController(backend)
-
-        controller.synthesize("hello")
-
-        assertEquals(LocalSynthesisStatus.SYNTHESIZING, controller.state.status)
-        assertEquals(1, backend.prepareCalls)
-        assertEquals(0, backend.starts)
-
-        backend.finishPreparation()
-
-        assertEquals(1, backend.starts)
-        assertEquals("offline-a", backend.lastVoice?.id)
-    }
-
-    @Test fun cancelWhileVoicePreparationIsPendingCannotStartSynthesisLater() {
-        val backend = FakeBackend().apply { preparationPending = true }
-        val controller = OnDeviceSpeechSynthesisController(backend)
-
-        controller.synthesize("hello")
-        controller.cancel()
-        backend.finishPreparation()
-
-        assertEquals(LocalSynthesisStatus.IDLE, controller.state.status)
-        assertEquals(LocalSynthesisFailure.CANCELLED, controller.state.failure)
-        assertEquals(0, backend.starts)
-        assertEquals(1, backend.stops)
     }
 
     @Test fun networkOnlyVoiceFailsClosedWithoutSynthesis() {

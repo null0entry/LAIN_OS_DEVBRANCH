@@ -21,14 +21,8 @@
     <string name="voice_capture_failed">Microphone capture failed; recording stopped.</string>
     <string name="voice_resource_limit">Voice capture reached its bounded limit and was discarded.</string>
     <string name="voice_captured">Captured %1$d ms · raw audio not retained</string>
-    <string name="voice_transcribing">● Transcribing captured audio on device</string>
-    <string name="voice_transcription_ready">Local transcript accepted · submitting trusted turn</string>
-    <string name="voice_transcription_unavailable">On-device transcription unavailable · typed input still works</string>
-    <string name="voice_transcription_failed">On-device transcription failed · no task was started</string>
     <string name="stop_talking">Stop talking</string>
     <string name="playback_idle">Speech output ready · speaker is idle</string>
-    <string name="playback_synthesizing">● Synthesizing speech on device</string>
-    <string name="playback_synthesis_unavailable">On-device speech synthesis unavailable · task unchanged</string>
     <string name="playback_speaking">● Speaking · Stop talking does not stop the task</string>
     <string name="playback_ducked">● Speaking quietly · another app has audio focus</string>
     <string name="playback_stopped">Speech stopped · task unchanged</string>
