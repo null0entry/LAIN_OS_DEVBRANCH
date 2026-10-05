@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 63,
+  "nextId": 64,
   "states": [
     {
       "name": "Backlog",
@@ -379,10 +379,16 @@
         "title": "Implement bounded media timeline assembly workflow",
         "priority": "P1",
         "order": 56
+      },
+      {
+        "id": "TASK-063",
+        "title": "Apply accepted conversational revisions to active task sessions",
+        "priority": "P1",
+        "order": 57
       }
     ],
     "issue": 6,
-    "repo_head": "91bc43fef2d0bdd5a1f2a49d24c973285fc9e213",
-    "next_action": "TASK-050 correction: trim merged PR #29 back to the approved local-only seam; prove API32 no-touch, API33 explicit on-device availability, and final-only transcript behavior RED→GREEN before proceeding to TASK-013."
+    "repo_head": "42c86b93a534b74328bf7baec4fe3d1cf42ec901",
+    "next_action": "PR #30 is the active TASK-050 direct local voice-loop correction: mic → captured PCM → on-device STT → final trusted turn → bounded final reply → direct installed local TTS. Reconcile branch with current main/TASK-063, require exact-head Verify+Android and fresh review, then integrate before TASK-013 → TASK-063."
   }
 }
