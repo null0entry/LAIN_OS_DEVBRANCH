@@ -55,4 +55,3 @@ Define the smallest provider-neutral local speech seam needed by Phase 2, with n
 TASK-050 ends as a narrow fail-closed local speech contract: API 33+ captured PCM only when explicitly on-device, final-only transcript output, local-installed-only TTS, typed fallback untouched, zero hidden cloud path.
 
 ---
-

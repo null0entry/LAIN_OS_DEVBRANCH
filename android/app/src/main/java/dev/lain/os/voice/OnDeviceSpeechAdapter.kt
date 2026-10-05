@@ -16,6 +16,7 @@ enum class SpeechAdapterFailure {
 data class BackendTranscriptionResult(
     val text: String? = null,
     val language: String? = null,
+    val isFinal: Boolean = true,
     val failure: SpeechAdapterFailure? = null,
 )
 
@@ -188,6 +189,7 @@ class OnDeviceSpeechAdapter(
         result: BackendTranscriptionResult,
     ) {
         if (!transcriptionActive || token != transcriptionGeneration) return
+        if (!result.isFinal) return
         transcriptionActive = false
         val callback = transcriptionCallback
         transcriptionCallback = null
