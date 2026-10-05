@@ -43,6 +43,7 @@ from lain.protocol.models import ActionStatus
 from lain.runtime.engine import RuntimeEngine
 
 MAX_MESSAGE_BYTES = 65536
+MAX_SPEECH_TEXT_BYTES = 32768
 APPROVAL_TTL_SECONDS = 120
 TURN_RESPONSE_WINDOW = 3
 _OPAQUE_CREDENTIAL_REF = re.compile(r"^cred_[0-9a-f]{32}$")
@@ -395,9 +396,14 @@ class AppController:
                                 "status": result["status"] if result else "pending",
                                 "verification": result["verification"]["status"] if result else "not_applicable",
                                 "details": result["details"] if result else {}})
+        speech_text = None
+        if session.status in {AgentSessionStatus.COMPLETE, AgentSessionStatus.BLOCKED} and safe["iterations"]:
+            candidate = safe["iterations"][-1]["planner_reason"].strip()
+            if candidate and len(candidate.encode("utf-8")) <= MAX_SPEECH_TEXT_BYTES:
+                speech_text = candidate
         snapshot = {**self._summary(session), "revision": _revision(session),
                     "actions": actions[-32:], "attempted_actions": session.total_attempted_actions,
-                    "iterations": session.iteration_count, "planner": {
+                    "iterations": session.iteration_count, "speech_text": speech_text, "planner": {
                         "profile_id": session.planner_binding.profile_id,
                         "mode": session.planner_binding.mode,
                         "model": session.planner_binding.model,
