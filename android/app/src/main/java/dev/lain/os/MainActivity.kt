@@ -109,11 +109,11 @@ class MainActivity : AppCompatActivity() {
         })
         ui.reconnectButton.visibility = if (!state.connected || state.startupFailed) View.VISIBLE else View.GONE
         ui.message.text = state.message
-        ui.runButton.isEnabled = state.ready && !state.pending && !active && !recovery
+        ui.runButton.isEnabled = state.ready && !state.pending && !recovery
         updateVoiceRecordEnabled()
         speakResponse(session)
         ui.stopButton.isEnabled = state.connected && (active || recovery)
-        ui.commandInput.isEnabled = !state.pending && !active
+        ui.commandInput.isEnabled = !state.pending && !recovery
         for (i in 0 until ui.demoCommands.childCount) ui.demoCommands.getChildAt(i).isEnabled = !active && !state.pending
         ui.taskTitle.text = session?.optString("label") ?: getString(R.string.no_task)
         val status = session?.optString("status") ?: "idle"
@@ -242,7 +242,7 @@ class MainActivity : AppCompatActivity() {
         val recording = voice.state.value?.status == MicrophoneStatus.RECORDING
         val transcribing = voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
         ui.voiceRecordButton.isEnabled = recording ||
-            (runtime?.ready == true && !runtime.pending && !active && !recovery && !transcribing)
+            (runtime?.ready == true && !runtime.pending && !recovery && !transcribing)
     }
 
     private fun resultText(value: String) = TextView(this).apply {
