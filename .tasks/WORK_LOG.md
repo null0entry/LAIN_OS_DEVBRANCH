@@ -1,5 +1,9 @@
 # Work Log
 
+
+## 2026-10-06 — TASK-050
+PR #30 exact head `dfe20f205509e43cc45877b1e23e65787df5678b` passed Verify #516 and Android #505 on API 24/API 35, then squash-merged as `a4c11e6325e26732916bbcdcf0b3deca4d4810ff`. Direct local voice loop integrated; physical/OEM acceptance remains separate.
+
 ## 2026-10-04 — TASK-012
 PR #28 exact head `48523920d0f4c5eb1ffe7810b277547ade42fd41` passed fresh whole-diff review, Verify #451, and Android #440 on API 24/API 35 including instrumentation after two RED→GREEN playback-replacement regressions. Squash-merged to `main` as `c6d6cf092571bf6ae67f1fde07df37e546dca590`. TASK-050 promoted to In Progress.
 
