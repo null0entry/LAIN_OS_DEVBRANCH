@@ -131,6 +131,55 @@ class AppConversationTurnTests(unittest.TestCase):
         self.assertEqual(revised["session"]["actions"][-1]["status"], "skipped")
         self.assertFalse(self.send("approve", session_id=sid, token=old_token)["ok"])
 
+    def test_revision_cross_session_and_busy_or_stopped_guards_fail_closed(self):
+        started = self.send("start", goal="Create demo file")
+        active_id = started["session"]["session_id"]
+        other = self.app.controller.create("Show battery")
+
+        active_before = self.app.store.load(active_id)
+        other_before = self.app.store.load(other.session_id)
+        cross = self.send(
+            "turn_submit",
+            text="Change the other task",
+            source="typed",
+            kind="revision",
+            reference="explicit",
+            target_session_id=other.session_id,
+        )
+        self.assertFalse(cross["ok"])
+        self.assertEqual(self.app.store.load(active_id), active_before)
+        self.assertEqual(self.app.store.load(other.session_id), other_before)
+
+        self.app._advancing = True
+        try:
+            busy = self.send(
+                "turn_submit",
+                text="Change while step is in flight",
+                source="speech",
+                kind="revision",
+                reference="active",
+                target_session_id=None,
+            )
+        finally:
+            self.app._advancing = False
+        self.assertFalse(busy["ok"])
+        self.assertEqual(self.app.store.load(active_id), active_before)
+
+        self.app._stopped.set()
+        try:
+            stopped = self.send(
+                "turn_submit",
+                text="Change after stop",
+                source="typed",
+                kind="revision",
+                reference="active",
+                target_session_id=None,
+            )
+        finally:
+            self.app._stopped.clear()
+        self.assertFalse(stopped["ok"])
+        self.assertEqual(self.app.store.load(active_id), active_before)
+
     def test_turn_history_read_stays_within_control_message_bound(self):
         for index in range(20):
             reply = self.send(
