@@ -88,8 +88,9 @@ class SpeechOutputLifecycleAndroidTest {
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         scenario.onActivity {
             val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
+            val baselineSpeakCalls = backend.speakCalls
             output.speakOnce("reply-1", "hello")
-            assertEquals(1, backend.speakCalls)
+            assertEquals(baselineSpeakCalls + 1, backend.speakCalls)
             assertEquals("hello", backend.lastText)
         }
 
