@@ -388,7 +388,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "42c86b93a534b74328bf7baec4fe3d1cf42ec901",
-    "next_action": "PR #30 is the active TASK-050 direct local voice-loop correction: mic → captured PCM → on-device STT → final trusted turn → bounded final reply → direct installed local TTS. Reconcile branch with current main/TASK-063, require exact-head Verify+Android and fresh review, then integrate before TASK-013 → TASK-063."
+    "repo_head": "46e14ee3d086becfda4587e66c9a2dcf142658ed",
+    "next_action": "TASK-013 is next on the Phase-2 critical path: adapt barge-in/echo protection to the integrated direct local-TTS talk-back path, then TASK-063 conversational revisions, then TASK-014/TASK-015."
   }
 }
