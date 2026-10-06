@@ -1,5 +1,83 @@
 # Done
 
+## TASK-013: Implement voice barge-in and echo protection
+**Integration:** PR #31 exact head `f924bbedb7aa00856fae4d559133aab325a8dea8` passed Verify #528 and Android #517 (API 24 + API 35) and squash-merged as `af0dc19028f329e0f49e3290a3af8cee95a5ff89`.
+**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, safety
+**Updated:** 2026-10-03
+
+### Goal
+
+Allow user speech to interrupt active synthesis without confusing synthesized audio or partial recognition with authoritative user intent.
+
+### Scope
+
+- Detect user speech while synthesis/playback is active and stop or duck playback promptly.
+- Keep “Stop talking” independent from “Stop task”.
+- Prevent synthesized speech from being re-ingested as a user command.
+- Ensure partial/interim recognition cannot authorize consequential actions.
+- Preserve final-turn authority through TASK-011 turn-manager semantics.
+- Do not implement provider-specific echo-cancellation SDKs, wake words, progress narration, or Phase-3 workflow semantics.
+
+### Dependencies
+
+- TASK-010 complete: microphone lifecycle.
+- TASK-011 complete: authoritative turn manager.
+- TASK-012 complete: cancellable playback.
+
+### Plan
+
+- Define the smallest barge-in coordinator across microphone, turn, and playback state.
+- Stop/duck playback on confirmed user speech onset without cancelling task state.
+- Gate recognized input so synthesized output and partial transcripts cannot enter the authoritative turn path.
+- Add deterministic regressions for echo-loop rejection, partial-recognition non-authority, and Stop-talking vs Stop-task separation.
+- Measure interruption-to-playback-stop timing in controlled tests; reserve reference-device acceptance for TASK-015/R2.7.
+
+### Acceptance
+
+- User speech during playback stops or ducks synthesis without cancelling the underlying task.
+- Synthesized speech cannot become a user turn or capability request.
+- Partial recognition cannot grant approval or authorize consequential work.
+- Only final accepted user turns can enter the authoritative task-facing pipeline.
+- Stop talking and Stop task remain independently observable operations.
+- Failure of echo/barge-in handling never fabricates task completion.
+
+### Verification
+
+- Focused coordinator tests for playback interruption and authority separation.
+- Negative echo-loop and partial-transcript authorization tests.
+- Android integration/instrumentation around simultaneous capture/playback.
+- Controlled interruption latency measurement without claiming physical-device acceptance unless actually run.
+- Canonical verification after implementation.
+
+### Expected result
+
+LAIN_OS supports safe conversational interruption while keeping audio feedback, partial speech, task cancellation, and user authority sharply separated.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` defines R2.5 barge-in and echo protection immediately after speech playback.
+- No current TaskPlanner task, open issue, or open PR represents R2.5.
+
+### Projection basis
+
+- R2.5 is required before voice progress narration and the Phase-2 acceptance gate because interruption semantics must be stable before spoken progress can coexist with user speech.
+
+### Risks / unknowns
+
+- Device-level acoustic echo cancellation varies by hardware; software authority filtering must remain correct even if acoustic suppression is imperfect.
+- Reference-device latency belongs to the Phase-2 acceptance gate, not this task.
+
+
+### Completion
+- Record intent now stops app-owned direct local TTS before microphone capture begins.
+- Talk-back stop remains separate from runtime/task Stop.
+- Existing final-only STT/partial non-authority seam remains unchanged.
+- RED receipt: Android #514 API 35 observed [capture-start] without tts-stop.
+- GREEN exact head: Verify #528 + Android #517 on API 24/API 35; review receipt `5429319384`; zero unresolved threads.
+- Physical acoustic echo suppression and interruption latency remain TASK-015/TASK-036 evidence.
+
+---
+
 ## TASK-050: Lock local-only Phase-2 voice loop
 **Integration:** PR #30 exact head `dfe20f205509e43cc45877b1e23e65787df5678b` passed Verify #516 and Android #505 (API 24 + API 35) and squash-merged as `a4c11e6325e26732916bbcdcf0b3deca4d4810ff`.
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, privacy
