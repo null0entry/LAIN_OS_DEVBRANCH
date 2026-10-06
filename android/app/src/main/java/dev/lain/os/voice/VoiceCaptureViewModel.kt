@@ -30,7 +30,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
 
         @Volatile
         var speechBackendFactory: (Application) -> OnDeviceSpeechBackend = {
-            AndroidOnDeviceSpeechBackend(it, enableSynthesis = false)
+            AndroidOnDeviceSpeechBackend(it)
         }
     }
 
@@ -57,7 +57,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
                     )
                 )
             }
-            // The concrete backend takes its bounded in-memory copy before returning.
+            // The local STT backend takes its bounded in-memory copy before returning.
             audio.bytes.fill(0)
         },
     )

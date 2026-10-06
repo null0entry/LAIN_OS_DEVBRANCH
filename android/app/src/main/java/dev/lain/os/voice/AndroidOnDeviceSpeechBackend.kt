@@ -16,27 +16,22 @@ import android.speech.SpeechRecognizer
 import androidx.annotation.RequiresApi
 import java.util.concurrent.Executors
 
-private const val SPEECH_TIMEOUT_MS = 30_000L
+private const val LOCAL_STT_TIMEOUT_MS = 30_000L
 
-class AndroidOnDeviceSpeechBackend(
-    context: Context,
-    enableSynthesis: Boolean = true,
-) : OnDeviceSpeechBackend {
+/**
+ * Android's on-device recognizer only.
+ *
+ * Captured PCM is accepted only on API 33+, where it can be supplied through
+ * EXTRA_AUDIO_SOURCE. This backend never constructs a network recognizer.
+ */
+class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
-    private val localTts = if (enableSynthesis) AndroidLocalSpeechSynthesisBackend(app) else null
-    private val localSynthesis = localTts?.let {
-        OnDeviceSpeechSynthesisController(it, ::onLocalSynthesisState)
-    }
-
-    private var transcriptionToken = 0L
-    private var transcriptionCallback: ((BackendTranscriptionResult) -> Unit)? = null
+    private var generation = 0L
+    private var callback: ((BackendTranscriptionResult) -> Unit)? = null
     private var recognizer: SpeechRecognizer? = null
     private var ownedAudio: ByteArray? = null
-
-    private var synthesisToken = 0L
-    private var synthesisCallback: ((BackendSynthesisResult) -> Unit)? = null
 
     override val transcriptionAvailable: Boolean
         get() = Build.VERSION.SDK_INT >= 33 && try {
@@ -45,10 +40,8 @@ class AndroidOnDeviceSpeechBackend(
             false
         }
 
-    override val synthesisAvailable: Boolean
-        get() = Build.VERSION.SDK_INT >= 24 && localTts?.hasService() == true
-
-    override val implementation: String = "android-platform-local-speech"
+    override val synthesisAvailable: Boolean = false
+    override val implementation: String = "android-platform-on-device-stt"
     override val model: String? = null
 
     override fun transcribe(
@@ -59,30 +52,29 @@ class AndroidOnDeviceSpeechBackend(
             callback(BackendTranscriptionResult(failure = SpeechAdapterFailure.UNSUPPORTED_MEDIA))
             return
         }
-        // Keep the API guard in this call path so Android lint can prove the
-        // API-33-only captured-audio implementation is unreachable on minSdk 24.
         if (Build.VERSION.SDK_INT < 33 || !transcriptionAvailable) {
             callback(BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE))
             return
         }
+
         val copy = audio.bytes.copyOf()
         val token = synchronized(this) {
-            transcriptionToken += 1
-            transcriptionCallback = callback
+            generation += 1
+            this.callback = callback
             ownedAudio?.fill(0)
             ownedAudio = copy
-            transcriptionToken
+            generation
         }
         main.post {
-            if (currentTranscription(token)) startRecognitionApi33(token, audio.copy(bytes = copy))
+            if (current(token)) startRecognitionApi33(token, audio.copy(bytes = copy))
         }
         main.postDelayed({
-            finishTranscription(
+            finish(
                 token,
-                BackendTranscriptionResult(failure = SpeechAdapterFailure.TIMEOUT),
-                cancelRecognizer = true,
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
+                cancelFirst = true,
             )
-        }, SPEECH_TIMEOUT_MS)
+        }, LOCAL_STT_TIMEOUT_MS)
     }
 
     override fun synthesize(
@@ -90,50 +82,23 @@ class AndroidOnDeviceSpeechBackend(
         voiceId: String?,
         callback: (BackendSynthesisResult) -> Unit,
     ) {
-        val controller = localSynthesis
-        if (!synthesisAvailable || controller == null || voiceId != null) {
-            callback(BackendSynthesisResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE))
-            return
-        }
-        val token = synchronized(this) {
-            synthesisToken += 1
-            synthesisCallback = callback
-            synthesisToken
-        }
-        controller.synthesize(text)
-        main.postDelayed({
-            val active = synchronized(this) {
-                token == synthesisToken && synthesisCallback != null
-            }
-            if (active) {
-                try { controller.cancel() } catch (_: Exception) { }
-                finishSynthesis(token, BackendSynthesisResult(failure = SpeechAdapterFailure.TIMEOUT))
-            }
-        }, SPEECH_TIMEOUT_MS)
+        callback(BackendSynthesisResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE))
     }
 
     override fun cancelTranscription() {
         synchronized(this) {
-            transcriptionToken += 1
-            transcriptionCallback = null
+            generation += 1
+            callback = null
             ownedAudio?.fill(0)
             ownedAudio = null
         }
         main.post { releaseRecognizer(cancelFirst = true) }
     }
 
-    override fun cancelSynthesis() {
-        synchronized(this) {
-            synthesisToken += 1
-            synthesisCallback = null
-        }
-        try { localSynthesis?.cancel() } catch (_: Exception) { }
-    }
+    override fun cancelSynthesis() = Unit
 
     override fun close() {
         cancelTranscription()
-        cancelSynthesis()
-        try { localSynthesis?.close() } catch (_: Exception) { }
         io.shutdownNow()
     }
 
@@ -142,21 +107,26 @@ class AndroidOnDeviceSpeechBackend(
         val local = try {
             SpeechRecognizer.createOnDeviceSpeechRecognizer(app)
         } catch (_: Exception) {
-            finishTranscription(
+            finish(
                 token,
                 BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
-                cancelRecognizer = false,
+                cancelFirst = false,
             )
             return
         }
         recognizer = local
         local.setRecognitionListener(listener(token))
 
-        val probe = try { ParcelFileDescriptor.createPipe() } catch (_: Exception) {
-            finishTranscription(
+        // EXTRA_AUDIO_SOURCE is optional. Android documents that an implementation
+        // which does not support it may open the microphone itself, so fail closed
+        // unless this exact captured-PCM intent is positively supported.
+        val probe = try {
+            ParcelFileDescriptor.createPipe()
+        } catch (_: Exception) {
+            finish(
                 token,
                 BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
-                cancelRecognizer = true,
+                cancelFirst = true,
             )
             return
         }
@@ -168,17 +138,17 @@ class AndroidOnDeviceSpeechBackend(
                 object : RecognitionSupportCallback {
                     override fun onSupportResult(recognitionSupport: RecognitionSupport) {
                         try { probe[0].close() } catch (_: Exception) { }
-                        if (currentTranscription(token)) beginListeningApi33(token, local, audio)
+                        if (current(token)) beginListeningApi33(token, local, audio)
                     }
 
                     override fun onError(error: Int) {
                         try { probe[0].close() } catch (_: Exception) { }
-                        finishTranscription(
+                        finish(
                             token,
                             BackendTranscriptionResult(
                                 failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE,
                             ),
-                            cancelRecognizer = true,
+                            cancelFirst = true,
                         )
                     }
                 },
@@ -186,10 +156,10 @@ class AndroidOnDeviceSpeechBackend(
         } catch (_: Exception) {
             try { probe[0].close() } catch (_: Exception) { }
             try { probe[1].close() } catch (_: Exception) { }
-            finishTranscription(
+            finish(
                 token,
                 BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
-                cancelRecognizer = true,
+                cancelFirst = true,
             )
         }
     }
@@ -200,12 +170,14 @@ class AndroidOnDeviceSpeechBackend(
         local: SpeechRecognizer,
         audio: CapturedAudio,
     ) {
-        if (!currentTranscription(token) || recognizer !== local) return
-        val pipe = try { ParcelFileDescriptor.createPipe() } catch (_: Exception) {
-            finishTranscription(
+        if (!current(token) || recognizer !== local) return
+        val pipe = try {
+            ParcelFileDescriptor.createPipe()
+        } catch (_: Exception) {
+            finish(
                 token,
-                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
-                cancelRecognizer = true,
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
+                cancelFirst = true,
             )
             return
         }
@@ -217,13 +189,14 @@ class AndroidOnDeviceSpeechBackend(
         } catch (_: Exception) {
             try { readSide.close() } catch (_: Exception) { }
             try { writeSide.close() } catch (_: Exception) { }
-            finishTranscription(
+            finish(
                 token,
-                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
-                cancelRecognizer = true,
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
+                cancelFirst = true,
             )
             return
         }
+
         io.execute {
             try {
                 ParcelFileDescriptor.AutoCloseOutputStream(writeSide).use { output ->
@@ -232,12 +205,10 @@ class AndroidOnDeviceSpeechBackend(
                 }
             } catch (_: Exception) {
                 main.post {
-                    finishTranscription(
+                    finish(
                         token,
-                        BackendTranscriptionResult(
-                            failure = SpeechAdapterFailure.MALFORMED_RESPONSE,
-                        ),
-                        cancelRecognizer = true,
+                        BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
+                        cancelFirst = true,
                     )
                 }
             } finally {
@@ -254,10 +225,10 @@ class AndroidOnDeviceSpeechBackend(
         override fun onEndOfSpeech() = Unit
 
         override fun onError(error: Int) {
-            finishTranscription(
+            finish(
                 token,
-                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE),
-                cancelRecognizer = true,
+                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
+                cancelFirst = true,
             )
         }
 
@@ -266,14 +237,14 @@ class AndroidOnDeviceSpeechBackend(
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 ?.trim()
-            finishTranscription(
+            finish(
                 token,
                 if (text.isNullOrEmpty()) {
-                    BackendTranscriptionResult(failure = SpeechAdapterFailure.MALFORMED_RESPONSE)
+                    BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED)
                 } else {
-                    BackendTranscriptionResult(text = text)
+                    BackendTranscriptionResult(text = text, isFinal = true)
                 },
-                cancelRecognizer = false,
+                cancelFirst = false,
             )
         }
 
@@ -292,65 +263,26 @@ class AndroidOnDeviceSpeechBackend(
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
             .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, audio.sampleRateHz)
 
-    private fun onLocalSynthesisState(state: LocalSynthesisState) {
-        when (state.status) {
-            LocalSynthesisStatus.READY -> {
-                val token = synchronized(this) { synthesisToken }
-                finishSynthesis(
-                    token,
-                    state.audio?.let { BackendSynthesisResult(audio = it) }
-                        ?: BackendSynthesisResult(failure = SpeechAdapterFailure.MALFORMED_RESPONSE),
-                )
-            }
-            LocalSynthesisStatus.FAILED -> {
-                val failure = when (state.failure) {
-                    LocalSynthesisFailure.PROVIDER_UNAVAILABLE ->
-                        SpeechAdapterFailure.PROVIDER_UNAVAILABLE
-                    LocalSynthesisFailure.CANCELLED -> SpeechAdapterFailure.CANCELLED
-                    LocalSynthesisFailure.UNSUPPORTED_AUDIO ->
-                        SpeechAdapterFailure.UNSUPPORTED_MEDIA
-                    LocalSynthesisFailure.RESOURCE_LIMIT -> SpeechAdapterFailure.RESOURCE_LIMIT
-                    else -> SpeechAdapterFailure.MALFORMED_RESPONSE
-                }
-                val token = synchronized(this) { synthesisToken }
-                finishSynthesis(token, BackendSynthesisResult(failure = failure))
-            }
-            LocalSynthesisStatus.IDLE,
-            LocalSynthesisStatus.SYNTHESIZING -> Unit
-        }
-    }
-
-    private fun finishSynthesis(token: Long, result: BackendSynthesisResult) {
-        val callback = synchronized(this) {
-            if (token != synthesisToken) return
-            synthesisToken += 1
-            val current = synthesisCallback
-            synthesisCallback = null
-            current
-        }
-        callback?.invoke(result)
-    }
-
-    private fun finishTranscription(
+    private fun finish(
         token: Long,
         result: BackendTranscriptionResult,
-        cancelRecognizer: Boolean,
+        cancelFirst: Boolean,
     ) {
-        val callback = synchronized(this) {
-            if (token != transcriptionToken) return
-            transcriptionToken += 1
+        val target = synchronized(this) {
+            if (token != generation) return
+            generation += 1
             ownedAudio?.fill(0)
             ownedAudio = null
-            val current = transcriptionCallback
-            transcriptionCallback = null
+            val current = callback
+            callback = null
             current
         }
-        main.post { releaseRecognizer(cancelFirst = cancelRecognizer) }
-        callback?.invoke(result)
+        main.post { releaseRecognizer(cancelFirst) }
+        target?.invoke(result)
     }
 
     @Synchronized
-    private fun currentTranscription(token: Long): Boolean = token == transcriptionToken
+    private fun current(token: Long): Boolean = token == generation
 
     private fun releaseRecognizer(cancelFirst: Boolean) {
         val local = recognizer

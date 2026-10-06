@@ -109,6 +109,17 @@ class AppControlTests(unittest.TestCase):
         self.assertEqual(state["session"]["status"], "complete")
         self.assertEqual(state["session"]["actions"][0]["verification"], "passed")
 
+    def test_completed_session_exposes_final_redacted_planner_reply_for_speech(self):
+        reply = self.send("start", goal="Create demo file")
+        self.assertTrue(reply["ok"])
+        self.settle()
+
+        state = self.send("inspect", session_id=reply["session"]["session_id"])
+        self.assertEqual(
+            state["session"]["speech_text"],
+            "Offline demo finished; inspect execution and verification results.",
+        )
+
     def test_demo_file_preset_is_repeatable_without_overwrite(self):
         first = self.send("start", goal="Create demo file")
         self.assertTrue(first["ok"])

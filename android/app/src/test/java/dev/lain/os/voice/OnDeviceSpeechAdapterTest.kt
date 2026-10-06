@@ -8,7 +8,12 @@ import org.junit.Test
 
 class OnDeviceSpeechAdapterTest {
     private class FakeBackend : OnDeviceSpeechBackend {
+        var transcriptionAvailabilityReads = 0
         override var transcriptionAvailable = true
+            get() {
+                transcriptionAvailabilityReads += 1
+                return field
+            }
         override var synthesisAvailable = true
         override val implementation = "fake-on-device"
         override val model = "fixture"
@@ -46,9 +51,23 @@ class OnDeviceSpeechAdapterTest {
 
         override fun close() = Unit
 
+        fun emitPartialTranscript(text: String) {
+            transcriptionCallback?.invoke(
+                BackendTranscriptionResult(
+                    text = text,
+                    language = "en-US",
+                    isFinal = false,
+                )
+            )
+        }
+
         fun finishTranscript(text: String) {
             transcriptionCallback?.invoke(
-                BackendTranscriptionResult(text = text, language = "en-US")
+                BackendTranscriptionResult(
+                    text = text,
+                    language = "en-US",
+                    isFinal = true,
+                )
             )
         }
 
@@ -73,16 +92,47 @@ class OnDeviceSpeechAdapterTest {
         model = "fixture",
     )
 
-    @Test fun transcriptionFailsClosedBelowInjectedAudioApiFloor() {
+    @Test fun api32RefusesCapturedPcmWithoutTouchingRecognizer() {
         val backend = FakeBackend()
         val adapter = OnDeviceSpeechAdapter(apiLevel = 32, backend = backend)
         var result: SpeechTranscriptionResult? = null
 
         adapter.transcribe(capture()) { result = it }
 
+        assertEquals(0, backend.transcriptionAvailabilityReads)
         assertEquals(0, backend.transcribeCalls)
         assertEquals(SpeechAdapterFailure.PROVIDER_UNAVAILABLE, result?.failure)
         assertNull(result?.text)
+    }
+
+    @Test fun api33RequiresExplicitOnDeviceAvailability() {
+        val backend = FakeBackend().apply { transcriptionAvailable = false }
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        var result: SpeechTranscriptionResult? = null
+
+        adapter.transcribe(capture()) { result = it }
+
+        assertEquals(1, backend.transcriptionAvailabilityReads)
+        assertEquals(0, backend.transcribeCalls)
+        assertEquals(SpeechAdapterFailure.PROVIDER_UNAVAILABLE, result?.failure)
+        assertNull(result?.text)
+    }
+
+    @Test fun partialTranscriptNeverCrossesSeamAndFinalCrossesExactlyOnce() {
+        val backend = FakeBackend()
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        val results = mutableListOf<SpeechTranscriptionResult>()
+
+        adapter.transcribe(capture(), results::add)
+        backend.emitPartialTranscript("Show")
+
+        assertTrue(results.isEmpty())
+
+        backend.finishTranscript("Show battery")
+
+        assertEquals(1, results.size)
+        assertEquals("Show battery", results.single().text)
+        assertNull(results.single().failure)
     }
 
     @Test fun finalTranscriptCarriesExplicitOnDeviceProvenance() {
