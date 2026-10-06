@@ -1,6 +1,10 @@
 # Work Log
 
 
+
+## 2026-10-06 — TASK-013
+PR #31 exact head `f924bbedb7aa00856fae4d559133aab325a8dea8` passed Verify #528 and Android #517 on API 24/API 35, then squash-merged as `af0dc19028f329e0f49e3290a3af8cee95a5ff89`. Direct TTS now stops before capture; task Stop remains separate.
+
 ## 2026-10-06 — TASK-050
 PR #30 exact head `dfe20f205509e43cc45877b1e23e65787df5678b` passed Verify #516 and Android #505 on API 24/API 35, then squash-merged as `a4c11e6325e26732916bbcdcf0b3deca4d4810ff`. Direct local voice loop integrated; physical/OEM acceptance remains separate.
 
