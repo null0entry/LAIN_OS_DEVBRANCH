@@ -255,13 +255,40 @@ class AppController:
                 result["turn"] = record.to_dict()
             return result
         if record.route is TurnRoute.REVISION:
-            return {
-                "turn": record.to_dict(),
-                "revision_intent": {
-                    "turn_id": record.turn_id,
-                    "target_session_id": record.target_session_id,
-                },
-            }
+            sid = record.target_session_id
+            if sid is None:
+                raise ValueError("revision target is missing")
+            with self._lock:
+                if (
+                    self._active != sid
+                    or self._advancing
+                    or self._stopped.is_set()
+                ):
+                    raise ValueError("revision target is not safely active")
+                before = self.store.load(sid)
+                prior_revision = _revision(before)
+                revised = self.controller.revise(
+                    sid,
+                    record.text,
+                    turn_id=record.turn_id,
+                )
+                self._grants.clear()
+                self._confirmed = frozenset()
+                next_revision = _revision(revised)
+                return {
+                    "turn": record.to_dict(),
+                    "revision_intent": {
+                        "turn_id": record.turn_id,
+                        "target_session_id": sid,
+                    },
+                    "revision_applied": {
+                        "turn_id": record.turn_id,
+                        "target_session_id": sid,
+                        "prior_revision": prior_revision,
+                        "revision": next_revision,
+                    },
+                    "session": self._snapshot(revised),
+                }
         return {
             "turn": record.to_dict(),
             "clarification_required": True,
