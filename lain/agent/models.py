@@ -420,10 +420,17 @@ class AgentSession:
     cumulative_runtime_seconds: float
     terminal_reason: str | None
     planner_binding: PlannerBinding = OFFLINE_DEMO_BINDING
+    last_revision_turn_id: int | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.planner_binding, PlannerBinding):
             raise _invalid("planner_binding must be a PlannerBinding")
+        if self.last_revision_turn_id is not None and (
+            not isinstance(self.last_revision_turn_id, int)
+            or isinstance(self.last_revision_turn_id, bool)
+            or self.last_revision_turn_id < 1
+        ):
+            raise _invalid("last_revision_turn_id must be a positive integer")
         if self.version != "1":
             raise _invalid("unsupported agent session schema version", version=self.version)
         try:
@@ -488,6 +495,7 @@ class AgentSession:
             "cumulative_runtime_seconds": self.cumulative_runtime_seconds,
             "terminal_reason": self.terminal_reason,
             "planner_binding": self.planner_binding.to_dict(),
+            "last_revision_turn_id": self.last_revision_turn_id,
         }
 
     @classmethod
@@ -507,8 +515,9 @@ class AgentSession:
                 "cumulative_runtime_seconds",
                 "terminal_reason",
             }
+            optional = {"planner_binding", "last_revision_turn_id"}
             fields = set(raw)
-            if fields != legacy_required and fields != legacy_required | {"planner_binding"}:
+            if not legacy_required.issubset(fields) or not fields.issubset(legacy_required | optional):
                 raise ValueError("fields")
             if raw["version"] != "1":
                 raise ValueError("version")
@@ -534,6 +543,7 @@ class AgentSession:
                     if "planner_binding" in raw
                     else OFFLINE_DEMO_BINDING
                 ),
+                last_revision_turn_id=raw.get("last_revision_turn_id"),
             )
         except LainError:
             raise
