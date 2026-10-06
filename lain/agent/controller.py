@@ -90,6 +90,7 @@ class AgentController:
         revision_text: str,
         *,
         turn_id: int,
+        expected_session: AgentSession,
     ) -> AgentSession:
         if (
             not isinstance(revision_text, str)
@@ -100,8 +101,23 @@ class AgentController:
         if not isinstance(turn_id, int) or isinstance(turn_id, bool) or turn_id < 1:
             raise LainError(ErrorCode.ARGUMENT_INVALID, "revision turn_id must be positive")
 
+        if (
+            not isinstance(expected_session, AgentSession)
+            or expected_session.session_id != session_id
+        ):
+            raise LainError(
+                ErrorCode.ARGUMENT_INVALID,
+                "expected_session must match the revision target",
+            )
+
         with self.store.lease(session_id):
             session = self.store.load(session_id)
+            if session != expected_session:
+                raise LainError(
+                    ErrorCode.AGENT_STATE_INVALID,
+                    "revision target changed since the turn was accepted",
+                    details={"session_id": session_id},
+                )
             self._reject_terminal(session)
             if session.last_revision_turn_id is not None and turn_id <= session.last_revision_turn_id:
                 raise LainError(
