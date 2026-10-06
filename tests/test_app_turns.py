@@ -72,10 +72,11 @@ class AppConversationTurnTests(unittest.TestCase):
         after = self.send("inspect", session_id=sid)["session"]["revision"]
         self.assertEqual(after, before)
 
-    def test_active_revision_creates_new_intent_without_mutating_agent_session(self):
+    def test_active_revision_applies_to_same_session_and_preserves_authority_bounds(self):
         started = self.send("start", goal="Create demo file")
         sid = started["session"]["session_id"]
-        before = self.send("inspect", session_id=sid)["session"]["revision"]
+        before_view = self.send("inspect", session_id=sid)["session"]
+        before_state = self.app.store.load(sid)
 
         reply = self.send(
             "turn_submit",
@@ -89,8 +90,46 @@ class AppConversationTurnTests(unittest.TestCase):
         self.assertTrue(reply["ok"])
         self.assertEqual(reply["revision_intent"]["target_session_id"], sid)
         self.assertEqual(reply["turn"]["route"], "revision")
-        after = self.send("inspect", session_id=sid)["session"]["revision"]
-        self.assertEqual(after, before)
+        self.assertEqual(reply["revision_applied"]["turn_id"], reply["turn"]["turn_id"])
+        self.assertEqual(reply["session"]["session_id"], sid)
+        self.assertEqual(reply["session"]["status"], "planning")
+        self.assertNotEqual(reply["session"]["revision"], before_view["revision"])
+
+        after_state = self.app.store.load(sid)
+        self.assertEqual(after_state.session_id, before_state.session_id)
+        self.assertEqual(after_state.planner_binding, before_state.planner_binding)
+        self.assertEqual(after_state.budget, before_state.budget)
+        self.assertEqual(after_state.total_attempted_actions, before_state.total_attempted_actions)
+        self.assertEqual(after_state.cumulative_runtime_seconds, before_state.cumulative_runtime_seconds)
+        self.assertEqual(after_state.goal, "Create demo file\n\nUser revision: Make it shorter")
+        self.assertEqual(after_state.last_revision_turn_id, reply["turn"]["turn_id"])
+
+    def test_revision_invalidates_old_approval_without_replaying_pending_action(self):
+        started = self.send("start", goal="Share demo text")
+        sid = started["session"]["session_id"]
+        for _ in range(20):
+            if not self.app.advance():
+                break
+        paused = self.send("inspect", session_id=sid)["session"]
+        self.assertEqual(paused["status"], "paused_confirmation")
+        old_token = paused["approval"]["token"]
+        before_attempts = paused["attempted_actions"]
+
+        revised = self.send(
+            "turn_submit",
+            text="Do not share it; summarize instead",
+            source="speech",
+            kind="revision",
+            reference="active",
+            target_session_id=None,
+        )
+
+        self.assertTrue(revised["ok"])
+        self.assertEqual(revised["session"]["status"], "planning")
+        self.assertNotIn("approval", revised["session"])
+        self.assertEqual(revised["session"]["attempted_actions"], before_attempts)
+        self.assertEqual(revised["session"]["actions"][-1]["status"], "skipped")
+        self.assertFalse(self.send("approve", session_id=sid, token=old_token)["ok"])
 
     def test_turn_history_read_stays_within_control_message_bound(self):
         for index in range(20):
