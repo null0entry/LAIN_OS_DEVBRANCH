@@ -302,6 +302,60 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(runtime.calls, [])
         self.assertEqual(self.store.load(created.session_id).cumulative_runtime_seconds, 900.0)
 
+    def test_revision_preserves_completed_history_and_rejects_stale_turn(self):
+        planner = SequencePlanner([continue_files("a.txt", "b.txt"), complete()])
+        controller = self.controller(planner)
+        created = controller.create("write two files")
+        controller.step(created.session_id)
+        before = controller.step(created.session_id)
+        self.assertEqual(before.iterations[0].actions[0].result.status, ActionStatus.SUCCESS)
+        self.assertIsNone(before.iterations[0].actions[1].result)
+        self.assertTrue((self.root / "a.txt").exists())
+        self.assertFalse((self.root / "b.txt").exists())
+
+        revised = controller.revise(created.session_id, "Only keep the first file", turn_id=7)
+
+        self.assertEqual(revised.status, AgentSessionStatus.PLANNING)
+        self.assertEqual(revised.session_id, before.session_id)
+        self.assertEqual(revised.planner_binding, before.planner_binding)
+        self.assertEqual(revised.budget, before.budget)
+        self.assertEqual(revised.total_attempted_actions, before.total_attempted_actions)
+        self.assertEqual(revised.cumulative_runtime_seconds, before.cumulative_runtime_seconds)
+        self.assertEqual(revised.iterations[0].actions[0].result.status, ActionStatus.SUCCESS)
+        self.assertEqual(revised.iterations[0].actions[1].result.status, ActionStatus.SKIPPED)
+        self.assertEqual(
+            revised.iterations[0].actions[1].result.error_code,
+            "AGENT_REVISION_SUPERSEDED",
+        )
+        self.assertEqual(revised.last_revision_turn_id, 7)
+
+        checkpoint = self.store.load(created.session_id)
+        with self.assertRaises(LainError) as ctx:
+            controller.revise(created.session_id, "Duplicate delivery", turn_id=7)
+        self.assertEqual(ctx.exception.code, ErrorCode.AGENT_STATE_INVALID)
+        self.assertEqual(self.store.load(created.session_id), checkpoint)
+
+        final = controller.run_until_stop(created.session_id)
+        self.assertEqual(final.status, AgentSessionStatus.COMPLETE)
+        self.assertFalse((self.root / "b.txt").exists())
+        self.assertEqual(
+            planner.calls[-1][0],
+            "write two files\n\nUser revision: Only keep the first file",
+        )
+
+    def test_terminal_session_rejects_revision_without_mutation(self):
+        planner = SequencePlanner([complete()])
+        controller = self.controller(planner)
+        created = controller.create("finish")
+        final = controller.run_until_stop(created.session_id)
+        checkpoint = self.store.load(created.session_id)
+
+        with self.assertRaises(LainError) as ctx:
+            controller.revise(created.session_id, "change it", turn_id=2)
+
+        self.assertEqual(ctx.exception.code, ErrorCode.AGENT_STATE_INVALID)
+        self.assertEqual(self.store.load(created.session_id), checkpoint)
+
     def test_session_lease_blocks_second_controller_before_planner_work(self):
         second_planner = SequencePlanner([complete()])
         second = self.controller(second_planner)
