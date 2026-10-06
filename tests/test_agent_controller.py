@@ -313,7 +313,12 @@ class AgentControllerTests(unittest.TestCase):
         self.assertTrue((self.root / "a.txt").exists())
         self.assertFalse((self.root / "b.txt").exists())
 
-        revised = controller.revise(created.session_id, "Only keep the first file", turn_id=7)
+        revised = controller.revise(
+            created.session_id,
+            "Only keep the first file",
+            turn_id=7,
+            expected_session=before,
+        )
 
         self.assertEqual(revised.status, AgentSessionStatus.PLANNING)
         self.assertEqual(revised.session_id, before.session_id)
@@ -330,8 +335,14 @@ class AgentControllerTests(unittest.TestCase):
         self.assertEqual(revised.last_revision_turn_id, 7)
 
         checkpoint = self.store.load(created.session_id)
+        fresh = self.controller(SequencePlanner([complete()]))
         with self.assertRaises(LainError) as ctx:
-            controller.revise(created.session_id, "Duplicate delivery", turn_id=7)
+            fresh.revise(
+                created.session_id,
+                "Duplicate delivery",
+                turn_id=7,
+                expected_session=checkpoint,
+            )
         self.assertEqual(ctx.exception.code, ErrorCode.AGENT_STATE_INVALID)
         self.assertEqual(self.store.load(created.session_id), checkpoint)
 
@@ -343,6 +354,27 @@ class AgentControllerTests(unittest.TestCase):
             "write two files\n\nUser revision: Only keep the first file",
         )
 
+    def test_revision_rejects_stale_expected_session_before_mutation(self):
+        planner = SequencePlanner([continue_files("a.txt")])
+        controller = self.controller(planner)
+        created = controller.create("write one")
+        accepted_against = self.store.load(created.session_id)
+
+        controller.step(created.session_id)
+        current = self.store.load(created.session_id)
+        self.assertNotEqual(current, accepted_against)
+
+        with self.assertRaises(LainError) as ctx:
+            controller.revise(
+                created.session_id,
+                "change after stale observation",
+                turn_id=2,
+                expected_session=accepted_against,
+            )
+
+        self.assertEqual(ctx.exception.code, ErrorCode.AGENT_STATE_INVALID)
+        self.assertEqual(self.store.load(created.session_id), current)
+
     def test_terminal_session_rejects_revision_without_mutation(self):
         planner = SequencePlanner([complete()])
         controller = self.controller(planner)
@@ -351,7 +383,12 @@ class AgentControllerTests(unittest.TestCase):
         checkpoint = self.store.load(created.session_id)
 
         with self.assertRaises(LainError) as ctx:
-            controller.revise(created.session_id, "change it", turn_id=2)
+            controller.revise(
+                created.session_id,
+                "change it",
+                turn_id=2,
+                expected_session=checkpoint,
+            )
 
         self.assertEqual(ctx.exception.code, ErrorCode.AGENT_STATE_INVALID)
         self.assertEqual(self.store.load(created.session_id), checkpoint)
