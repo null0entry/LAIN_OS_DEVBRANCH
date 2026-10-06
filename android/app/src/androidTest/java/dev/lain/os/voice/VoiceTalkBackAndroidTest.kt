@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Parcel
 import android.os.SystemClock
+import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.lain.os.MainActivity
@@ -31,12 +32,15 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class VoiceTalkBackAndroidTest {
-    private class FakeCaptureEngine : AudioCaptureEngine {
+    private class FakeCaptureEngine(
+        private val events: MutableList<String>? = null,
+    ) : AudioCaptureEngine {
         override var recording = false
             private set
         private var chunk: ((ByteArray) -> Unit)? = null
 
         override fun start(onChunk: (ByteArray) -> Unit, onFailure: () -> Unit) {
+            events?.add("capture-start")
             recording = true
             chunk = onChunk
         }
@@ -82,10 +86,14 @@ class VoiceTalkBackAndroidTest {
         override fun close() = Unit
     }
 
-    private class FakeTalkBackBackend : LocalSpeechSynthesisBackend {
+    private class FakeTalkBackBackend(
+        private val events: MutableList<String>? = null,
+    ) : LocalSpeechSynthesisBackend {
         override val providerId = "fixture-local-tts"
         override val implementation = "fixture-local-tts"
         val spoken = Collections.synchronizedList(mutableListOf<String>())
+        var stopCalls = 0
+            private set
 
         override fun prepareVoices(onReady: (List<LocalSpeechVoice>) -> Unit) {
             onReady(
@@ -105,7 +113,10 @@ class VoiceTalkBackAndroidTest {
             return true
         }
 
-        override fun stop() = Unit
+        override fun stop() {
+            stopCalls += 1
+            events?.add("tts-stop")
+        }
     }
 
     private class RecordingRuntimeBinding : RuntimeBinding {
@@ -186,6 +197,38 @@ class VoiceTalkBackAndroidTest {
             SystemClock.sleep(50)
         }
         throw AssertionError("Timed out waiting for voice talk-back")
+    }
+
+
+    @Test fun startingVoiceCaptureStopsTalkBackBeforeMicrophoneWithoutStoppingTask() {
+        val events = Collections.synchronizedList(mutableListOf<String>())
+        val capture = FakeCaptureEngine(events)
+        val stt = FakeSpeechBackend()
+        val tts = FakeTalkBackBackend(events)
+        val binding = RecordingRuntimeBinding()
+        VoiceCaptureViewModel.engineFactory = { capture }
+        VoiceCaptureViewModel.permissionChecker = { true }
+        VoiceCaptureViewModel.speechBackendFactory = { stt }
+        SpeechOutputViewModel.backendFactory = { tts }
+        WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application, binding) }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) {
+                it.findViewById<android.view.View>(R.id.voice_record_button).isEnabled
+            }
+            scenario.onActivity {
+                val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
+                output.speakOnce("barge-in-test", "Synthetic reply still speaking")
+                events.clear()
+
+                assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
+                assertEquals(listOf("tts-stop", "capture-start"), events.take(2))
+                assertEquals(1, tts.stopCalls)
+                assertTrue(capture.recording)
+            }
+        }
+
+        assertTrue(binding.requests.none { it.optString("command") == "stop" })
     }
 
     @Test fun capturedPcmBecomesOneSpeechTurnAndFinalReplyTalksBack() {

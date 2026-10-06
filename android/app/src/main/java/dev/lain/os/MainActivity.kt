@@ -62,8 +62,13 @@ class MainActivity : AppCompatActivity() {
         ui.voiceRecordButton.setOnClickListener {
             if (voice.state.value?.status == MicrophoneStatus.RECORDING) {
                 voice.stop()
-            } else if (!voice.start()) {
-                microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+            } else {
+                // Barge-in is talk-back cancellation only. Stop app-owned TTS
+                // before the microphone can begin capturing to avoid self-echo.
+                speechOutput.stopTalking()
+                if (!voice.start()) {
+                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                }
             }
         }
         plannerSettings = PlannerSettingsManager(this)

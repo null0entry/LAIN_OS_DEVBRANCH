@@ -28,7 +28,8 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
         controller.speak(text, onResult)
     }
 
-    fun stop() {
+    /** Stop app-owned talk-back only; this never cancels runtime task state. */
+    fun stopTalking() {
         controller.stop()
     }
 
