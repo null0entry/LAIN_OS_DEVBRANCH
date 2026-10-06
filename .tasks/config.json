@@ -388,7 +388,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "73e07c65a08b113fce9e102675923ee57a8f69ed",
-    "next_action": "TASK-063 is next on the Phase-2 critical path: apply accepted final conversational revisions to the intended active AgentSession without stale approval, replay, budget reset, or Phase-3 workflow semantics; then TASK-014/TASK-015."
+    "repo_head": "d0c6137eb1f9210d485eab0466689ec691bedf5c",
+    "next_action": "TASK-063 In Progress: apply one accepted final revision to the exact active AgentSession under the existing session lease; preserve budgets/planner binding/completed effects, skip stale pending actions, invalidate approval authority, and replan; then TASK-014/TASK-015."
   }
 }
