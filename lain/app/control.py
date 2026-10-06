@@ -271,6 +271,7 @@ class AppController:
                     sid,
                     record.text,
                     turn_id=record.turn_id,
+                    expected_session=before,
                 )
                 self._grants.clear()
                 self._confirmed = frozenset()
