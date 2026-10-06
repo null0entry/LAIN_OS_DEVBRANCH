@@ -86,15 +86,17 @@ class SpeechOutputLifecycleAndroidTest {
         SpeechOutputViewModel.backendFactory = { backend }
 
         val scenario = ActivityScenario.launch(MainActivity::class.java)
-        scenario.onActivity {
-            val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
-            val baselineSpeakCalls = backend.speakCalls
-            output.speakOnce("reply-1", "hello")
-            assertEquals(baselineSpeakCalls + 1, backend.speakCalls)
-            assertEquals("hello", backend.lastText)
+        try {
+            scenario.onActivity {
+                val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
+                val baselineSpeakCalls = backend.speakCalls
+                output.speakOnce("reply-1", "hello")
+                assertEquals(baselineSpeakCalls + 1, backend.speakCalls)
+                assertEquals("hello", backend.lastText)
+            }
+        } finally {
+            scenario.close()
         }
-
-        scenario.close()
 
         val deadline = android.os.SystemClock.elapsedRealtime() + 5_000
         while (backend.stopCalls == 0 && android.os.SystemClock.elapsedRealtime() < deadline) {
