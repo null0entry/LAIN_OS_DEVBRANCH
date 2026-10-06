@@ -223,12 +223,12 @@ class VoiceTalkBackAndroidTest {
 
                 assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
                 assertEquals(listOf("tts-stop", "capture-start"), events.take(2))
+                assertEquals(1, tts.stopCalls)
                 assertTrue(capture.recording)
             }
         }
 
         assertTrue(binding.requests.none { it.optString("command") == "stop" })
-        assertEquals(1, tts.stopCalls)
     }
 
     @Test fun capturedPcmBecomesOneSpeechTurnAndFinalReplyTalksBack() {
