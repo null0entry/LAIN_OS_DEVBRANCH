@@ -412,7 +412,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "f168cf810df28959ad51a466f2e3870027d0c7b2",
-    "next_action": "TASK-015 remains the next critical-path task but is blocked pending declared reference-device physical/OEM evidence. TASK-016 remains dependency-blocked until TASK-015 passes. TASK-067 remains queued behind TASK-018/TASK-023/TASK-025."
+    "repo_head": "4c198e0472d68434ae7aa871d11ffdf03e8eb892",
+    "next_action": "Execute TASK-053 selectable local speech voices through the existing TASK-050 synthesis path. TASK-015 remains blocked on declared reference-device physical/OEM evidence; TASK-016 follows that gate. TASK-067 remains dependency-blocked."
   }
 }
