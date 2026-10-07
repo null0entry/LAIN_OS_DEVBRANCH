@@ -1,5 +1,59 @@
 # In Progress
 
+## TASK-053: Implement selectable agent speech voices
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
+**Updated:** 2026-10-07
+
+### Goal
+Expose a bounded user-selectable speech-synthesis voice choice through the existing TASK-009 speech contract and the concrete TASK-050 adapter without letting voice metadata become execution authority.
+
+### Scope
+- Discover and present only voices actually available through the active speech synthesis implementation.
+- Persist a stable non-secret voice selection per applicable local speech profile.
+- Bind synthesis requests to an explicit selected voice identifier where supported; fail truthfully when a stored voice disappears.
+- Preserve typed fallback, Stop talking semantics, provider/locality provenance, and TASK-012 playback boundaries.
+- Do not add voice cloning, arbitrary downloadable models, provider credentials, cloud fallback, or new capability authority.
+
+### Dependencies
+- TASK-009 speech provider contracts.
+- TASK-012 cancellable playback.
+- TASK-050 first concrete on-device speech adapter.
+
+### Plan
+- Reuse the TASK-050 synthesis adapter's platform voice inventory rather than introducing a parallel registry.
+- Add the smallest stable voice-selection state and UI control.
+- Validate stored selections against current engine/provider identity before synthesis.
+- Keep unsupported/no-voice state explicit and recoverable.
+- Add focused JVM/instrumentation coverage for selection, disappearance, restart, cancellation, and authority isolation.
+
+### Acceptance
+- The user can see and select among synthesis voices actually exposed by the active supported engine.
+- A selected voice is used by subsequent synthesis requests and survives app restart when still available.
+- Missing/removed voices surface a truthful recoverable state and never silently switch provider/locality.
+- Voice selection cannot grant task approval, policy, capability, credential, or executor authority.
+- Stop talking and task cancellation remain separate.
+
+### Verification
+- Voice inventory/selection unit tests using injectable engine doubles.
+- Restart and stale-voice negative tests.
+- Android instrumentation for selection UI and synthesis binding.
+- No-cloud-fallback and authority-field leakage tests.
+- Canonical Verify + Android API matrix; physical voice quality/availability remains separately labeled.
+
+### Expected result
+LAIN_OS satisfies the roadmap's selectable-agent-voice requirement through the existing bounded speech path, with a user-visible choice that is stable, truthful, and authority-neutral.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Phase 2 lists selectable speech synthesis voice as a feature and sequential item 23 explicitly says “Add selectable agent voices.” Current TaskPlanner work covers speech contracts, microphone, turn routing, playback, barge-in, narration, acceptance, and the first concrete speech adapter, but no task covers selectable voice state/UI.
+
+### Projection basis
+A dedicated bounded selection layer avoids baking one engine voice into TASK-050 and gives later narration/media work a reusable explicit voice identity without coupling it to provider credentials or execution authority.
+
+### Risks / unknowns
+Android/OEM engines expose different voice inventories and locality metadata. Persist stable identifiers only when the platform exposes them; otherwise surface unsupported/changed state rather than inventing portability.
+
+---
+
 
 ## TASK-015: Close Phase-2 voice acceptance gate
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, acceptance
