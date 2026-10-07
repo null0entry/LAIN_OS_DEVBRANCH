@@ -28,6 +28,12 @@
     <string name="voice_transcription_failed">On-device speech recognition failed. Typed input still works.</string>
     <string name="voice_talkback_unavailable">Local speech output unavailable.</string>
     <string name="voice_talkback_failed">Local speech output failed.</string>
+    <string name="speech_voice_heading">Speech voice</string>
+    <string name="speech_voice_loading">Loading installed offline voices…</string>
+    <string name="speech_voice_available">Installed offline voices only.</string>
+    <string name="speech_voice_none">No installed offline speech voices are available.</string>
+    <string name="speech_voice_stale">The saved voice is no longer available. Choose another installed voice.</string>
+    <string name="speech_voice_missing">Unavailable: %1$s</string>
     <string name="stop">Stop task</string>
     <string name="resume">Resume interrupted task</string>
     <string name="task_heading">CURRENT TASK</string>
