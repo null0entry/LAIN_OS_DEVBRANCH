@@ -68,6 +68,21 @@
             android:background="@drawable/card" android:orientation="vertical" android:padding="20dp"
             android:layout_marginTop="16dp">
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/transcript_heading" android:textColor="@color/text_primary"
+                android:textSize="18sp" android:textStyle="bold" />
+            <TextView android:id="@+id/conversation_transcript_status"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/transcript_unavailable" android:textColor="@color/text_secondary"
+                android:textSize="11sp" android:layout_marginTop="6dp"
+                android:accessibilityLiveRegion="polite" />
+            <LinearLayout android:id="@+id/conversation_transcript"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginTop="8dp" />
+        </LinearLayout>
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:background="@drawable/card" android:orientation="vertical" android:padding="20dp"
+            android:layout_marginTop="16dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="@string/task_heading" android:textColor="@color/text_secondary" android:textSize="11sp" android:letterSpacing="0.12" />
             <TextView android:id="@+id/task_title" android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:textColor="@color/text_primary" android:textSize="18sp" android:textStyle="bold" android:layout_marginTop="8dp" />
