@@ -72,9 +72,16 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     }
 
     fun run(goal: String) {
-        if (current().pending || !current().ready) return
+        val snapshot = current()
+        if (snapshot.pending || !snapshot.ready) return
         if (goal.isBlank()) { change { it.copy(message = "Choose a demo command first") }; return }
-        mutate("start", JSONObject().put("goal", goal.trim()))
+        if (snapshot.session?.optBoolean("recovery_required") == true) return
+        val text = goal.trim()
+        if (snapshot.session?.optBoolean("active") == true) {
+            submitRevision(text, "typed")
+        } else {
+            mutate("start", JSONObject().put("goal", text))
+        }
     }
 
     fun submitSpeech(text: String): Boolean {
@@ -84,20 +91,36 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
             snapshot.pending ||
             !snapshot.ready ||
             text.isBlank() ||
-            session?.optBoolean("active") == true ||
             session?.optBoolean("recovery_required") == true ||
             text.toByteArray(Charsets.UTF_8).size > 4096
         ) return false
+        val normalized = text.trim()
+        if (session?.optBoolean("active") == true) {
+            submitRevision(normalized, "speech")
+        } else {
+            mutate(
+                "turn_submit",
+                JSONObject()
+                    .put("text", normalized)
+                    .put("source", "speech")
+                    .put("kind", "task")
+                    .put("reference", "none")
+                    .put("target_session_id", JSONObject.NULL),
+            )
+        }
+        return true
+    }
+
+    private fun submitRevision(text: String, source: String) {
         mutate(
             "turn_submit",
             JSONObject()
-                .put("text", text.trim())
-                .put("source", "speech")
-                .put("kind", "task")
-                .put("reference", "none")
+                .put("text", text)
+                .put("source", source)
+                .put("kind", "revision")
+                .put("reference", "active")
                 .put("target_session_id", JSONObject.NULL),
         )
-        return true
     }
 
     fun reconnect() {

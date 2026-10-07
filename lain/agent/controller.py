@@ -21,7 +21,13 @@ from lain.agent.planning import AgentPlanningService
 from lain.agent.store import AgentSessionStore
 from lain.errors import ErrorCode, LainError
 from lain.planning.models import AgentPlanner, AgentPlannerStatus
-from lain.protocol.models import ActionEnvelope, ActionStatus
+from lain.protocol.models import (
+    ActionEnvelope,
+    ActionResult,
+    ActionStatus,
+    VerificationResult,
+    VerificationStatus,
+)
 
 
 def utc_now() -> str:
@@ -77,6 +83,93 @@ class AgentController:
         )
         self.store.save(session)
         return session
+
+    def revise(
+        self,
+        session_id: str,
+        revision_text: str,
+        *,
+        turn_id: int,
+        expected_session: AgentSession,
+    ) -> AgentSession:
+        if (
+            not isinstance(revision_text, str)
+            or not revision_text.strip()
+            or len(revision_text.encode("utf-8")) > 4096
+        ):
+            raise LainError(ErrorCode.ARGUMENT_INVALID, "revision text must be bounded and non-empty")
+        if not isinstance(turn_id, int) or isinstance(turn_id, bool) or turn_id < 1:
+            raise LainError(ErrorCode.ARGUMENT_INVALID, "revision turn_id must be positive")
+
+        if (
+            not isinstance(expected_session, AgentSession)
+            or expected_session.session_id != session_id
+        ):
+            raise LainError(
+                ErrorCode.ARGUMENT_INVALID,
+                "expected_session must match the revision target",
+            )
+
+        with self.store.lease(session_id):
+            session = self.store.load(session_id)
+            if session != expected_session:
+                raise LainError(
+                    ErrorCode.AGENT_STATE_INVALID,
+                    "revision target changed since the turn was accepted",
+                    details={"session_id": session_id},
+                )
+            self._reject_terminal(session)
+            if session.last_revision_turn_id is not None and turn_id <= session.last_revision_turn_id:
+                raise LainError(
+                    ErrorCode.AGENT_STATE_INVALID,
+                    "revision turn is stale or already applied",
+                    details={
+                        "turn_id": turn_id,
+                        "last_revision_turn_id": session.last_revision_turn_id,
+                    },
+                )
+
+            revised_goal = f"{session.goal}\n\nUser revision: {revision_text.strip()}"
+            if len(revised_goal.encode("utf-8")) > 4096:
+                raise LainError(ErrorCode.ARGUMENT_INVALID, "revised goal exceeds byte limit")
+
+            iterations = tuple(
+                replace(
+                    iteration,
+                    actions=tuple(
+                        replace(
+                            record,
+                            result=ActionResult(
+                                action_id=record.action.id,
+                                status=ActionStatus.SKIPPED,
+                                details={"reason": "superseded_by_conversational_revision"},
+                                verification=VerificationResult(VerificationStatus.NOT_APPLICABLE),
+                                error_code="AGENT_REVISION_SUPERSEDED",
+                            ),
+                        )
+                        if (
+                            record.result is None
+                            or record.result.status is ActionStatus.CONFIRMATION_REQUIRED
+                        )
+                        else record
+                        for record in iteration.actions
+                    ),
+                )
+                if iteration.planner_status is AgentPlannerStatus.CONTINUE
+                else iteration
+                for iteration in session.iterations
+            )
+            revised = replace(
+                session,
+                goal=revised_goal,
+                status=AgentSessionStatus.PLANNING,
+                updated_at=self.now(),
+                iterations=iterations,
+                terminal_reason=None,
+                last_revision_turn_id=turn_id,
+            )
+            self.store.save(revised)
+            return revised
 
     def step(
         self,
