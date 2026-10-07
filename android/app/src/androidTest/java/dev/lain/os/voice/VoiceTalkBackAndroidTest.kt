@@ -246,7 +246,7 @@ class VoiceTalkBackAndroidTest {
         }
     }
 
-    @Test fun startingVoiceCaptureStopsTalkBackBeforeMicrophoneWithoutStoppingTask() {
+    @Test fun startingVoiceCaptureStopsProgressNarrationBeforeMicrophoneWithoutStoppingTask() {
         val events = Collections.synchronizedList(mutableListOf<String>())
         val capture = FakeCaptureEngine(events)
         val stt = FakeSpeechBackend()
@@ -264,7 +264,17 @@ class VoiceTalkBackAndroidTest {
             }
             scenario.onActivity {
                 val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
-                output.speakOnce("barge-in-test", "Synthetic reply still speaking")
+                output.narrateProgress(
+                    TrustedProgressSnapshot(
+                        sessionId = "barge-in-test",
+                        revision = "rev-1",
+                        status = "running",
+                        active = true,
+                        stopRequested = false,
+                        recoveryRequired = false,
+                    )
+                )
+                assertEquals(listOf("Working on your task."), tts.spoken.toList())
                 events.clear()
 
                 assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
