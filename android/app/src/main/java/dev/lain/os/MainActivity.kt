@@ -28,6 +28,7 @@ import dev.lain.os.voice.SpeechAdapterFailure
 import dev.lain.os.voice.SpeechInputState
 import dev.lain.os.voice.SpeechInputStatus
 import dev.lain.os.voice.SpeechOutputViewModel
+import dev.lain.os.voice.TrustedProgressSnapshot
 import dev.lain.os.voice.VoiceCaptureViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -111,6 +112,7 @@ class MainActivity : AppCompatActivity() {
         ui.message.text = state.message
         ui.runButton.isEnabled = state.ready && !state.pending && !recovery
         updateVoiceRecordEnabled()
+        speakProgress(session)
         speakResponse(session)
         ui.stopButton.isEnabled = state.connected && (active || recovery)
         ui.commandInput.isEnabled = !state.pending && !recovery
@@ -212,6 +214,21 @@ class MainActivity : AppCompatActivity() {
             val text = state.result?.text
             if (text != null && model.submitSpeech(text)) voice.consumeFinalTranscript()
         }
+    }
+
+    private fun speakProgress(session: org.json.JSONObject?) {
+        if (session == null) return
+        speechOutput.narrateProgress(
+            TrustedProgressSnapshot(
+                sessionId = session.optString("session_id", ""),
+                revision = session.optString("revision", ""),
+                status = session.optString("status", ""),
+                active = session.optBoolean("active"),
+                stopRequested = session.optBoolean("stop_requested"),
+                recoveryRequired = session.optBoolean("recovery_required"),
+                completedActions = session.optJSONArray("actions")?.length() ?: 0,
+            )
+        )
     }
 
     private fun speakResponse(session: org.json.JSONObject?) {
