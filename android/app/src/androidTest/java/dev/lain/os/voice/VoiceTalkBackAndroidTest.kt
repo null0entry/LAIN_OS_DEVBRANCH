@@ -88,6 +88,7 @@ class VoiceTalkBackAndroidTest {
 
     private class FakeTalkBackBackend(
         private val events: MutableList<String>? = null,
+        private val acceptSpeak: Boolean = true,
     ) : LocalSpeechSynthesisBackend {
         override val providerId = "fixture-local-tts"
         override val implementation = "fixture-local-tts"
@@ -110,7 +111,7 @@ class VoiceTalkBackAndroidTest {
 
         override fun speak(text: String, voice: LocalSpeechVoice): Boolean {
             spoken += text
-            return true
+            return acceptSpeak
         }
 
         override fun stop() {
@@ -119,21 +120,26 @@ class VoiceTalkBackAndroidTest {
         }
     }
 
-    private class RecordingRuntimeBinding : RuntimeBinding {
+    private class RecordingRuntimeBinding(
+        private val initialSession: Boolean = false,
+        private val sessionStatus: String = "complete",
+        private val sessionActive: Boolean = false,
+        private val speechText: String = "Battery is at fifty percent.",
+    ) : RuntimeBinding {
         val requests = Collections.synchronizedList(mutableListOf<JSONObject>())
         private val sessionId = UUID.randomUUID().toString()
 
         private fun session() = JSONObject()
             .put("session_id", sessionId)
             .put("label", "Custom task")
-            .put("status", "complete")
+            .put("status", sessionStatus)
             .put("updated_at", "fixture")
             .put("revision", "speech-reply-1")
-            .put("active", false)
+            .put("active", sessionActive)
             .put("recovery_required", false)
             .put("stop_requested", false)
             .put("actions", JSONArray())
-            .put("speech_text", "Battery is at fifty percent.")
+            .put("speech_text", speechText)
 
         private val binder = object : Binder() {
             override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
@@ -149,7 +155,19 @@ class VoiceTalkBackAndroidTest {
                     "sessions" -> JSONObject()
                         .put("version", 1)
                         .put("ok", true)
-                        .put("sessions", JSONArray())
+                        .put(
+                            "sessions",
+                            if (initialSession) {
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("session_id", sessionId)
+                                        .put("label", "Custom task")
+                                        .put("status", sessionStatus)
+                                )
+                            } else {
+                                JSONArray()
+                            },
+                        )
                     "turn_submit" -> JSONObject()
                         .put("version", 1)
                         .put("ok", true)
@@ -199,6 +217,34 @@ class VoiceTalkBackAndroidTest {
         throw AssertionError("Timed out waiting for voice talk-back")
     }
 
+
+    @Test fun progressSpeechFailureLeavesTrustedTaskStateRunning() {
+        val tts = FakeTalkBackBackend(acceptSpeak = false)
+        val binding = RecordingRuntimeBinding(
+            initialSession = true,
+            sessionStatus = "running",
+            sessionActive = true,
+            speechText = "",
+        )
+        SpeechOutputViewModel.backendFactory = { tts }
+        WorkbenchViewModel.runtimeClientFactory = { application ->
+            RuntimeClient(application, binding)
+        }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) { tts.spoken.contains("Working on your task.") }
+            scenario.onActivity {
+                assertEquals(
+                    "RUNNING",
+                    it.findViewById<android.widget.TextView>(R.id.task_status).text.toString(),
+                )
+            }
+        }
+
+        assertTrue(binding.requests.none {
+            it.optString("command") in setOf("stop", "approve", "resume", "start", "turn_submit")
+        })
+    }
 
     @Test fun startingVoiceCaptureStopsTalkBackBeforeMicrophoneWithoutStoppingTask() {
         val events = Collections.synchronizedList(mutableListOf<String>())
