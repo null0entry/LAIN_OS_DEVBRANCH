@@ -102,7 +102,10 @@ class ProgressNarrationPolicyTest {
         val recoveryPolicy = ProgressNarrationPolicy(minimumIntervalMs = 0)
         assertEquals(
             "Task recovery is required.",
-            recoveryPolicy.next(snapshot(recoveryRequired = true), nowMs = 1),
+            recoveryPolicy.next(
+                snapshot(active = false, recoveryRequired = true),
+                nowMs = 1,
+            ),
         )
     }
 }
