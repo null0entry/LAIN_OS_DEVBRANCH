@@ -226,7 +226,6 @@ class MainActivity : AppCompatActivity() {
                 active = session.optBoolean("active"),
                 stopRequested = session.optBoolean("stop_requested"),
                 recoveryRequired = session.optBoolean("recovery_required"),
-                completedActions = session.optJSONArray("actions")?.length() ?: 0,
             )
         )
     }
