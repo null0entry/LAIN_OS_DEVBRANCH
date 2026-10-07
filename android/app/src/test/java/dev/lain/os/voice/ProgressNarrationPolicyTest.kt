@@ -25,17 +25,17 @@ class ProgressNarrationPolicyTest {
     @Test fun trustedRuntimeStateFormatsOnlyFixedProgressPhrases() {
         val policy = ProgressNarrationPolicy(minimumIntervalMs = 5_000)
 
-        val narration = policy.next(snapshot(status = "running"), nowMs = 10_000)
-
-        assertEquals("session-1:rev-1:running", narration?.key)
-        assertEquals("Working on your task.", narration?.text)
+        assertEquals(
+            "Working on your task.",
+            policy.next(snapshot(status = "running"), nowMs = 10_000),
+        )
     }
 
     @Test fun repeatedProgressIsCoalescedWithoutAnotherUtterance() {
         val policy = ProgressNarrationPolicy(minimumIntervalMs = 5_000)
         val current = snapshot(status = "running")
 
-        assertEquals("Working on your task.", policy.next(current, nowMs = 10_000)?.text)
+        assertEquals("Working on your task.", policy.next(current, nowMs = 10_000))
         assertNull(policy.next(current, nowMs = 20_000))
     }
 
@@ -43,25 +43,26 @@ class ProgressNarrationPolicyTest {
         val policy = ProgressNarrationPolicy(minimumIntervalMs = 5_000)
         assertEquals(
             "Planning your task.",
-            policy.next(snapshot(status = "planning"), nowMs = 10_000)?.text,
+            policy.next(snapshot(status = "planning"), nowMs = 10_000),
         )
 
         assertNull(policy.next(snapshot(status = "running"), nowMs = 12_000))
         assertEquals(
             "Working on your task.",
-            policy.next(snapshot(status = "running"), nowMs = 15_000)?.text,
+            policy.next(snapshot(status = "running"), nowMs = 15_000),
         )
     }
 
     @Test fun interruptionStateIsPresentationOnlyAndDoesNotClaimCompletion() {
         val policy = ProgressNarrationPolicy(minimumIntervalMs = 0)
 
-        val narration = policy.next(
-            snapshot(status = "running", stopRequested = true),
-            nowMs = 10_000,
+        assertEquals(
+            "Stopping after the current action settles.",
+            policy.next(
+                snapshot(status = "running", stopRequested = true),
+                nowMs = 10_000,
+            ),
         )
-
-        assertEquals("Stopping after the current action settles.", narration?.text)
         assertEquals("running", snapshot(status = "running").status)
     }
 
@@ -78,13 +79,13 @@ class ProgressNarrationPolicyTest {
         val approvalPolicy = ProgressNarrationPolicy(minimumIntervalMs = 0)
         assertEquals(
             "Your approval is needed.",
-            approvalPolicy.next(snapshot(status = "paused_confirmation"), nowMs = 1)?.text,
+            approvalPolicy.next(snapshot(status = "paused_confirmation"), nowMs = 1),
         )
 
         val recoveryPolicy = ProgressNarrationPolicy(minimumIntervalMs = 0)
         assertEquals(
             "Task recovery is required.",
-            recoveryPolicy.next(snapshot(recoveryRequired = true), nowMs = 1)?.text,
+            recoveryPolicy.next(snapshot(recoveryRequired = true), nowMs = 1),
         )
     }
 }
