@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "package": {
+    "python": {
+      "name": "lain-local",
+      "version": "0.0.1"
+    },
+    "android": {
+      "application_id": "dev.lain.os",
+      "compile_sdk": 35,
+      "min_sdk": 24,
+      "target_sdk": 35,
+      "version_code": 5,
+      "version_name": "0.1.4-interface"
+    }
+  },
+  "tasks": {
+    "TASK-015": "In Progress",
+    "TASK-066": "In Progress"
+  },
+  "evidence": {
+    "phase2_voice_physical": {
+      "required_class": "physical",
+      "recorded_classes": [
+        "automated",
+        "emulator"
+      ],
+      "status": "UNVERIFIED"
+    }
+  }
+}
