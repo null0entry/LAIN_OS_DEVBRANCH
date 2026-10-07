@@ -11,7 +11,6 @@ class ProgressNarrationPolicyTest {
         active: Boolean = true,
         stopRequested: Boolean = false,
         recoveryRequired: Boolean = false,
-        completedActions: Int = 0,
     ) = TrustedProgressSnapshot(
         sessionId = "session-1",
         revision = revision,
@@ -19,7 +18,6 @@ class ProgressNarrationPolicyTest {
         active = active,
         stopRequested = stopRequested,
         recoveryRequired = recoveryRequired,
-        completedActions = completedActions,
     )
 
     @Test fun trustedRuntimeStateFormatsOnlyFixedProgressPhrases() {
@@ -39,18 +37,27 @@ class ProgressNarrationPolicyTest {
         assertNull(policy.next(current, nowMs = 20_000))
     }
 
-    @Test fun changedProgressWaitsForTheBoundedIntervalThenSpeaks() {
+    @Test fun changedProgressBypassesTheRepetitionRateLimit() {
         val policy = ProgressNarrationPolicy(minimumIntervalMs = 5_000)
         assertEquals(
             "Planning your task.",
             policy.next(snapshot(status = "planning"), nowMs = 10_000),
         )
 
-        assertNull(policy.next(snapshot(status = "running"), nowMs = 12_000))
         assertEquals(
             "Working on your task.",
-            policy.next(snapshot(status = "running"), nowMs = 15_000),
+            policy.next(snapshot(status = "running"), nowMs = 12_000),
         )
+    }
+
+    @Test fun sameProgressAcrossRapidRevisionsIsRateLimited() {
+        val policy = ProgressNarrationPolicy(minimumIntervalMs = 5_000)
+        assertEquals(
+            "Working on your task.",
+            policy.next(snapshot(revision = "rev-1"), nowMs = 10_000),
+        )
+
+        assertNull(policy.next(snapshot(revision = "rev-2"), nowMs = 12_000))
     }
 
     @Test fun interruptionStateIsPresentationOnlyAndDoesNotClaimCompletion() {
