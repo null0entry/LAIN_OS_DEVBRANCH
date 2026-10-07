@@ -252,10 +252,12 @@ class MainActivity : AppCompatActivity() {
             if (failure == null) return@speakOnce
             runOnUiThread {
                 ui.voiceStatus.text = getString(
-                    if (failure == LocalSynthesisFailure.PROVIDER_UNAVAILABLE) {
-                        R.string.voice_talkback_unavailable
-                    } else {
-                        R.string.voice_talkback_failed
+                    when (failure) {
+                        LocalSynthesisFailure.PROVIDER_UNAVAILABLE ->
+                            R.string.voice_talkback_unavailable
+                        LocalSynthesisFailure.VOICE_UNAVAILABLE ->
+                            R.string.voice_talkback_voice_unavailable
+                        else -> R.string.voice_talkback_failed
                     }
                 )
             }
