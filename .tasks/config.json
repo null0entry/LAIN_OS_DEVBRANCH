@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 64,
+  "nextId": 65,
   "states": [
     {
       "name": "Backlog",
@@ -385,10 +385,16 @@
         "title": "Apply accepted conversational revisions to active task sessions",
         "priority": "P1",
         "order": 57
+      },
+      {
+        "id": "TASK-064",
+        "title": "Close Phase-5 external-provider acceptance gate",
+        "priority": "P1",
+        "order": 58
       }
     ],
     "issue": 6,
-    "repo_head": "d0c6137eb1f9210d485eab0466689ec691bedf5c",
-    "next_action": "TASK-063 In Progress: apply one accepted final revision to the exact active AgentSession under the existing session lease; preserve budgets/planner binding/completed effects, skip stale pending actions, invalidate approval authority, and replan; then TASK-014/TASK-015."
+    "repo_head": "fbbdee9282fedfda06e22240b684019c117feea7",
+    "next_action": "PR #32/TASK-063 merged as 808be986 after exact-head Verify #547 and Android #536 passed with review receipt 5431921582 and zero unresolved threads. Reconcile TASK-063 to Done without losing evidence, then start TASK-014 voice progress narration; TASK-064 is queued behind TASK-032 through TASK-038 as the missing Phase-5 exit gate."
   }
 }
