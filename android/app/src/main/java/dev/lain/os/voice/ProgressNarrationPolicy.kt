@@ -49,8 +49,11 @@ class ProgressNarrationPolicy(
         val key = "${snapshot.sessionId}:${snapshot.revision}:${phrase.first}"
         if (key == lastKey) return null
         val lastAt = lastSpokenAtMs
+        val priority = phrase.first == "approval" ||
+            phrase.first == "recovery" ||
+            phrase.first == "stopping"
         if (
-            phrase.first == lastKind &&
+            !priority &&
             lastAt != null &&
             nowMs - lastAt < minimumIntervalMs
         ) {
