@@ -29,7 +29,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ConversationalTranscriptAndroidTest {
-    private class TranscriptBinding : RuntimeBinding {
+    private class TranscriptBinding(private val failTurnsAfter: Int? = null) : RuntimeBinding {
         private val sessionId = UUID.randomUUID().toString()
         var turnsRequests = 0
 
@@ -103,10 +103,14 @@ class ConversationalTranscriptAndroidTest {
                         .put("session", session())
                     "turns" -> {
                         turnsRequests += 1
-                        JSONObject()
-                            .put("version", 1)
-                            .put("ok", true)
-                            .put("conversation", conversation())
+                        if (failTurnsAfter != null && turnsRequests > failTurnsAfter) {
+                            JSONObject(RuntimeProtocol.failure("APP_UNAVAILABLE"))
+                        } else {
+                            JSONObject()
+                                .put("version", 1)
+                                .put("ok", true)
+                                .put("conversation", conversation())
+                        }
                     }
                     else -> JSONObject(RuntimeProtocol.failure("APP_REQUEST_INVALID"))
                 }
@@ -199,4 +203,20 @@ class ConversationalTranscriptAndroidTest {
 
         assertTrue(binding.turnsRequests >= 2)
     }
+    @Test fun transcriptFailureClearsPreviouslyVisibleAcceptedTurns() {
+        val binding = TranscriptBinding(failTurnsAfter = 1)
+        WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application, binding) }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) { activity ->
+                texts(activity.findViewById(R.id.workbench_root)).any { it.contains("Start typed") }
+            }
+            await(scenario) { activity ->
+                val screen = texts(activity.findViewById(R.id.workbench_root))
+                screen.any { it.contains("Transcript unavailable") } &&
+                    screen.none { it.contains("Start typed") }
+            }
+        }
+    }
+
 }
