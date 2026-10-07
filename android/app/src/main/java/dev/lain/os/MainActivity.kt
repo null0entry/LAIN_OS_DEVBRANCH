@@ -201,10 +201,12 @@ class MainActivity : AppCompatActivity() {
             }
             SpeechInputStatus.TRANSCRIBING -> getString(R.string.voice_transcribing)
             SpeechInputStatus.FAILED -> getString(
-                if (state.result?.failure == SpeechAdapterFailure.PROVIDER_UNAVAILABLE) {
-                    R.string.voice_transcription_unavailable
-                } else {
-                    R.string.voice_transcription_failed
+                when (state.result?.failure) {
+                    SpeechAdapterFailure.PROVIDER_UNAVAILABLE ->
+                        R.string.voice_transcription_unavailable
+                    SpeechAdapterFailure.LOW_CONFIDENCE ->
+                        R.string.voice_transcription_low_confidence
+                    else -> R.string.voice_transcription_failed
                 }
             )
             SpeechInputStatus.READY -> getString(R.string.voice_transcription_ready)
