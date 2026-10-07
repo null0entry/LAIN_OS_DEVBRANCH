@@ -406,7 +406,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "9aa6c04a3d4ee7cf0999e522ebdbcb91bac560a7",
-    "next_action": "Execute TASK-066 release-state truth verifier while TASK-015 awaits declared reference-device physical/OEM evidence. TASK-016 remains dependency-blocked until TASK-015 passes."
+    "repo_head": "a4d406eea98ea1c94ad4c315df668359eaf15423",
+    "next_action": "TASK-015 remains the next critical-path task but is blocked pending declared reference-device physical/OEM evidence. TASK-016 remains dependency-blocked until TASK-015 passes."
   }
 }
