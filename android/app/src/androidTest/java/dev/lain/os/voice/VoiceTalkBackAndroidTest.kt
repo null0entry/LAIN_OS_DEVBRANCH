@@ -10,7 +10,6 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Parcel
 import android.os.SystemClock
-import androidx.lifecycle.ViewModelProvider
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.lain.os.MainActivity
@@ -110,6 +109,7 @@ class VoiceTalkBackAndroidTest {
         }
 
         override fun speak(text: String, voice: LocalSpeechVoice): Boolean {
+            events?.add("tts-speak")
             spoken += text
             return acceptSpeak
         }
@@ -128,13 +128,14 @@ class VoiceTalkBackAndroidTest {
     ) : RuntimeBinding {
         val requests = Collections.synchronizedList(mutableListOf<JSONObject>())
         private val sessionId = UUID.randomUUID().toString()
+        @Volatile var sessionRevision = "speech-reply-1"
 
         private fun session() = JSONObject()
             .put("session_id", sessionId)
             .put("label", "Custom task")
             .put("status", sessionStatus)
             .put("updated_at", "fixture")
-            .put("revision", "speech-reply-1")
+            .put("revision", sessionRevision)
             .put("active", sessionActive)
             .put("recovery_required", false)
             .put("stop_requested", false)
@@ -251,7 +252,12 @@ class VoiceTalkBackAndroidTest {
         val capture = FakeCaptureEngine(events)
         val stt = FakeSpeechBackend()
         val tts = FakeTalkBackBackend(events)
-        val binding = RecordingRuntimeBinding()
+        val binding = RecordingRuntimeBinding(
+            initialSession = true,
+            sessionStatus = "running",
+            sessionActive = true,
+            speechText = "",
+        )
         VoiceCaptureViewModel.engineFactory = { capture }
         VoiceCaptureViewModel.permissionChecker = { true }
         VoiceCaptureViewModel.speechBackendFactory = { stt }
@@ -260,31 +266,31 @@ class VoiceTalkBackAndroidTest {
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             await(scenario) {
-                it.findViewById<android.view.View>(R.id.voice_record_button).isEnabled
+                tts.spoken.contains("Working on your task.") &&
+                    it.findViewById<android.view.View>(R.id.voice_record_button).isEnabled
             }
             scenario.onActivity {
-                val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
-                output.narrateProgress(
-                    TrustedProgressSnapshot(
-                        sessionId = "barge-in-test",
-                        revision = "rev-1",
-                        status = "running",
-                        active = true,
-                        stopRequested = false,
-                        recoveryRequired = false,
-                    )
-                )
                 assertEquals(listOf("Working on your task."), tts.spoken.toList())
                 events.clear()
-
                 assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
                 assertEquals(listOf("tts-stop", "capture-start"), events.take(2))
                 assertEquals(1, tts.stopCalls)
                 assertTrue(capture.recording)
+                binding.sessionRevision = "rev-2"
+            }
+            await(scenario) {
+                binding.requests.count { request ->
+                    request.optString("command") == "inspect"
+                } >= 2
+            }
+            scenario.onActivity {
+                assertEquals(listOf("Working on your task."), tts.spoken.toList())
+                assertTrue(binding.requests.none {
+                    it.optString("command") in
+                        setOf("stop", "approve", "resume", "start", "turn_submit")
+                })
             }
         }
-
-        assertTrue(binding.requests.none { it.optString("command") == "stop" })
     }
 
     @Test fun capturedPcmBecomesOneSpeechTurnAndFinalReplyTalksBack() {
