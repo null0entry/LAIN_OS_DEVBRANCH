@@ -114,6 +114,14 @@ class SpeechOutputLifecycleAndroidTest {
                 assertEquals("offline-b", backend.lastVoice?.id)
             }
         }
+
+        ActivityScenario.launch(MainActivity::class.java).use { restarted ->
+            restarted.onActivity {
+                val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
+                output.speakOnce("reply-restarted", "hello again")
+                assertEquals("offline-b", backend.lastVoice?.id)
+            }
+        }
     }
 
     @Test fun activityFinishClosesDirectTalkBackBackend() {
