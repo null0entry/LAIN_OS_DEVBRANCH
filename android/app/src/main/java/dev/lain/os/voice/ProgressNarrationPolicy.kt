@@ -12,11 +12,6 @@ data class TrustedProgressSnapshot(
     val completedActions: Int,
 )
 
-data class ProgressNarration(
-    val key: String,
-    val text: String,
-)
-
 /**
  * Converts trusted runtime state into a small, non-authoritative speech channel.
  *
@@ -33,7 +28,7 @@ class ProgressNarrationPolicy(
         require(minimumIntervalMs >= 0)
     }
 
-    fun next(snapshot: TrustedProgressSnapshot, nowMs: Long): ProgressNarration? {
+    fun next(snapshot: TrustedProgressSnapshot, nowMs: Long): String? {
         if (
             !snapshot.active ||
             snapshot.sessionId.isBlank() ||
@@ -60,6 +55,6 @@ class ProgressNarrationPolicy(
 
         lastKey = key
         lastSpokenAtMs = nowMs
-        return ProgressNarration(key, phrase.second)
+        return phrase.second
     }
 }
