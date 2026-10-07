@@ -1,6 +1,7 @@
 # Work Log
 
-
+## 2026-10-07 — TASK-014
+PR #33 exact head `afcf2783a472f45de527cac6f2bddcea3a4ce468` passed review #5437621479, Verify #580, and Android #569 on API 24/API 35, then squash-merged as `b52523a3ab2e8f8f6510ef34b03c89230d4a0dd4`. Bounded trusted progress narration integrated; physical acceptance remains TASK-015/TASK-036.
 
 ## 2026-10-06 — TASK-013
 PR #31 exact head `f924bbedb7aa00856fae4d559133aab325a8dea8` passed Verify #528 and Android #517 on API 24/API 35, then squash-merged as `af0dc19028f329e0f49e3290a3af8cee95a5ff89`. Direct TTS now stops before capture; task Stop remains separate.
