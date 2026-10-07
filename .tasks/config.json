@@ -400,7 +400,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "f1a0270c44bca2f695081076168083207aec3686",
-    "next_action": "Finish TASK-015 Phase-2 voice acceptance. Then continue the dependency path toward TASK-049 and TASK-065; TASK-065 independently proves repeated clean-environment release-candidate reproducibility. Physical latency and final signed comparison remain explicitly UNVERIFIED until their owner-controlled environments exist."
+    "repo_head": "a1c4bc9a677176cb684a99ff346135f3d633d06d",
+    "next_action": "Finish TASK-015 with the integrated reference-device acceptance matrix and declared physical/OEM latency evidence. PR #34 merged the low-confidence/malformed-confidence authority slice as ae4b5b3; TASK-016 remains dependency-blocked until TASK-015 passes."
   }
 }
