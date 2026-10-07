@@ -263,6 +263,7 @@ class VoiceTalkBackAndroidTest {
         VoiceCaptureViewModel.speechBackendFactory = { stt }
         SpeechOutputViewModel.backendFactory = { tts }
         WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application, binding) }
+        var inspectCountBeforeRevision = 0
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             await(scenario) {
@@ -276,12 +277,15 @@ class VoiceTalkBackAndroidTest {
                 assertEquals(listOf("tts-stop", "capture-start"), events.take(2))
                 assertEquals(1, tts.stopCalls)
                 assertTrue(capture.recording)
+                inspectCountBeforeRevision = binding.requests.count { request ->
+                    request.optString("command") == "inspect"
+                }
                 binding.sessionRevision = "rev-2"
             }
             await(scenario) {
                 binding.requests.count { request ->
                     request.optString("command") == "inspect"
-                } >= 2
+                } > inspectCountBeforeRevision
             }
             scenario.onActivity {
                 assertEquals(listOf("Working on your task."), tts.spoken.toList())
