@@ -311,7 +311,8 @@ class MainActivity : AppCompatActivity() {
         val selectedIndex = state.selectedVoiceId?.let { selected ->
             state.voices.indexOfFirst { it.id == selected }.takeIf { it >= 0 }
         }
-        ui.speechVoice.setSelection((selectedIndex ?: 0) + speechVoiceOffset, false)
+        val displayIndex = if (state.staleSelection != null) 0 else (selectedIndex ?: 0)
+        ui.speechVoice.setSelection(displayIndex, false)
         renderingSpeechVoices = false
         ui.speechVoice.isEnabled = !state.loading && state.voices.isNotEmpty()
         ui.speechVoiceStatus.text = getString(
