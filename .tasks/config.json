@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 66,
+  "nextId": 67,
   "states": [
     {
       "name": "Backlog",
@@ -397,10 +397,16 @@
         "title": "Prove clean-environment 1.0 build reproducibility",
         "priority": "P1",
         "order": 59
+      },
+      {
+        "id": "TASK-066",
+        "title": "Enforce release-state truth against repository evidence",
+        "priority": "P1",
+        "order": 60
       }
     ],
     "issue": 6,
-    "repo_head": "a1c4bc9a677176cb684a99ff346135f3d633d06d",
-    "next_action": "Finish TASK-015 with the integrated reference-device acceptance matrix and declared physical/OEM latency evidence. PR #34 merged the low-confidence/malformed-confidence authority slice as ae4b5b3; TASK-016 remains dependency-blocked until TASK-015 passes."
+    "repo_head": "8a1a5d633641205404ce146a9085be266136131e",
+    "next_action": "TASK-015 remains blocked on declared reference-device physical/OEM evidence. Start independent TASK-066 to enforce stable release-state truth against repository metadata; TASK-016 remains dependency-blocked until TASK-015 passes."
   }
 }
