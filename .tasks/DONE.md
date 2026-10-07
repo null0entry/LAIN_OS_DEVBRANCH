@@ -1,5 +1,65 @@
 # Done
 
+## TASK-053: Implement selectable agent speech voices
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
+**Updated:** 2026-10-07
+
+### Goal
+Expose a bounded user-selectable speech-synthesis voice choice through the existing TASK-009 speech contract and the concrete TASK-050 adapter without letting voice metadata become execution authority.
+
+### Scope
+- Discover and present only voices actually available through the active speech synthesis implementation.
+- Persist a stable non-secret voice selection per applicable local speech profile.
+- Bind synthesis requests to an explicit selected voice identifier where supported; fail truthfully when a stored voice disappears.
+- Preserve typed fallback, Stop talking semantics, provider/locality provenance, and TASK-012 playback boundaries.
+- Do not add voice cloning, arbitrary downloadable models, provider credentials, cloud fallback, or new capability authority.
+
+### Dependencies
+- TASK-009 speech provider contracts.
+- TASK-012 cancellable playback.
+- TASK-050 first concrete on-device speech adapter.
+
+### Done summary
+- Reused the existing TASK-050 local TTS inventory; no parallel voice registry was added.
+- Added persisted provider/engine/voice identity and bound subsequent synthesis to the exact selected installed offline voice.
+- Added truthful loading, empty, and stale-selection UI states; disappeared voices fail with VOICE_UNAVAILABLE instead of silently switching provider/locality.
+- Preserved direct TTS, typed fallback, Stop talking semantics, and task-authority isolation.
+- Added focused controller, persistence, restart, collision, stale-selection, and Android selector-to-synthesis coverage.
+
+### Acceptance
+- The user can see and select among synthesis voices actually exposed by the active supported engine.
+- A selected voice is used by subsequent synthesis requests and survives app restart when still available.
+- Missing/removed voices surface a truthful recoverable state and never silently switch provider/locality.
+- Voice selection cannot grant task approval, policy, capability, credential, or executor authority.
+- Stop talking and task cancellation remain separate.
+
+### Verification
+- Voice inventory/selection unit tests using injectable engine doubles.
+- Restart and stale-voice negative tests.
+- Android instrumentation for selection UI and synthesis binding.
+- No-cloud-fallback and authority-field leakage tests.
+- Canonical Verify + Android API matrix; physical voice quality/availability remains separately labeled.
+
+### Expected result
+LAIN_OS satisfies the roadmap's selectable-agent-voice requirement through the existing bounded speech path, with a user-visible choice that is stable, truthful, and authority-neutral.
+
+### Evidence basis
+`docs/ROADMAP_1.0.md` Phase 2 lists selectable speech synthesis voice as a feature and sequential item 23 explicitly says “Add selectable agent voices.” Current TaskPlanner work covers speech contracts, microphone, turn routing, playback, barge-in, narration, acceptance, and the first concrete speech adapter, but no task covers selectable voice state/UI.
+
+### Projection basis
+A dedicated bounded selection layer avoids baking one engine voice into TASK-050 and gives later narration/media work a reusable explicit voice identity without coupling it to provider credentials or execution authority.
+
+### Risks / unknowns
+Android/OEM engines expose different voice inventories and locality metadata. Persist stable identifiers only when the platform exposes them; otherwise surface unsupported/changed state rather than inventing portability.
+
+### Completion evidence
+- PR #37 exact integration head `ca3872e32aebc8958aafef1b0c49892dee3cf0c8` passed final review receipt `5447733343` with zero unresolved threads.
+- Verify #637 and Android #626 passed on the exact head, including API 24/API 35 build, unit/lint, instrumentation, and artifact upload.
+- Squash merge receipt: `bf89b0215afec919ee87c7df7e86bc143eb2c091`.
+- Physical/OEM voice quality and Phase-2 acceptance remain separately owned by TASK-015/TASK-036.
+
+---
+
 ## TASK-066: Enforce release-state truth against repository evidence
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-0, release, verification, docs
 

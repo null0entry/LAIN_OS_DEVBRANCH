@@ -412,7 +412,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "4c198e0472d68434ae7aa871d11ffdf03e8eb892",
-    "next_action": "Execute TASK-053 selectable local speech voices through the existing TASK-050 synthesis path. TASK-015 remains blocked on declared reference-device physical/OEM evidence; TASK-016 follows that gate. TASK-067 remains dependency-blocked."
+    "repo_head": "bf89b0215afec919ee87c7df7e86bc143eb2c091",
+    "next_action": "TASK-053 is Done via PR #37 / merge bf89b021 after exact-head Verify #637 and Android #626 passed. TASK-015 remains blocked on declared reference-device physical/OEM evidence. Next unblocked independent work: TASK-054 conversational transcript UI, then TASK-055 progressive assistant speech. TASK-016 follows TASK-015; TASK-067 remains dependency-blocked."
   }
 }

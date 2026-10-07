@@ -1,5 +1,8 @@
 # Work Log
 
+## 2026-10-07 — TASK-053
+PR #37 exact head `ca3872e32aebc8958aafef1b0c49892dee3cf0c8` passed final review #5447733343, Verify #637, and Android #626 on API 24/API 35, then squash-merged as `bf89b0215afec919ee87c7df7e86bc143eb2c091`. Selectable installed-offline speech voices are integrated; TASK-015/TASK-036 still own physical/OEM acceptance.
+
 ## 2026-10-07 — TASK-066
 PR #35 exact head `ae516b06599d95aa5592f43913c2f2d3e13036d9` passed review #5443800436, Verify #609, and Android #598 on API 24/API 35, then squash-merged as `a4d406eea98ea1c94ad4c315df668359eaf15423`. Structured release-state truth now fails closed on TaskPlanner/package/API drift and evidence-class promotion; TASK-015 physical/OEM acceptance remains UNVERIFIED.
 
