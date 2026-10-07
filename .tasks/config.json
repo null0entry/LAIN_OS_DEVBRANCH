@@ -418,7 +418,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "4f66ae775e9291ccd99199b38c24cf6e606f90bc",
-    "next_action": "TASK-015 remains blocked on declared physical/OEM reference-device evidence. Next unblocked independent work is TASK-054 conversational transcript UI, then TASK-055. TASK-068 is a Phase-7 release compatibility gate after TASK-047/TASK-049/TASK-065."
+    "repo_head": "127a6b4d5bf8baa5baa695f605eaa4681da8112d",
+    "next_action": "TASK-054 conversational transcript UI is In Progress. Implement the approved bounded transcript projection with TDD. TASK-015 remains blocked on declared physical/OEM evidence; TASK-055 follows TASK-054."
   }
 }
