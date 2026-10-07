@@ -9,7 +9,6 @@ data class TrustedProgressSnapshot(
     val active: Boolean,
     val stopRequested: Boolean,
     val recoveryRequired: Boolean,
-    val completedActions: Int,
 )
 
 /**
@@ -22,6 +21,7 @@ class ProgressNarrationPolicy(
     private val minimumIntervalMs: Long = DEFAULT_PROGRESS_NARRATION_INTERVAL_MS,
 ) {
     private var lastKey: String? = null
+    private var lastKind: String? = null
     private var lastSpokenAtMs: Long? = null
 
     init {
@@ -41,8 +41,6 @@ class ProgressNarrationPolicy(
                 "Stopping after the current action settles."
             snapshot.status == "created" || snapshot.status == "planning" ->
                 "planning" to "Planning your task."
-            snapshot.status == "running" && snapshot.completedActions > 0 ->
-                "running-progress" to "Continuing your task."
             snapshot.status == "running" -> "running" to "Working on your task."
             snapshot.status == "paused_confirmation" ->
                 "approval" to "Your approval is needed."
@@ -51,9 +49,17 @@ class ProgressNarrationPolicy(
         val key = "${snapshot.sessionId}:${snapshot.revision}:${phrase.first}"
         if (key == lastKey) return null
         val lastAt = lastSpokenAtMs
-        if (lastAt != null && nowMs - lastAt < minimumIntervalMs) return null
+        if (
+            phrase.first == lastKind &&
+            lastAt != null &&
+            nowMs - lastAt < minimumIntervalMs
+        ) {
+            lastKey = key
+            return null
+        }
 
         lastKey = key
+        lastKind = phrase.first
         lastSpokenAtMs = nowMs
         return phrase.second
     }
