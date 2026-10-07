@@ -136,6 +136,25 @@ class OnDeviceSpeechAdapterTest {
         assertNull(results.single().failure)
     }
 
+    @Test fun androidBackendPreservesMalformedConfidenceForAdapterRejection() {
+        assertTrue(firstRecognizerConfidence(floatArrayOf(Float.NaN))?.isNaN() == true)
+        assertEquals(1.25f, firstRecognizerConfidence(floatArrayOf(1.25f)))
+        assertNull(firstRecognizerConfidence(null))
+    }
+
+    @Test fun malformedConfidenceFailsClosedBeforeItCanBecomeATurn() {
+        val backend = FakeBackend()
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        val results = mutableListOf<SpeechTranscriptionResult>()
+
+        adapter.transcribe(capture(), results::add)
+        backend.finishTranscript("Delete all files", confidence = Float.NaN)
+
+        assertEquals(1, results.size)
+        assertEquals(SpeechAdapterFailure.PROVIDER_FAILED, results.single().failure)
+        assertNull(results.single().text)
+    }
+
     @Test fun lowConfidenceFinalTranscriptFailsClosedBeforeItCanBecomeATurn() {
         val backend = FakeBackend()
         val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
