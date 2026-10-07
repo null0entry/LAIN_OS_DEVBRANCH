@@ -59,6 +59,9 @@ class OnDeviceSpeechSynthesisController(
         }
         try {
             backend.prepareVoices { voices ->
+                if (synchronized(gate) { requestGeneration != generation }) {
+                    return@prepareVoices
+                }
                 val voice = voices
                     .asSequence()
                     .filter {
