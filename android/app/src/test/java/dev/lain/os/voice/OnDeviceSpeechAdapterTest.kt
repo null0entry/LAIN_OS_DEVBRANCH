@@ -155,11 +155,12 @@ class OnDeviceSpeechAdapterTest {
         var result: SpeechTranscriptionResult? = null
 
         adapter.transcribe(capture()) { result = it }
-        backend.finishTranscript("Show battery")
+        backend.finishTranscript("Show battery", confidence = 0.90f)
 
         assertEquals(1, backend.transcribeCalls)
         assertEquals("Show battery", result?.text)
         assertEquals("en-US", result?.language)
+        assertEquals(0.90f, result?.confidence)
         assertEquals(ON_DEVICE_PROVIDER_ID, result?.providerId)
         assertEquals("fake-on-device", result?.implementation)
         assertEquals("fixture", result?.model)
