@@ -286,7 +286,7 @@ class MainActivity : AppCompatActivity() {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (renderingSpeechVoices) return
                 speechVoices.getOrNull(position - speechVoiceOffset)?.let { selected ->
-                    speechOutput.selectVoice(selected.id)
+                    speechOutput.selectVoice(selected.engineId, selected.id)
                 }
             }
 
@@ -300,7 +300,7 @@ class MainActivity : AppCompatActivity() {
         speechVoiceOffset = if (state.staleSelection == null) 0 else 1
         val labels = buildList {
             state.staleSelection?.let { add(getString(R.string.speech_voice_missing, it.voiceId)) }
-            addAll(state.voices.map { it.id })
+            addAll(state.voices.map { "${it.id} · ${it.engineId}" })
         }
         renderingSpeechVoices = true
         ui.speechVoice.adapter = ArrayAdapter(
@@ -308,8 +308,10 @@ class MainActivity : AppCompatActivity() {
             android.R.layout.simple_spinner_dropdown_item,
             labels,
         )
-        val selectedIndex = state.selectedVoiceId?.let { selected ->
-            state.voices.indexOfFirst { it.id == selected }.takeIf { it >= 0 }
+        val selectedIndex = state.selectedVoice?.let { selected ->
+            state.voices.indexOfFirst {
+                it.id == selected.voiceId && it.engineId == selected.engineId
+            }.takeIf { it >= 0 }
         }
         val displayIndex = if (state.staleSelection != null) 0 else (selectedIndex ?: 0)
         ui.speechVoice.setSelection(displayIndex, false)
