@@ -49,7 +49,7 @@ class OnDeviceSpeechSynthesisController(
 
     fun speak(
         text: String,
-        voiceId: String? = null,
+        selection: StoredSpeechVoice? = null,
         onResult: (LocalSynthesisFailure?) -> Unit = {},
     ) {
         val encodedSize = try {
@@ -73,14 +73,16 @@ class OnDeviceSpeechSynthesisController(
                     return@prepareVoices
                 }
                 val available = eligibleVoices(voices)
-                val voice = if (voiceId == null) {
+                val voice = if (selection == null) {
                     available.firstOrNull()
                 } else {
-                    available.firstOrNull { it.id == voiceId }
+                    available.firstOrNull {
+                        it.id == selection.voiceId && it.engineId == selection.engineId
+                    }
                 }
                 if (voice == null) {
                     onResult(
-                        if (voiceId == null) {
+                        if (selection == null) {
                             LocalSynthesisFailure.PROVIDER_UNAVAILABLE
                         } else {
                             LocalSynthesisFailure.VOICE_UNAVAILABLE
