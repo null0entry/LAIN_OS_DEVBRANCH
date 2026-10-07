@@ -21,7 +21,6 @@ class ProgressNarrationPolicy(
     private val minimumIntervalMs: Long = DEFAULT_PROGRESS_NARRATION_INTERVAL_MS,
 ) {
     private var lastKey: String? = null
-    private var lastKind: String? = null
     private var lastSpokenAtMs: Long? = null
 
     init {
@@ -62,7 +61,6 @@ class ProgressNarrationPolicy(
         }
 
         lastKey = key
-        lastKind = phrase.first
         lastSpokenAtMs = nowMs
         return phrase.second
     }
