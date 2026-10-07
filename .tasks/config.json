@@ -406,7 +406,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "8a1a5d633641205404ce146a9085be266136131e",
-    "next_action": "TASK-015 remains blocked on declared reference-device physical/OEM evidence. Start independent TASK-066 to enforce stable release-state truth against repository metadata; TASK-016 remains dependency-blocked until TASK-015 passes."
+    "repo_head": "9aa6c04a3d4ee7cf0999e522ebdbcb91bac560a7",
+    "next_action": "Execute TASK-066 release-state truth verifier while TASK-015 awaits declared reference-device physical/OEM evidence. TASK-016 remains dependency-blocked until TASK-015 passes."
   }
 }
