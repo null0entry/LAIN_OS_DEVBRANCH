@@ -217,7 +217,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun speakProgress(session: org.json.JSONObject?) {
-        if (session == null) return
+        if (
+            session == null ||
+            voice.state.value?.status == MicrophoneStatus.RECORDING ||
+            voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
+        ) return
         speechOutput.narrateProgress(
             TrustedProgressSnapshot(
                 sessionId = session.optString("session_id", ""),
