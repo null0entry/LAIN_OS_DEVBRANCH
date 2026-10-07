@@ -1,5 +1,79 @@
 # Next
 
+## TASK-064: Close Phase-5 external-provider acceptance gate
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-5, provider, acceptance, privacy, budgets, resilience
+
+### Goal
+Prove that one current-revision workflow can use configured remote providers through the shared bounded provider lifecycle while local trusted policy, approval, execution, verification, audit, privacy, budget, cancellation, and recovery semantics remain unchanged.
+
+### Scope
+- Integrate TASK-032 through TASK-038 across at least one bounded remote speech path and one bounded remote media path using the production provider-job abstraction.
+- Exercise explicit provider/profile selection and TASK-038 disclosure before any text, audio, or image payload leaves the device.
+- Prove durable submit/poll/cancel/terminal handling, aggregate call/cost ceilings, bounded retry/backoff, and uncertain-write reconciliation across restart.
+- Verify remote outputs enter the same immutable artifact/provenance/revision validation boundaries as local outputs and never grant capability or approval authority.
+- Demonstrate that Local selection never becomes Cloud automatically and provider failure preserves a truthful local/non-success outcome.
+- Persist candidate-bound automated, emulator, and separately labeled live-provider evidence suitable for TASK-047.
+- Do not add new provider features, generic authenticated HTTP, publication, silent fallback, unbounded payloads, or production credentials in fixtures.
+
+### Dependencies
+- TASK-024: durable-workflow acceptance foundation.
+- TASK-032: bounded provider-job lifecycle.
+- TASK-033 and TASK-034: bounded remote speech and media adapters.
+- TASK-035: aggregate provider spending controls.
+- TASK-037: bounded provider retry/backoff policy.
+- TASK-038: explicit privacy disclosure and data-sharing state.
+- TASK-018/TASK-020/TASK-021/TASK-022/TASK-023: artifact, revision, wait, reconciliation, and workflow-budget foundations.
+- TASK-047 for final release-manifest consumption; this task produces Phase-5 evidence without pre-building release packaging.
+
+### Plan
+- Define the smallest cross-adapter acceptance fixture and evidence manifest inputs without creating a parallel provider framework.
+- Compose speech and media fake-provider flows through the shared lifecycle, budgets, retry, disclosure, artifact, and revision seams.
+- Add deterministic crash/restart, cancellation, retry, budget-exhaustion, stale-revision, malformed-result, and uncertain-write scenarios.
+- Add Android disclosure/profile-selection assertions and prove Local-to-Cloud non-fallback.
+- Run canonical and Android matrices, architecture/security/privacy review, secret scans, and separately authorize any live-provider acceptance.
+- Record exact source/build/provider-environment identity and evidence strength for downstream TASK-047 consumption.
+
+### Acceptance
+- The same durable workflow can use configured remote speech and media providers without bypassing local policy, approval, executor, verifier, audit, or artifact authority.
+- Every outbound payload is preceded by explicit current profile/destination disclosure; Local selection never silently switches to Cloud.
+- Provider calls, bytes, time, retries, and actual/estimated cost remain under durable aggregate ceilings across restart and concurrency.
+- Only safe idempotent/read operations retry automatically; uncertain writes enter reconciliation and never replay blindly.
+- Cancellation, deadline, auth, quota, 429/5xx, malformed/oversized result, stale revision, and provider unavailability settle truthfully without fabricated success.
+- Remote media is independently downloaded, bounded, decoded, hashed, provenance-bound, and current-revision validated before workflow use.
+- Remote speech output remains provider data, never capability, approval, or task authority.
+- Secrets and sensitive provider payloads remain absent from planner envelopes, durable workflow state, audit, logs, IPC, exports, and test fixtures.
+- Automated/emulator evidence and separately authorized live-provider evidence are labeled distinctly; unavailable live evidence remains UNVERIFIED.
+
+### Verification
+- Shared fake-provider acceptance matrix across speech and media adapters.
+- Durable submit/poll/cancel/restart and duplicate/uncertain-effect reconciliation tests.
+- Aggregate call/cost/bytes/time/retry budget exhaustion and concurrency tests.
+- Disclosure/profile/revision/destination substitution and Local-to-Cloud non-fallback negatives.
+- Artifact retrieval, decoder, hash, provenance, stale-revision, malformed, truncated, oversized, and hostile-metadata fixtures.
+- Auth/quota/429/5xx/Retry-After/timeout/cancellation/provider-unavailable cases.
+- Secret and sensitive-payload scans; canonical Verify; Android API matrix; architecture/security/privacy review.
+- Separately owner-authorized live smoke evidence, if available, bound to exact provider profile, build, date, and redacted receipt.
+
+### Expected result
+Phase 5 closes only when configured remote providers demonstrably operate through one bounded, privacy-visible, budgeted, restart-safe lifecycle while every trusted local authority boundary remains unchanged.
+
+### Evidence basis
+- `docs/ROADMAP_1.0.md` defines a distinct Phase 5 exit gate: the same workflow can use configured remote providers under bounded budgets and failure handling while trusted local policy/execution semantics remain unchanged.
+- TASK-032 through TASK-038 represent the individual Phase-5 capabilities, but no current TaskPlanner task, issue, or open PR represents their integrated exit-gate proof.
+
+### Projection basis
+- TASK-047 and TASK-051 require phase-level evidence rather than assuming individually implemented adapters compose safely.
+- A dedicated gate prevents remote-provider integration from bypassing disclosure, shared budgets, revision invalidation, or uncertain-write reconciliation late in release hardening.
+
+### Risks / unknowns
+- Live-provider credentials, quotas, pricing, and availability are external and may remain UNVERIFIED; deterministic fixtures must not be promoted to live evidence.
+- Speech and media adapters may expose different provider metadata; normalize only what the shared lifecycle requires.
+- Provider policy/API drift must be verified from current official documentation during implementation.
+- This gate must not block independent local workflow work, but Phase 5 and final 1.0 readiness cannot be claimed without its evidence.
+
+---
+
+
 ## TASK-062: Implement bounded media timeline assembly workflow
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-4, workflow, media, timeline
 **Updated:** 2026-10-04
