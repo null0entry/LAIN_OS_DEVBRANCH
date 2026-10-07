@@ -10,7 +10,7 @@ import androidx.lifecycle.MutableLiveData
 data class SpeechVoiceSelectionState(
     val loading: Boolean = true,
     val voices: List<LocalSpeechVoice> = emptyList(),
-    val selectedVoiceId: String? = null,
+    val selectedVoice: StoredSpeechVoice? = null,
     val staleSelection: StoredSpeechVoice? = null,
 )
 
@@ -49,20 +49,25 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
                 SpeechVoiceSelectionState(
                     loading = false,
                     voices = voices,
-                    selectedVoiceId = selected?.id ?: if (stored == null) voices.firstOrNull()?.id else null,
+                    selectedVoice = selected?.let { StoredSpeechVoice(it.engineId, it.id) }
+                        ?: if (stored == null) {
+                            voices.firstOrNull()?.let { StoredSpeechVoice(it.engineId, it.id) }
+                        } else {
+                            null
+                        },
                     staleSelection = stored?.takeIf { selected == null },
                 )
             )
         }
     }
 
-    fun selectVoice(voiceId: String): Boolean {
+    fun selectVoice(engineId: String, voiceId: String): Boolean {
         val current = _voiceSelection.value ?: return false
-        val selected = current.voices.firstOrNull { it.id == voiceId } ?: return false
+        val selected = current.voices.firstOrNull { it.id == voiceId && it.engineId == engineId } ?: return false
         selectionStore.save(backend.providerId, selected)
         updateVoiceSelection(
             current.copy(
-                selectedVoiceId = selected.id,
+                selectedVoice = StoredSpeechVoice(selected.engineId, selected.id),
                 staleSelection = null,
             )
         )
@@ -76,14 +81,14 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
     ) {
         if (responseKey.isBlank() || responseKey == lastResponseKey) return
         lastResponseKey = responseKey
-        controller.speak(text, voiceIdForSpeech(), onResult)
+        controller.speak(text, voiceSelectionForSpeech(), onResult)
     }
 
     fun narrateProgress(snapshot: TrustedProgressSnapshot) {
         val text = progressNarration.next(snapshot, SystemClock.elapsedRealtime()) ?: return
         // Progress speech is best-effort presentation. Its result is deliberately
         // not fed back into runtime state or the authoritative visual status.
-        controller.speak(text, voiceIdForSpeech())
+        controller.speak(text, voiceSelectionForSpeech())
     }
 
     /** Stop app-owned talk-back only; this never cancels runtime task state. */
@@ -96,9 +101,9 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
         super.onCleared()
     }
 
-    private fun voiceIdForSpeech(): String? {
+    private fun voiceSelectionForSpeech(): StoredSpeechVoice? {
         val state = _voiceSelection.value ?: return null
-        return state.staleSelection?.voiceId ?: state.selectedVoiceId
+        return state.staleSelection ?: state.selectedVoice
     }
 
     private fun updateVoiceSelection(state: SpeechVoiceSelectionState) {
