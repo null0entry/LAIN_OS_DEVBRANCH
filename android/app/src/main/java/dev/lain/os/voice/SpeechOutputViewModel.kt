@@ -1,8 +1,18 @@
 package dev.lain.os.voice
 
 import android.app.Application
+import android.os.Looper
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+
+data class SpeechVoiceSelectionState(
+    val loading: Boolean = true,
+    val voices: List<LocalSpeechVoice> = emptyList(),
+    val selectedVoiceId: String? = null,
+    val staleSelection: StoredSpeechVoice? = null,
+)
 
 /**
  * Owns only the platform TTS lifetime and duplicate suppression for one runtime
@@ -16,9 +26,48 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
-    private val controller = OnDeviceSpeechSynthesisController(backendFactory(application))
+    private val backend = backendFactory(application)
+    private val controller = OnDeviceSpeechSynthesisController(backend)
+    private val selectionStore = SpeechVoiceSelectionStore(application)
+    private val _voiceSelection = MutableLiveData(SpeechVoiceSelectionState())
+    val voiceSelection: LiveData<SpeechVoiceSelectionState> = _voiceSelection
     private var lastResponseKey: String? = null
     private val progressNarration = ProgressNarrationPolicy()
+
+    init {
+        refreshVoiceInventory()
+    }
+
+    fun refreshVoiceInventory() {
+        updateVoiceSelection((_voiceSelection.value ?: SpeechVoiceSelectionState()).copy(loading = true))
+        controller.availableVoices { voices ->
+            val stored = selectionStore.load(backend.providerId)
+            val selected = stored?.let { saved ->
+                voices.firstOrNull { it.id == saved.voiceId && it.engineId == saved.engineId }
+            }
+            updateVoiceSelection(
+                SpeechVoiceSelectionState(
+                    loading = false,
+                    voices = voices,
+                    selectedVoiceId = selected?.id ?: if (stored == null) voices.firstOrNull()?.id else null,
+                    staleSelection = stored?.takeIf { selected == null },
+                )
+            )
+        }
+    }
+
+    fun selectVoice(voiceId: String): Boolean {
+        val current = _voiceSelection.value ?: return false
+        val selected = current.voices.firstOrNull { it.id == voiceId } ?: return false
+        selectionStore.save(backend.providerId, selected)
+        updateVoiceSelection(
+            current.copy(
+                selectedVoiceId = selected.id,
+                staleSelection = null,
+            )
+        )
+        return true
+    }
 
     fun speakOnce(
         responseKey: String,
@@ -27,14 +76,14 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
     ) {
         if (responseKey.isBlank() || responseKey == lastResponseKey) return
         lastResponseKey = responseKey
-        controller.speak(text, onResult)
+        controller.speak(text, voiceIdForSpeech(), onResult)
     }
 
     fun narrateProgress(snapshot: TrustedProgressSnapshot) {
         val text = progressNarration.next(snapshot, SystemClock.elapsedRealtime()) ?: return
         // Progress speech is best-effort presentation. Its result is deliberately
         // not fed back into runtime state or the authoritative visual status.
-        controller.speak(text)
+        controller.speak(text, voiceIdForSpeech())
     }
 
     /** Stop app-owned talk-back only; this never cancels runtime task state. */
@@ -45,5 +94,18 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
     override fun onCleared() {
         controller.close()
         super.onCleared()
+    }
+
+    private fun voiceIdForSpeech(): String? {
+        val state = _voiceSelection.value ?: return null
+        return state.staleSelection?.voiceId ?: state.selectedVoiceId
+    }
+
+    private fun updateVoiceSelection(state: SpeechVoiceSelectionState) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            _voiceSelection.value = state
+        } else {
+            _voiceSelection.postValue(state)
+        }
     }
 }
