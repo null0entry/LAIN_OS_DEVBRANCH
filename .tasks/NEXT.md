@@ -1,5 +1,77 @@
 # Next
 
+## TASK-068: Verify Android release compatibility matrix
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, android, compatibility, api, abi
+**Updated:** 2026-10-07
+
+### Goal
+
+Prove that one exact release-candidate APK matches its declared Android API/ABI support and remains installable, launchable, and truthful across the supported automated/emulator matrix without promoting emulator evidence to physical-device acceptance.
+
+### Scope
+
+- Consume TASK-047 candidate identity and TASK-049 release packaging outputs; do not create a second packaging path.
+- Derive the declared min/target SDK and packaged ABI set from authoritative build/package metadata and bind them to the exact candidate checksum.
+- Exercise install, cold launch, runtime startup, bounded smoke interaction, and clean shutdown on the supported emulator/API matrix already represented by repository CI, extending only where the declared support contract requires it.
+- Inspect packaged native libraries/ABI metadata and fail when declaration and artifact contents disagree.
+- Record emulator/automated compatibility separately from TASK-015/TASK-036 physical/OEM evidence and TASK-057 upgrade/migration evidence.
+- Do not broaden supported Android versions/ABIs, change signing policy, publish artifacts, or infer unsupported hardware compatibility.
+
+### Dependencies
+
+- TASK-047 release evidence manifest and evidence-strength rules.
+- TASK-049 canonical release-candidate packaging/signing boundary.
+- TASK-065 clean-environment reproducibility proof before final release-readiness consumption.
+- Existing Android API-24/API-35 CI provides reusable matrix mechanics; TASK-057 separately owns installed upgrade/state migration.
+
+### Plan
+
+- Extract authoritative SDK/package/ABI declarations and candidate identity from the existing build/package path.
+- Add the smallest candidate-bound compatibility evidence producer using existing Android CI/emulator helpers.
+- Install and launch the exact artifact across declared representative API levels, exercise bounded startup/smoke/shutdown behavior, and independently inspect package/native metadata.
+- Add negative fixtures for checksum drift, package/version mismatch, SDK mismatch, missing/unexpected ABI, install failure, startup failure, and evidence from a different candidate.
+- Feed machine-readable results into TASK-047 without weakening evidence classes.
+
+### Acceptance
+
+- Compatibility evidence names exact source revision, candidate checksum, package/version, min/target SDK, declared ABI set, tested API level/architecture, and result.
+- The exact candidate installs and cold-launches on every required automated/emulator matrix entry or the gate fails with the failing entry named.
+- Artifact inspection and declared API/ABI metadata agree; missing, unexpected, or incompatible packaged native code cannot silently pass.
+- Evidence from another checksum/source/version is rejected as stale.
+- Emulator success is never labeled physical/OEM acceptance; unavailable hardware remains UNVERIFIED.
+- No compatibility result grants capability, approval, signing, publication, or release authority.
+
+### Verification
+
+- Candidate-bound Android matrix runs at the declared minimum and current high API representative plus every additional level required by repository policy.
+- Independent APK package/version/SDK/native-library inspection.
+- Wrong-checksum, wrong-version, SDK-boundary, ABI-mismatch, install-failure, launch-failure, and stale-evidence negatives.
+- Canonical Verify plus Android instrumentation/smoke checks on the exact candidate.
+- Architecture/release/security review and TASK-047 manifest validation.
+
+### Expected result
+
+Release review receives reproducible, candidate-bound proof of what Android API/ABI compatibility was actually exercised, while physical/OEM and upgrade evidence remain separately truthful gates.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` R1.0 release-candidate requirements require supported API/ABI declaration and compatibility decisions.
+- TASK-049 requires package identity, checksum, supported API/ABI set, signing identity, and migration semantics to be bound into release evidence.
+- Current Android CI repeatedly exercises API 24 and API 35, but no canonical task binds that matrix to the final release-candidate artifact and declared ABI contents.
+
+### Projection basis
+
+- TASK-051 cannot truthfully close installed 1.0 readiness from source-level CI alone when the packaged candidate may differ in SDK, ABI, signing, or install/launch behavior.
+- Candidate-bound compatibility evidence catches packaging/toolchain drift before release without duplicating TASK-015/TASK-036 physical acceptance or TASK-057 migration testing.
+
+### Risks / unknowns
+
+- Final ABI support may remain architecture-neutral if the APK contains no native libraries; evidence must report that fact rather than invent ABI coverage.
+- Emulator availability may not cover every OEM/runtime behavior; those remain physical UNVERIFIED evidence.
+- Signing or packaging changes invalidate prior compatibility evidence through candidate identity.
+
+---
+
 ## TASK-067: Implement bounded artifact-storage admission and pressure handling
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, phase-4, artifacts, storage, operability
 **Updated:** 2026-10-07

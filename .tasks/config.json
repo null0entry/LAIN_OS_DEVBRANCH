@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 68,
+  "nextId": 69,
   "states": [
     {
       "name": "Backlog",
@@ -409,10 +409,16 @@
         "title": "Implement bounded artifact-storage admission and pressure handling",
         "priority": "P1",
         "order": 61
+      },
+      {
+        "id": "TASK-068",
+        "title": "Verify Android release compatibility matrix",
+        "priority": "P1",
+        "order": 62
       }
     ],
     "issue": 6,
-    "repo_head": "bf89b0215afec919ee87c7df7e86bc143eb2c091",
-    "next_action": "TASK-053 is Done via PR #37 / merge bf89b021 after exact-head Verify #637 and Android #626 passed. TASK-015 remains blocked on declared reference-device physical/OEM evidence. Next unblocked independent work: TASK-054 conversational transcript UI, then TASK-055 progressive assistant speech. TASK-016 follows TASK-015; TASK-067 remains dependency-blocked."
+    "repo_head": "4f66ae775e9291ccd99199b38c24cf6e606f90bc",
+    "next_action": "TASK-015 remains blocked on declared physical/OEM reference-device evidence. Next unblocked independent work is TASK-054 conversational transcript UI, then TASK-055. TASK-068 is a Phase-7 release compatibility gate after TASK-047/TASK-049/TASK-065."
   }
 }
