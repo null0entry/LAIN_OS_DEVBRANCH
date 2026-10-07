@@ -219,6 +219,34 @@ class VoiceTalkBackAndroidTest {
     }
 
 
+    @Test fun spokenCompleteTextCannotSettleATrustedRunningTask() {
+        val tts = FakeTalkBackBackend()
+        val binding = RecordingRuntimeBinding(
+            initialSession = true,
+            sessionStatus = "running",
+            sessionActive = true,
+            speechText = "complete",
+        )
+        SpeechOutputViewModel.backendFactory = { tts }
+        WorkbenchViewModel.runtimeClientFactory = { application ->
+            RuntimeClient(application, binding)
+        }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) { tts.spoken.contains("complete") }
+            scenario.onActivity {
+                assertEquals(
+                    "RUNNING",
+                    it.findViewById<android.widget.TextView>(R.id.task_status).text.toString(),
+                )
+                assertTrue(binding.requests.none {
+                    it.optString("command") in
+                        setOf("stop", "approve", "resume", "start", "turn_submit")
+                })
+            }
+        }
+    }
+
     @Test fun progressSpeechFailureLeavesTrustedTaskStateRunning() {
         val tts = FakeTalkBackBackend(acceptSpeak = false)
         val binding = RecordingRuntimeBinding(
