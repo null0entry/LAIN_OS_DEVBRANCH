@@ -238,12 +238,12 @@ class VoiceTalkBackAndroidTest {
                     "RUNNING",
                     it.findViewById<android.widget.TextView>(R.id.task_status).text.toString(),
                 )
+                assertTrue(binding.requests.none {
+                    it.optString("command") in
+                        setOf("stop", "approve", "resume", "start", "turn_submit")
+                })
             }
         }
-
-        assertTrue(binding.requests.none {
-            it.optString("command") in setOf("stop", "approve", "resume", "start", "turn_submit")
-        })
     }
 
     @Test fun startingVoiceCaptureStopsTalkBackBeforeMicrophoneWithoutStoppingTask() {
