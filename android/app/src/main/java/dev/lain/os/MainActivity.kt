@@ -202,6 +202,11 @@ class MainActivity : AppCompatActivity() {
                 val turnId = turn.optInt("turn_id", 0)
                 val source = turn.optString("source", "typed")
                 val kind = turn.optString("kind", "task")
+                val target = if (turn.isNull("target_session_id")) {
+                    ""
+                } else {
+                    turn.optString("target_session_id", "").trim()
+                }
                 if (turnId < 1 || text.isEmpty()) continue
                 val label = buildString {
                     append("Turn ")
@@ -209,6 +214,10 @@ class MainActivity : AppCompatActivity() {
                     append(" · You · ")
                     append(source)
                     if (kind == "revision") append(" · revision")
+                    if (target.isNotEmpty()) {
+                        append(" · task ")
+                        append(target.take(8))
+                    }
                 }
                 ui.conversationTranscript.addView(resultText("$label\n$text"))
                 rendered += 1
