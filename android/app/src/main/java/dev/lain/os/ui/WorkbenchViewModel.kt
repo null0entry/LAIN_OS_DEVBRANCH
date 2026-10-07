@@ -202,7 +202,7 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
             change { it.copy(history = history, startupFailed = false) }
             client.request("turns", JSONObject()) { turnReply ->
                 val conversation = if (turnReply.optBoolean("ok")) turnReply.optJSONObject("conversation") else null
-                change { it.copy(conversation = conversation) }
+                if (conversation != null) change { it.copy(conversation = conversation) }
 
                 if (sid == null) {
                     refreshing = false

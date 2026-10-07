@@ -29,8 +29,9 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class ConversationalTranscriptAndroidTest {
-    private class TranscriptBinding(private val failTurnsAfter: Int? = null) : RuntimeBinding {
+    private class TranscriptBinding : RuntimeBinding {
         private val sessionId = UUID.randomUUID().toString()
+        @Volatile var failTurns = false
         var turnsRequests = 0
 
         private fun summary() = JSONObject()
@@ -103,7 +104,7 @@ class ConversationalTranscriptAndroidTest {
                         .put("session", session())
                     "turns" -> {
                         turnsRequests += 1
-                        if (failTurnsAfter != null && turnsRequests > failTurnsAfter) {
+                        if (failTurns) {
                             JSONObject(RuntimeProtocol.failure("APP_UNAVAILABLE"))
                         } else {
                             JSONObject()
@@ -204,13 +205,14 @@ class ConversationalTranscriptAndroidTest {
         assertTrue(binding.turnsRequests >= 2)
     }
     @Test fun transcriptFailureClearsPreviouslyVisibleAcceptedTurns() {
-        val binding = TranscriptBinding(failTurnsAfter = 1)
+        val binding = TranscriptBinding()
         WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application, binding) }
 
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             await(scenario) { activity ->
                 texts(activity.findViewById(R.id.workbench_root)).any { it.contains("Start typed") }
             }
+            binding.failTurns = true
             await(scenario) { activity ->
                 val screen = texts(activity.findViewById(R.id.workbench_root))
                 screen.any { it.contains("Transcript unavailable") } &&
