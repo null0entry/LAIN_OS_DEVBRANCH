@@ -1,75 +1,70 @@
 # In Progress
 
-## TASK-014: Implement voice progress narration
-**Priority:** P2 | **Tags:** overseer-assigned, developer, phase-2, voice, progress
+## TASK-015: Close Phase-2 voice acceptance gate
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, acceptance
 **Updated:** 2026-10-03
 
 ### Goal
 
-Add bounded spoken progress events that narrate useful task state without turning speech delivery into durable workflow truth or making TTS availability a task dependency.
+Prove the integrated voice conversation stack is safe, interruptible, recoverable, and truthfully observable before Phase 2 exits.
 
 ### Scope
 
-- Define short progress-narration events derived from trusted durable task/session state.
-- Keep spoken progress separate from durable workflow/task state and planner assertions.
-- Route progress narration through the provider-neutral synthesis/playback boundaries from TASK-009/TASK-012.
-- Coalesce/rate-limit repetitive progress speech so narration cannot starve work or create unbounded provider calls.
-- Allow playback interruption through TASK-013 without cancelling the task.
-- Ensure speech/TTS failure never marks the underlying task failed or complete.
-- Preserve visual/text progress as the authoritative fallback.
-- Do not implement Phase-3 workflow DAG state, publication narration, or provider-specific TTS behavior.
+- Exercise the integrated R2.1-R2.6 path across microphone/transcript, turn management, synthesis/playback, barge-in, and progress narration.
+- Cover permission denied/revoked, provider unavailable/offline, rotation/rebind, interruption, Stop talking vs Stop task, and low-confidence consequential commands.
+- Measure interruption-to-playback-stop and trusted pause/cancel latency only on a declared reference device when hardware is actually exercised.
+- Verify typed fallback and that speech/TTS failure never becomes task failure or fabricated completion.
+- Preserve the trusted policy/approval/execution/verification/audit path.
+- Do not broaden into Phase-3 workflow/DAG features.
 
 ### Dependencies
 
-- TASK-009 complete: speech provider interfaces.
-- TASK-011 complete: turn semantics.
-- TASK-012 complete: cancellable playback.
-- TASK-013 complete: barge-in/echo protection.
+- TASK-009 through TASK-014 complete.
+- TASK-008 complete as the Phase-1 planner foundation.
 
 ### Plan
 
-- Define a minimal progress-event schema sourced only from trusted runtime state.
-- Add bounded event-to-utterance formatting with coalescing/rate limits.
-- Send narration through synthesis/playback as a non-authoritative side channel.
-- Make synthesis/playback errors local to narration and preserve underlying task state.
-- Add deterministic tests for event provenance, coalescing, failure isolation, and interruption behavior.
+- Build a reproducible end-to-end voice acceptance matrix over the integrated components.
+- Use deterministic fakes/emulator instrumentation for logic/failure cases and keep hardware-only evidence separate.
+- Add negative authority tests for partial/low-confidence speech, echo, playback failure, and TTS outage.
+- Exercise independent Stop talking and Stop task paths.
+- Record latency only from actual declared reference-device runs.
+- Run canonical portable/Android verification and fresh review.
 
 ### Acceptance
 
-- Spoken progress is generated only from trusted current task/session state.
-- Narration cannot change task status, grant approval, authorize capabilities, or fabricate completion.
-- TTS/provider/playback failure leaves the task running or settled exactly as before.
-- Repetitive progress events are bounded/coalesced.
-- User barge-in can stop progress speech without stopping the task.
-- Visual/text state remains available and authoritative when speech is unavailable.
-- No raw provider credential enters progress events or narration artifacts.
+- User can start a voice session, speak a normal goal, hear a response, interrupt it, revise the request, and stop the underlying task independently of playback.
+- Permission/provider/lifecycle failures are explicit and cannot create hidden listening or fabricated task state.
+- Partial or low-confidence consequential speech cannot authorize work outside the final-turn/approval path.
+- Typed fallback remains complete.
+- TTS/playback failure does not fail an otherwise healthy task.
+- Emulator evidence is never promoted to reference-device latency evidence.
 
 ### Verification
 
-- Focused progress-event/provenance/coalescing tests.
-- Negative tests proving narration failure does not alter task state.
-- Regression proving spoken “complete” text cannot itself mark work complete.
-- Android integration coverage for narration playback/interruption.
-- Canonical verification after implementation.
+- Integrated Android voice acceptance/instrumentation suite.
+- Negative authority/failure-mode matrix.
+- Canonical portable verification and Android API matrix.
+- Relevant secret/audio-retention inspection.
+- Hardware latency measurement only if a reference device is actually exercised.
+- Fresh whole-diff review.
 
 ### Expected result
 
-LAIN_OS can speak concise progress while work continues, with speech treated as a fallible presentation channel rather than a source of execution truth.
+Phase 2 has a reproducible exit gate demonstrating a safe voice-first interface with truthful interruption, recovery, fallback, and authority semantics.
 
 ### Evidence basis
 
-- `docs/ROADMAP_1.0.md` defines R2.6 Voice progress narration: progress events separate from durable workflow state, speech failure never equals task failure, and tasks continue if TTS is unavailable.
-- No current TaskPlanner task, open issue, or open PR represents R2.6.
+- `docs/ROADMAP_1.0.md` defines R2.7 Voice acceptance and the Phase-2 exit gate.
+- No exact current TaskPlanner task, open issue, or open PR represents R2.7.
 
 ### Projection basis
 
-- Progress narration is the last functional voice slice before R2.7 acceptance and therefore should reuse already-stable turn/playback/barge-in contracts rather than introduce a new authority path.
-- Failure isolation is necessary before voice acceptance can truthfully test provider outages and interruption.
+- This gate prevents unresolved audio/authority/lifecycle defects from propagating into Phase-3 durable workflow work.
 
 ### Risks / unknowns
 
-- Exact wording/verbosity policy is presentation-level and should remain adjustable without changing durable state contracts.
-- Aggregate speech-provider cost budgets may be refined later with Phase-3 workflow budgets; this task needs only local bounded/rate-limited behavior.
-- Reference-device latency and full voice-session acceptance belong to R2.7.
+- Reference-device execution may be unavailable in CI; such latency evidence must remain explicitly UNVERIFIED.
+- Live provider checks are supplementary; deterministic CI evidence remains the reproducible gate.
 
 ---
