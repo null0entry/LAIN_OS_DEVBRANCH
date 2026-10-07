@@ -29,7 +29,7 @@ class ProgressNarrationPolicy(
 
     fun next(snapshot: TrustedProgressSnapshot, nowMs: Long): String? {
         if (
-            !snapshot.active ||
+            (!snapshot.active && !snapshot.recoveryRequired) ||
             snapshot.sessionId.isBlank() ||
             snapshot.revision.isBlank()
         ) return null
