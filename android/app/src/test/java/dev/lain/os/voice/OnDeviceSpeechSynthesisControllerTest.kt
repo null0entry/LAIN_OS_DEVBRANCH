@@ -1,6 +1,7 @@
 package dev.lain.os.voice
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -18,10 +19,21 @@ class OnDeviceSpeechSynthesisControllerTest {
         var lastText: String? = null
         var lastVoice: LocalSpeechVoice? = null
         var acceptSpeak = true
+        var deferPreparation = false
+        private var pendingReady: ((List<LocalSpeechVoice>) -> Unit)? = null
 
         override fun prepareVoices(onReady: (List<LocalSpeechVoice>) -> Unit) {
             prepareCalls += 1
-            onReady(listedVoices)
+            if (deferPreparation) {
+                pendingReady = onReady
+            } else {
+                onReady(listedVoices)
+            }
+        }
+
+        fun completePreparation() {
+            pendingReady?.invoke(listedVoices)
+            pendingReady = null
         }
 
         override fun speak(text: String, voice: LocalSpeechVoice): Boolean {
@@ -86,6 +98,19 @@ class OnDeviceSpeechSynthesisControllerTest {
         assertEquals(LocalSynthesisFailure.RESOURCE_LIMIT, failure)
         assertEquals(0, backend.prepareCalls)
         assertEquals(0, backend.speakCalls)
+    }
+
+    @Test fun stopInvalidatesDelayedVoicePreparationBeforeItCanSpeak() {
+        val backend = FakeBackend().apply { deferPreparation = true }
+        val controller = OnDeviceSpeechSynthesisController(backend)
+        var callbackCalled = false
+
+        controller.speak("progress") { callbackCalled = true }
+        controller.stop()
+        backend.completePreparation()
+
+        assertEquals(0, backend.speakCalls)
+        assertFalse(callbackCalled)
     }
 
     @Test fun stopDelegatesDirectlyToTextToSpeechBackend() {

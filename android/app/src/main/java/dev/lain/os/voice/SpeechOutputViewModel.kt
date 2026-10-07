@@ -1,6 +1,7 @@
 package dev.lain.os.voice
 
 import android.app.Application
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 
 /**
@@ -17,6 +18,7 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
 
     private val controller = OnDeviceSpeechSynthesisController(backendFactory(application))
     private var lastResponseKey: String? = null
+    private val progressNarration = ProgressNarrationPolicy()
 
     fun speakOnce(
         responseKey: String,
@@ -26,6 +28,13 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
         if (responseKey.isBlank() || responseKey == lastResponseKey) return
         lastResponseKey = responseKey
         controller.speak(text, onResult)
+    }
+
+    fun narrateProgress(snapshot: TrustedProgressSnapshot) {
+        val text = progressNarration.next(snapshot, SystemClock.elapsedRealtime()) ?: return
+        // Progress speech is best-effort presentation. Its result is deliberately
+        // not fed back into runtime state or the authoritative visual status.
+        controller.speak(text)
     }
 
     /** Stop app-owned talk-back only; this never cancels runtime task state. */

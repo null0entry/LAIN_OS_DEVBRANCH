@@ -35,6 +35,9 @@ interface LocalSpeechSynthesisBackend {
 class OnDeviceSpeechSynthesisController(
     private val backend: LocalSpeechSynthesisBackend,
 ) {
+    private val gate = Any()
+    private var generation = 0L
+
     fun speak(
         text: String,
         onResult: (LocalSynthesisFailure?) -> Unit = {},
@@ -50,8 +53,15 @@ class OnDeviceSpeechSynthesisController(
             return
         }
 
+        val requestGeneration = synchronized(gate) {
+            generation += 1
+            generation
+        }
         try {
             backend.prepareVoices { voices ->
+                if (synchronized(gate) { requestGeneration != generation }) {
+                    return@prepareVoices
+                }
                 val voice = voices
                     .asSequence()
                     .filter {
@@ -66,11 +76,17 @@ class OnDeviceSpeechSynthesisController(
                     onResult(LocalSynthesisFailure.PROVIDER_UNAVAILABLE)
                     return@prepareVoices
                 }
-                val accepted = try {
-                    backend.speak(text, voice)
-                } catch (_: Exception) {
-                    false
-                }
+                val accepted = synchronized(gate) {
+                    if (requestGeneration != generation) {
+                        null
+                    } else {
+                        try {
+                            backend.speak(text, voice)
+                        } catch (_: Exception) {
+                            false
+                        }
+                    }
+                } ?: return@prepareVoices
                 onResult(if (accepted) null else LocalSynthesisFailure.SYNTHESIS_FAILED)
             }
         } catch (_: Exception) {
@@ -79,16 +95,22 @@ class OnDeviceSpeechSynthesisController(
     }
 
     fun stop() {
-        try {
-            backend.stop()
-        } catch (_: Exception) {
+        synchronized(gate) {
+            generation += 1
+            try {
+                backend.stop()
+            } catch (_: Exception) {
+            }
         }
     }
 
     fun close() {
-        try {
-            backend.close()
-        } catch (_: Exception) {
+        synchronized(gate) {
+            generation += 1
+            try {
+                backend.close()
+            } catch (_: Exception) {
+            }
         }
     }
 }
