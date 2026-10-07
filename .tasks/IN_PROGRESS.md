@@ -1,5 +1,77 @@
 # In Progress
 
+## TASK-066: Enforce release-state truth against repository evidence
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-0, release, verification, docs
+
+**Updated:** 2026-10-07
+
+### Goal
+
+Make repository-facing implementation, release, and verification claims fail closed when they drift from the current package metadata, TaskPlanner state, or explicitly recorded evidence class.
+
+### Scope
+
+- Implement the smallest deterministic verifier for stable release-state invariants that can be derived from repository-native sources.
+- Check version/package/API claims and current task/evidence references only where an authoritative machine-readable source exists.
+- Preserve the distinction between automated, emulator, physical-device, owner-reported, live-service, UNVERIFIED, and unsupported evidence.
+- Integrate the checks into the existing canonical verification path without creating a second release system.
+- Report precise source/claim mismatches and permit explicit bounded exceptions only when their authoritative reason is repository-visible.
+- Do not infer semantic truth from prose alone, rewrite documentation automatically, close acceptance gates, publish artifacts, or choose release/distribution policy.
+
+### Dependencies
+
+- Existing canonical verification scripts and Android/package metadata.
+- Current .tasks/**, README/spec/roadmap sources, and immutable Git/CI receipts remain the applicable authorities for their declared scopes.
+- TASK-047 may later extend the verifier with the formal candidate manifest; this task must remain useful before that dependency lands.
+
+### Plan
+
+- Inventory repository claims with stable machine-readable counterparts: package/version/API metadata, task state, candidate/source identity, and evidence-strength labels.
+- Add focused failing fixtures for stale task status, mismatched package/version/API claims, and emulator/physical/live evidence promotion.
+- Implement one minimal reusable check in the existing verifier path.
+- Seed only high-confidence current invariants; leave semantic or owner-controlled decisions explicitly outside automation.
+- Document the check’s authority boundaries and failure remediation.
+
+### Acceptance
+
+- A stale or contradictory stable claim fails canonical verification with the exact claim and authoritative source named.
+- Automated/emulator evidence cannot satisfy a physical/live acceptance assertion.
+- Task state referenced by checked current-status surfaces cannot contradict TaskPlanner’s canonical state.
+- Package/version/API claims covered by the check match actual build/runtime metadata.
+- Unknown, unstructured, or owner-controlled claims remain explicit rather than guessed or silently normalized.
+- Existing unrelated verification, documentation, TaskPlanner schema, and product behavior remain unchanged.
+
+### Verification
+
+- RED→GREEN fixtures for stale task state, package/version/API mismatch, and evidence-strength promotion.
+- Canonical portable verification with the new check enabled.
+- Negative fixtures proving unstructured prose is not treated as authority.
+- Repository-wide secret/credential scan remains unchanged.
+- Fresh review of authority boundaries, false-positive risk, and failure messages.
+
+### Expected result
+
+The repository’s stable release-state claims stay mechanically aligned with authoritative project metadata, while physical/live/owner-controlled truth remains explicitly outside automation until real evidence exists.
+
+### Evidence basis
+
+- docs/ROADMAP_1.0.md R0.2 requires architecture/spec/README claims to match fresh evidence, release/version/migration metadata to remain consistent, and external orchestration/secrets to stay out of repository state.
+- Existing tasks cover candidate manifests, packaging, documentation, migration, and final readiness, but none owns an always-on verifier for stable repository-state claims before those late gates.
+- The current canonical verifier checks code/tests/security hygiene but does not represent R0.2 as a dedicated task.
+
+### Projection basis
+
+- Frequent queue, package, and acceptance changes can leave truthful-at-write-time claims stale before TASK-047/TASK-052/TASK-051 execute.
+- A narrow machine-source-only verifier prevents false release-status drift without attempting brittle semantic validation of arbitrary prose.
+
+### Risks / unknowns
+
+- Over-broad prose parsing would create false authority and noisy failures; restrict checks to structured markers with authoritative counterparts.
+- Historical audit records must not be rewritten merely because current state changed.
+- Final candidate and distribution semantics remain owner-controlled and may extend, but must not weaken, this verifier.
+
+---
+
 ## TASK-015: Close Phase-2 voice acceptance gate
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, acceptance
 **Updated:** 2026-10-03
