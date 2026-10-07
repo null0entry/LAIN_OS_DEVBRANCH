@@ -4,6 +4,7 @@ const val MAX_LOCAL_SYNTHESIS_TEXT_BYTES = 32_768
 
 enum class LocalSynthesisFailure {
     PROVIDER_UNAVAILABLE,
+    VOICE_UNAVAILABLE,
     RESOURCE_LIMIT,
     SYNTHESIS_FAILED,
 }
@@ -38,8 +39,17 @@ class OnDeviceSpeechSynthesisController(
     private val gate = Any()
     private var generation = 0L
 
+    fun availableVoices(onResult: (List<LocalSpeechVoice>) -> Unit) {
+        try {
+            backend.prepareVoices { voices -> onResult(eligibleVoices(voices)) }
+        } catch (_: Exception) {
+            onResult(emptyList())
+        }
+    }
+
     fun speak(
         text: String,
+        selection: StoredSpeechVoice? = null,
         onResult: (LocalSynthesisFailure?) -> Unit = {},
     ) {
         val encodedSize = try {
@@ -62,18 +72,22 @@ class OnDeviceSpeechSynthesisController(
                 if (synchronized(gate) { requestGeneration != generation }) {
                     return@prepareVoices
                 }
-                val voice = voices
-                    .asSequence()
-                    .filter {
-                        it.installed &&
-                            !it.requiresNetwork &&
-                            it.id.isNotBlank() &&
-                            it.engineId.isNotBlank()
+                val available = eligibleVoices(voices)
+                val voice = if (selection == null) {
+                    available.firstOrNull()
+                } else {
+                    available.firstOrNull {
+                        it.id == selection.voiceId && it.engineId == selection.engineId
                     }
-                    .sortedBy { it.id }
-                    .firstOrNull()
+                }
                 if (voice == null) {
-                    onResult(LocalSynthesisFailure.PROVIDER_UNAVAILABLE)
+                    onResult(
+                        if (selection == null) {
+                            LocalSynthesisFailure.PROVIDER_UNAVAILABLE
+                        } else {
+                            LocalSynthesisFailure.VOICE_UNAVAILABLE
+                        }
+                    )
                     return@prepareVoices
                 }
                 val accepted = synchronized(gate) {
@@ -113,4 +127,17 @@ class OnDeviceSpeechSynthesisController(
             }
         }
     }
+
+    private fun eligibleVoices(voices: List<LocalSpeechVoice>): List<LocalSpeechVoice> =
+        voices
+            .asSequence()
+            .filter {
+                it.installed &&
+                    !it.requiresNetwork &&
+                    it.id.isNotBlank() &&
+                    it.engineId.isNotBlank()
+            }
+            .distinctBy { it.engineId to it.id }
+            .sortedWith(compareBy<LocalSpeechVoice> { it.engineId }.thenBy { it.id })
+            .toList()
 }

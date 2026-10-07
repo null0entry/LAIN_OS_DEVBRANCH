@@ -23,11 +23,13 @@ import dev.lain.os.ui.WorkbenchViewModel
 import dev.lain.os.voice.MicrophoneFailure
 import dev.lain.os.voice.MicrophoneState
 import dev.lain.os.voice.MicrophoneStatus
+import dev.lain.os.voice.LocalSpeechVoice
 import dev.lain.os.voice.LocalSynthesisFailure
 import dev.lain.os.voice.SpeechAdapterFailure
 import dev.lain.os.voice.SpeechInputState
 import dev.lain.os.voice.SpeechInputStatus
 import dev.lain.os.voice.SpeechOutputViewModel
+import dev.lain.os.voice.SpeechVoiceSelectionState
 import dev.lain.os.voice.TrustedProgressSnapshot
 import dev.lain.os.voice.VoiceCaptureViewModel
 
@@ -45,6 +47,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var plannerSettings: PlannerSettingsManager
     private var plannerProfiles = emptyList<PlannerProfileSummary>()
     private var editingPlannerId: String? = null
+    private var speechVoices = emptyList<LocalSpeechVoice>()
+    private var speechVoiceOffset = 0
+    private var renderingSpeechVoices = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,6 +77,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        setupSpeechVoiceSelection()
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
@@ -246,10 +252,12 @@ class MainActivity : AppCompatActivity() {
             if (failure == null) return@speakOnce
             runOnUiThread {
                 ui.voiceStatus.text = getString(
-                    if (failure == LocalSynthesisFailure.PROVIDER_UNAVAILABLE) {
-                        R.string.voice_talkback_unavailable
-                    } else {
-                        R.string.voice_talkback_failed
+                    when (failure) {
+                        LocalSynthesisFailure.PROVIDER_UNAVAILABLE ->
+                            R.string.voice_talkback_unavailable
+                        LocalSynthesisFailure.VOICE_UNAVAILABLE ->
+                            R.string.voice_talkback_voice_unavailable
+                        else -> R.string.voice_talkback_failed
                     }
                 )
             }
@@ -273,6 +281,52 @@ class MainActivity : AppCompatActivity() {
         setTextIsSelectable(true)
         setPadding(0, 12, 0, 20)
         textSize = 13f
+    }
+
+    private fun setupSpeechVoiceSelection() {
+        ui.speechVoice.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                if (renderingSpeechVoices) return
+                speechVoices.getOrNull(position - speechVoiceOffset)?.let { selected ->
+                    speechOutput.selectVoice(selected.engineId, selected.id)
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        speechOutput.voiceSelection.observe(this) { renderSpeechVoiceSelection(it) }
+    }
+
+    private fun renderSpeechVoiceSelection(state: SpeechVoiceSelectionState) {
+        speechVoices = state.voices
+        speechVoiceOffset = if (state.staleSelection == null) 0 else 1
+        val labels = buildList {
+            state.staleSelection?.let { add(getString(R.string.speech_voice_missing, it.voiceId)) }
+            addAll(state.voices.map { "${it.id} · ${it.engineId}" })
+        }
+        renderingSpeechVoices = true
+        ui.speechVoice.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            labels,
+        )
+        val selectedIndex = state.selectedVoice?.let { selected ->
+            state.voices.indexOfFirst {
+                it.id == selected.voiceId && it.engineId == selected.engineId
+            }.takeIf { it >= 0 }
+        }
+        val displayIndex = if (state.staleSelection != null) 0 else (selectedIndex ?: 0)
+        ui.speechVoice.setSelection(displayIndex, false)
+        renderingSpeechVoices = false
+        ui.speechVoice.isEnabled = !state.loading && state.voices.isNotEmpty()
+        ui.speechVoiceStatus.text = getString(
+            when {
+                state.loading -> R.string.speech_voice_loading
+                state.staleSelection != null -> R.string.speech_voice_stale
+                state.voices.isEmpty() -> R.string.speech_voice_none
+                else -> R.string.speech_voice_available
+            }
+        )
     }
 
     private fun setupPlannerSettings() {

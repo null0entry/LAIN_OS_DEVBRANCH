@@ -77,6 +77,59 @@ class OnDeviceSpeechSynthesisControllerTest {
         assertNull(failure)
     }
 
+    @Test fun explicitInstalledOfflineVoiceIsUsed() {
+        val backend = FakeBackend()
+        val controller = OnDeviceSpeechSynthesisController(backend)
+        var failure: LocalSynthesisFailure? = LocalSynthesisFailure.SYNTHESIS_FAILED
+
+        controller.speak("hello", selection = StoredSpeechVoice("fake.engine", "offline-b")) { failure = it }
+
+        assertEquals("offline-b", backend.lastVoice?.id)
+        assertNull(failure)
+    }
+
+    @Test fun explicitSelectionDoesNotCrossEngineWhenVoiceIdsCollide() {
+        val backend = FakeBackend().apply {
+            listedVoices = listOf(
+                LocalSpeechVoice("shared", "engine.a", requiresNetwork = false, installed = true),
+                LocalSpeechVoice("shared", "engine.b", requiresNetwork = false, installed = true),
+            )
+        }
+        val controller = OnDeviceSpeechSynthesisController(backend)
+
+        controller.speak("hello", selection = StoredSpeechVoice("engine.b", "shared"))
+
+        assertEquals("engine.b", backend.lastVoice?.engineId)
+    }
+
+    @Test fun disappearedExplicitVoiceFailsTruthfullyWithoutSilentFallback() {
+        val backend = FakeBackend()
+        val controller = OnDeviceSpeechSynthesisController(backend)
+        var failure: LocalSynthesisFailure? = null
+
+        controller.speak("hello", selection = StoredSpeechVoice("fake.engine", "removed")) { failure = it }
+
+        assertEquals(LocalSynthesisFailure.VOICE_UNAVAILABLE, failure)
+        assertEquals(0, backend.speakCalls)
+    }
+
+    @Test fun availableVoicesExcludeNetworkAndUninstalledEntries() {
+        val backend = FakeBackend().apply {
+            listedVoices = listOf(
+                LocalSpeechVoice("offline-b", "fake.engine", requiresNetwork = false, installed = true),
+                LocalSpeechVoice("cloud", "fake.engine", requiresNetwork = true, installed = true),
+                LocalSpeechVoice("missing", "fake.engine", requiresNetwork = false, installed = false),
+                LocalSpeechVoice("offline-a", "fake.engine", requiresNetwork = false, installed = true),
+            )
+        }
+        val controller = OnDeviceSpeechSynthesisController(backend)
+        var voices = emptyList<LocalSpeechVoice>()
+
+        controller.availableVoices { voices = it }
+
+        assertEquals(listOf("offline-a", "offline-b"), voices.map { it.id })
+    }
+
     @Test fun backendRejectionFailsWithoutFallback() {
         val backend = FakeBackend().apply { acceptSpeak = false }
         val controller = OnDeviceSpeechSynthesisController(backend)
