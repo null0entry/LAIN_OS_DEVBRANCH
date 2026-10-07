@@ -1,5 +1,79 @@
 # Next
 
+## TASK-067: Implement bounded artifact-storage admission and pressure handling
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, phase-4, artifacts, storage, operability
+**Updated:** 2026-10-07
+
+### Goal
+
+Prevent durable media and artifact-producing workflows from overcommitting local storage, promoting partial output, or deleting referenced evidence when free space becomes insufficient.
+
+### Scope
+
+- Add one trusted workspace-scoped storage-admission boundary that distinguishes configured workflow byte budgets from actual currently available local capacity.
+- Preflight declared input, staging, and maximum-output requirements before dispatching artifact-producing nodes.
+- Bind reservations to workflow, revision, node, and attempt identity; persist enough state to reconcile reservations after restart, cancellation, timeout, or crash.
+- Charge actual committed artifact bytes into TASK-023 aggregate budgets and release unused reservations deterministically.
+- Keep staging/partial files outside verified artifact identity until atomic commit and TASK-018 hash/provenance validation succeed.
+- Reclaim only proven unreferenced temporary files or expired reservations under explicit conservative rules; never auto-delete referenced, active, recoverable, exported, or audit/evidence artifacts.
+- Do not add a generic disk cleaner, arbitrary filesystem access, device-wide storage management, speculative compression, or hidden owner-limit increases.
+
+### Dependencies
+
+- TASK-018 immutable artifact workspace and reference-aware retention semantics.
+- TASK-023 aggregate workflow byte budgets and persisted monotonic accounting.
+- TASK-025 media artifact schemas provide bounded declared byte metadata for Phase-4 producers.
+- Existing Android/app-private storage inspection and atomic file patterns remain authoritative where reusable.
+
+### Plan
+
+- Define the smallest storage snapshot, reservation, and settlement records required at the workspace boundary.
+- Gate artifact-producing dispatch on both remaining workflow bytes and current capacity minus active reservations plus a documented safety floor.
+- Persist reservation identity before work starts; settle actual committed bytes atomically with verified artifact registration.
+- Reconcile orphaned reservations and partial staging files after restart without guessing success or deleting referenced content.
+- Add concurrent-reservation, pressure-change, cancellation, crash, stale-revision, and conservative-cleanup tests.
+
+### Acceptance
+
+- A node whose declared bounded output cannot fit is not dispatched and produces an explicit non-success storage-pressure outcome naming required and available capacity.
+- Concurrent workflows cannot reserve the same free bytes or bypass the stricter TASK-023 byte budget.
+- Reservations survive or reconcile deterministically across restart; cancellation, timeout, and failed attempts cannot leak permanent capacity.
+- Partial, corrupt, stale-revision, or oversized output never becomes a verified artifact or unlocks downstream nodes.
+- Only proven unreferenced temporary content may be reclaimed automatically; active/recoverable/reference-held artifacts remain intact.
+- Capacity changes between preflight and commit are rechecked and fail closed without fabricating completion.
+- No storage record or file content grants capability, approval, execution, or publication authority.
+
+### Verification
+
+- Deterministic fake-capacity tests for admission, exact-boundary, safety-floor, and insufficient-space outcomes.
+- Concurrent reservation and aggregate-byte-budget intersection tests.
+- Crash/restart/orphan reconciliation plus cancellation/timeout settlement tests.
+- Partial-output, stale-revision, hash mismatch, path escape, symlink, and referenced-artifact retention negatives.
+- Android/app-private storage integration checks plus canonical verification and architecture/security/operability review.
+
+### Expected result
+
+Artifact-producing workflows fail early and recover truthfully under storage pressure, while verified active evidence remains preserved and later renderer/provider stages share one bounded storage-admission contract.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` R4.4 requires renderer byte/storage limits and explicit resource-exhaustion failure; R7.4 requires insufficient-storage adversarial evidence.
+- TASK-018 owns immutable storage and conservative retention, while TASK-023 owns declared workflow byte budgets; neither reserves real current capacity or reconciles concurrent storage pressure.
+- TASK-028, TASK-031, provider downloads, and the installed golden workflow will create large staged files that require this shared boundary.
+
+### Projection basis
+
+- Without admission and reservation semantics, individually bounded producers can still overcommit the same free space, leave orphaned staging files after crashes, or discover disk exhaustion only after expensive work.
+- Establishing the boundary before renderer/provider integration removes a foreseeable cross-stage bottleneck without choosing a renderer or widening filesystem authority.
+
+### Risks / unknowns
+
+- OS-reported free capacity can change concurrently; recheck at commit and use a documented conservative safety floor rather than promising perfect reservation.
+- Exact default floors and per-artifact maxima should follow supported-device evidence; keep them configurable only within trusted owner policy.
+- Cleanup must remain conservative until TASK-018 reference tracking exists; unavailable proof means leave content untouched.
+
+---
+
 ## TASK-065: Prove clean-environment 1.0 build reproducibility
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, reproducibility, supply-chain
 **Updated:** 2026-10-07
