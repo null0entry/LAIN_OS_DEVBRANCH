@@ -1,5 +1,79 @@
 # Next
 
+## TASK-065: Prove clean-environment 1.0 build reproducibility
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, reproducibility, supply-chain
+**Updated:** 2026-10-07
+
+### Goal
+
+Prove that one exact 1.0 source revision and declared build-input set produce the same release-candidate bytes and provenance in isolated clean environments, or expose every remaining nondeterministic input before release evidence is accepted.
+
+### Scope
+
+- Consume TASK-049's release packaging path and TASK-047's evidence identity contract.
+- Pin and inventory build-critical toolchain, dependency, wrapper, plugin, SDK, and native-input identities without adding a second build system.
+- Run at least two isolated clean builds from the same source and declared inputs.
+- Compare release artifact bytes/checksums plus package/version/API/ABI and signer metadata when authorized signing inputs are available.
+- Diagnose nondeterminism to bounded sources and fail the reproducibility gate explicitly rather than normalizing mismatched artifacts into a false pass.
+- Emit machine-readable reproducibility evidence suitable for TASK-048/TASK-051.
+- Do not create signing credentials, weaken signature checks, publish artifacts, choose a distribution channel, or claim 1.0 readiness.
+
+### Dependencies
+
+- TASK-047 defines candidate-bound release evidence and evidence-strength rules.
+- TASK-049 provides the canonical release-candidate packaging/signing boundary.
+- TASK-052 provides dependency/license notice coverage for shipped components.
+- Maintainer-controlled signing material is required only for the final signed comparison; unsigned/configuration checks remain independently actionable.
+
+### Plan
+
+- Inventory every build input that can alter release bytes or metadata.
+- Add the smallest clean-build harness using the existing Gradle/repository path.
+- Build twice in isolated workspaces with identical declared inputs and compare digests plus independently inspected package metadata.
+- Add negative fixtures proving source, dependency, toolchain, version, package, signer, or environment drift invalidates the result.
+- Record exact mismatches and evidence strength through TASK-047; keep unavailable signing/device evidence explicit.
+
+### Acceptance
+
+- Repeated isolated builds from the same source and declared inputs either produce byte-identical candidate artifacts or a deterministic FAIL naming every differing input/output.
+- Source commit, dependency/toolchain identities, package/version, supported API/ABI set, artifact checksum, and signer identity are bound together.
+- Hidden network-fetched or floating build inputs cannot silently satisfy the gate.
+- Debug signing, missing signing inputs, mismatched signer identity, changed dependencies, and changed toolchain versions cannot pass as the same candidate.
+- Reproducibility evidence is machine-readable, bounded, secret-free, and invalidated by any candidate identity change.
+- No mismatch is concealed by comparing only normalized metadata when final release bytes differ.
+
+### Verification
+
+- Two clean-workspace builds and exact artifact digest comparison.
+- Package/version/API/ABI/signature inspection on each produced candidate.
+- Source/dependency/toolchain/signer/package/version drift negative tests.
+- Offline or locked-input failure checks where supported by the existing build.
+- Secret scan of build configuration, logs, provenance, and evidence outputs.
+- Fresh build/release/security review and TASK-047 manifest validation.
+
+### Expected result
+
+Release review can prove whether the exact 1.0 candidate is reproducible from declared inputs instead of trusting a one-off build, with nondeterminism and unavailable signing evidence surfaced truthfully.
+
+### Evidence basis
+
+- `docs/ROADMAP_1.0.md` Release Engineering requires a reproducible release build bound to source, version, signing identity, API/ABI declaration, checksum, and evidence.
+- TASK-049 creates the packaging path, but no canonical task independently proves repeated clean-environment byte reproducibility or detects hidden/floating build inputs.
+- TASK-047 classifies evidence and TASK-051 consumes it; neither produces this reproducibility proof.
+
+### Projection basis
+
+- Candidate-bound automated, physical, media, and live-service evidence becomes stale if the same declared source cannot recreate the same artifact.
+- An independent reproducibility gate prevents late dependency/toolchain drift from invalidating release evidence or substituting a different binary under the same version.
+
+### Risks / unknowns
+
+- APK/ZIP ordering, timestamps, native tooling, or signing behavior may expose nondeterminism; the task must report and bound it rather than waive it.
+- Final signed comparison depends on owner-controlled signing material; absence remains UNVERIFIED and does not block clean unsigned/configuration diagnostics.
+- Some remote repositories may be needed for dependency resolution; pin identities and record availability without vendoring speculative dependencies.
+
+---
+
 ## TASK-064: Close Phase-5 external-provider acceptance gate
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-5, provider, acceptance, privacy, budgets, resilience
 
