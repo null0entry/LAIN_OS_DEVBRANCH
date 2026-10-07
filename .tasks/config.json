@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 67,
+  "nextId": 68,
   "states": [
     {
       "name": "Backlog",
@@ -403,10 +403,16 @@
         "title": "Enforce release-state truth against repository evidence",
         "priority": "P1",
         "order": 60
+      },
+      {
+        "id": "TASK-067",
+        "title": "Implement bounded artifact-storage admission and pressure handling",
+        "priority": "P1",
+        "order": 61
       }
     ],
     "issue": 6,
-    "repo_head": "9aa6c04a3d4ee7cf0999e522ebdbcb91bac560a7",
-    "next_action": "Execute TASK-066 release-state truth verifier while TASK-015 awaits declared reference-device physical/OEM evidence. TASK-016 remains dependency-blocked until TASK-015 passes."
+    "repo_head": "a4d406eea98ea1c94ad4c315df668359eaf15423",
+    "next_action": "Integrate the staged TASK-066 completion reconciliation first. TASK-015 remains blocked on declared reference-device physical/OEM evidence; TASK-016 follows that gate. TASK-067 is queued after TASK-018/TASK-023/TASK-025 and before storage-heavy renderer/provider acceptance."
   }
 }
