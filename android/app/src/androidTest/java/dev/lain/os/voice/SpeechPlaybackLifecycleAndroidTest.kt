@@ -106,10 +106,11 @@ class SpeechOutputLifecycleAndroidTest {
                 val spinner = it.findViewById<Spinner>(R.id.speech_voice)
                 assertEquals(2, spinner.count)
                 spinner.setSelection(1)
-
+            }
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            scenario.onActivity {
                 val output = ViewModelProvider(it)[SpeechOutputViewModel::class.java]
                 output.speakOnce("reply-selected", "hello")
-
                 assertEquals("offline-b", backend.lastVoice?.id)
             }
         }
