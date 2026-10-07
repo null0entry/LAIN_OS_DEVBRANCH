@@ -394,7 +394,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "7f183fe3e195478424fa98474e791d4a91301ebd",
-    "next_action": "TASK-063 is Done via PR #32 / merge 808be986 after exact-head Verify #547 and Android #536 passed. TASK-014 voice progress narration is In Progress; then TASK-015. TASK-064 remains queued behind TASK-032 through TASK-038."
+    "repo_head": "6f5b99b0fd67967892e6813c489cdb80697839e5",
+    "next_action": "TASK-014 integrated via PR #33 merge b52523a3; TASK-015 is In Progress for the Phase-2 voice acceptance matrix. Reference-device latency remains UNVERIFIED until a declared physical-device run. TASK-064 remains queued behind TASK-032–TASK-038."
   }
 }
