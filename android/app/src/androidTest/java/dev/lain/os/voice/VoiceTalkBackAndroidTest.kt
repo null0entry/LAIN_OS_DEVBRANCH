@@ -53,7 +53,13 @@ class VoiceTalkBackAndroidTest {
         }
     }
 
-    private class FakeSpeechBackend : OnDeviceSpeechBackend {
+    private class FakeSpeechBackend(
+        private val result: BackendTranscriptionResult = BackendTranscriptionResult(
+            text = "Show battery",
+            language = "en-US",
+            isFinal = true,
+        ),
+    ) : OnDeviceSpeechBackend {
         override val transcriptionAvailable = true
         override val synthesisAvailable = false
         override val implementation = "fixture-on-device-stt"
@@ -63,13 +69,7 @@ class VoiceTalkBackAndroidTest {
             audio: CapturedAudio,
             callback: (BackendTranscriptionResult) -> Unit,
         ) {
-            callback(
-                BackendTranscriptionResult(
-                    text = "Show battery",
-                    language = "en-US",
-                    isFinal = true,
-                )
-            )
+            callback(result)
         }
 
         override fun synthesize(
@@ -169,7 +169,7 @@ class VoiceTalkBackAndroidTest {
                                 JSONArray()
                             },
                         )
-                    "turn_submit" -> JSONObject()
+                    "start", "turn_submit" -> JSONObject()
                         .put("version", 1)
                         .put("ok", true)
                         .put("session", session())
@@ -323,6 +323,51 @@ class VoiceTalkBackAndroidTest {
                 })
             }
         }
+    }
+
+    @Test fun lowConfidenceSpeechCannotBecomeATurnAndTypedFallbackStillStartsWork() {
+        assumeTrue(Build.VERSION.SDK_INT >= 33)
+        val capture = FakeCaptureEngine()
+        val stt = FakeSpeechBackend(
+            BackendTranscriptionResult(
+                text = "Delete all files",
+                language = "en-US",
+                isFinal = true,
+                confidence = 0.25f,
+            )
+        )
+        val binding = RecordingRuntimeBinding()
+        VoiceCaptureViewModel.engineFactory = { capture }
+        VoiceCaptureViewModel.permissionChecker = { true }
+        VoiceCaptureViewModel.speechBackendFactory = { stt }
+        WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application, binding) }
+
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) {
+                it.findViewById<android.view.View>(R.id.voice_record_button).isEnabled
+            }
+            scenario.onActivity {
+                assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
+                capture.emit(ByteArray(3_200) { 1 })
+                assertTrue(it.findViewById<android.view.View>(R.id.voice_record_button).performClick())
+            }
+            await(scenario) {
+                it.findViewById<android.widget.TextView>(R.id.voice_status).text.toString()
+                    .contains("uncertain", ignoreCase = true)
+            }
+            scenario.onActivity {
+                assertTrue(binding.requests.none { it.optString("command") == "turn_submit" })
+                it.findViewById<android.widget.EditText>(R.id.command_input).setText("Show battery")
+                assertTrue(it.findViewById<android.view.View>(R.id.run_button).performClick())
+            }
+            await(scenario) {
+                binding.requests.any { it.optString("command") == "start" }
+            }
+        }
+
+        val typed = binding.requests.single { it.optString("command") == "start" }
+        assertEquals("Show battery", typed.getJSONObject("arguments").getString("goal"))
+        assertTrue(binding.requests.none { it.optString("command") == "turn_submit" })
     }
 
     @Test fun capturedPcmBecomesOneSpeechTurnAndFinalReplyTalksBack() {
