@@ -82,10 +82,24 @@ class OnDeviceSpeechSynthesisControllerTest {
         val controller = OnDeviceSpeechSynthesisController(backend)
         var failure: LocalSynthesisFailure? = LocalSynthesisFailure.SYNTHESIS_FAILED
 
-        controller.speak("hello", voiceId = "offline-b") { failure = it }
+        controller.speak("hello", selection = StoredSpeechVoice("fake.engine", "offline-b")) { failure = it }
 
         assertEquals("offline-b", backend.lastVoice?.id)
         assertNull(failure)
+    }
+
+    @Test fun explicitSelectionDoesNotCrossEngineWhenVoiceIdsCollide() {
+        val backend = FakeBackend().apply {
+            listedVoices = listOf(
+                LocalSpeechVoice("shared", "engine.a", requiresNetwork = false, installed = true),
+                LocalSpeechVoice("shared", "engine.b", requiresNetwork = false, installed = true),
+            )
+        }
+        val controller = OnDeviceSpeechSynthesisController(backend)
+
+        controller.speak("hello", selection = StoredSpeechVoice("engine.b", "shared"))
+
+        assertEquals("engine.b", backend.lastVoice?.engineId)
     }
 
     @Test fun disappearedExplicitVoiceFailsTruthfullyWithoutSilentFallback() {
@@ -93,7 +107,7 @@ class OnDeviceSpeechSynthesisControllerTest {
         val controller = OnDeviceSpeechSynthesisController(backend)
         var failure: LocalSynthesisFailure? = null
 
-        controller.speak("hello", voiceId = "removed") { failure = it }
+        controller.speak("hello", selection = StoredSpeechVoice("fake.engine", "removed")) { failure = it }
 
         assertEquals(LocalSynthesisFailure.VOICE_UNAVAILABLE, failure)
         assertEquals(0, backend.speakCalls)
