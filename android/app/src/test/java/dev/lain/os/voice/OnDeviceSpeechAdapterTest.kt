@@ -61,12 +61,13 @@ class OnDeviceSpeechAdapterTest {
             )
         }
 
-        fun finishTranscript(text: String) {
+        fun finishTranscript(text: String, confidence: Float? = null) {
             transcriptionCallback?.invoke(
                 BackendTranscriptionResult(
                     text = text,
                     language = "en-US",
                     isFinal = true,
+                    confidence = confidence,
                 )
             )
         }
@@ -135,17 +136,50 @@ class OnDeviceSpeechAdapterTest {
         assertNull(results.single().failure)
     }
 
+    @Test fun androidBackendPreservesMalformedConfidenceForAdapterRejection() {
+        assertTrue(firstRecognizerConfidence(floatArrayOf(Float.NaN))?.isNaN() == true)
+        assertEquals(1.25f, firstRecognizerConfidence(floatArrayOf(1.25f)))
+        assertNull(firstRecognizerConfidence(null))
+    }
+
+    @Test fun malformedConfidenceFailsClosedBeforeItCanBecomeATurn() {
+        val backend = FakeBackend()
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        val results = mutableListOf<SpeechTranscriptionResult>()
+
+        adapter.transcribe(capture(), results::add)
+        backend.finishTranscript("Delete all files", confidence = Float.NaN)
+
+        assertEquals(1, results.size)
+        assertEquals(SpeechAdapterFailure.PROVIDER_FAILED, results.single().failure)
+        assertNull(results.single().text)
+    }
+
+    @Test fun lowConfidenceFinalTranscriptFailsClosedBeforeItCanBecomeATurn() {
+        val backend = FakeBackend()
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        val results = mutableListOf<SpeechTranscriptionResult>()
+
+        adapter.transcribe(capture(), results::add)
+        backend.finishTranscript("Delete all files", confidence = 0.25f)
+
+        assertEquals(1, results.size)
+        assertEquals(SpeechAdapterFailure.LOW_CONFIDENCE, results.single().failure)
+        assertNull(results.single().text)
+    }
+
     @Test fun finalTranscriptCarriesExplicitOnDeviceProvenance() {
         val backend = FakeBackend()
         val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
         var result: SpeechTranscriptionResult? = null
 
         adapter.transcribe(capture()) { result = it }
-        backend.finishTranscript("Show battery")
+        backend.finishTranscript("Show battery", confidence = 0.90f)
 
         assertEquals(1, backend.transcribeCalls)
         assertEquals("Show battery", result?.text)
         assertEquals("en-US", result?.language)
+        assertEquals(0.90f, result?.confidence)
         assertEquals(ON_DEVICE_PROVIDER_ID, result?.providerId)
         assertEquals("fake-on-device", result?.implementation)
         assertEquals("fixture", result?.model)

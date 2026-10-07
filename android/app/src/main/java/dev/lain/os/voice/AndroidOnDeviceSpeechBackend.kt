@@ -24,6 +24,8 @@ private const val LOCAL_STT_TIMEOUT_MS = 30_000L
  * Captured PCM is accepted only on API 33+, where it can be supplied through
  * EXTRA_AUDIO_SOURCE. This backend never constructs a network recognizer.
  */
+internal fun firstRecognizerConfidence(scores: FloatArray?): Float? = scores?.firstOrNull()
+
 class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
@@ -237,12 +239,19 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 ?.trim()
+            val confidence = firstRecognizerConfidence(
+                results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+            )
             finish(
                 token,
                 if (text.isNullOrEmpty()) {
                     BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED)
                 } else {
-                    BackendTranscriptionResult(text = text, isFinal = true)
+                    BackendTranscriptionResult(
+                        text = text,
+                        isFinal = true,
+                        confidence = confidence,
+                    )
                 },
                 cancelFirst = false,
             )

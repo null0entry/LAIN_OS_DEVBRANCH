@@ -2,6 +2,7 @@ package dev.lain.os.voice
 
 const val ON_DEVICE_PROVIDER_ID = "android-on-device"
 const val MAX_ON_DEVICE_TRANSCRIPT_BYTES = 32_768
+const val MIN_ON_DEVICE_TRANSCRIPT_CONFIDENCE = 0.60f
 private const val CAPTURED_PCM_STT_API_FLOOR = 33
 private const val PCM16_LE_MIME = "audio/pcm;codec=s16le"
 
@@ -11,12 +12,14 @@ enum class SpeechAdapterFailure {
     RESOURCE_LIMIT,
     UNSUPPORTED_MEDIA,
     PROVIDER_FAILED,
+    LOW_CONFIDENCE,
 }
 
 data class BackendTranscriptionResult(
     val text: String? = null,
     val language: String? = null,
     val isFinal: Boolean = true,
+    val confidence: Float? = null,
     val failure: SpeechAdapterFailure? = null,
 )
 
@@ -31,6 +34,7 @@ data class SpeechTranscriptionResult(
     val providerId: String? = null,
     val implementation: String? = null,
     val model: String? = null,
+    val confidence: Float? = null,
     val failure: SpeechAdapterFailure? = null,
 ) {
     val ok: Boolean get() = failure == null && !text.isNullOrBlank()
@@ -200,6 +204,26 @@ class OnDeviceSpeechAdapter(
             return
         }
 
+        val confidence = result.confidence
+        if (
+            confidence != null &&
+            (!confidence.isFinite() || confidence < 0f || confidence > 1f)
+        ) {
+            callback?.invoke(
+                SpeechTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED)
+            )
+            return
+        }
+        if (
+            confidence != null &&
+            confidence < MIN_ON_DEVICE_TRANSCRIPT_CONFIDENCE
+        ) {
+            callback?.invoke(
+                SpeechTranscriptionResult(failure = SpeechAdapterFailure.LOW_CONFIDENCE)
+            )
+            return
+        }
+
         val text = result.text
         if (text.isNullOrBlank()) {
             callback?.invoke(
@@ -227,6 +251,7 @@ class OnDeviceSpeechAdapter(
                 providerId = ON_DEVICE_PROVIDER_ID,
                 implementation = backend.implementation,
                 model = backend.model,
+                confidence = confidence,
             )
         )
     }

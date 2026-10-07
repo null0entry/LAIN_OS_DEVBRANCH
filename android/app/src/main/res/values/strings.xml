@@ -24,6 +24,7 @@
     <string name="voice_transcribing">Transcribing on device…</string>
     <string name="voice_transcription_ready">Voice turn accepted.</string>
     <string name="voice_transcription_unavailable">On-device speech recognition unavailable. Typed input still works.</string>
+    <string name="voice_transcription_low_confidence">Voice input was uncertain and was not submitted. Type or try again.</string>
     <string name="voice_transcription_failed">On-device speech recognition failed. Typed input still works.</string>
     <string name="voice_talkback_unavailable">Local speech output unavailable.</string>
     <string name="voice_talkback_failed">Local speech output failed.</string>
