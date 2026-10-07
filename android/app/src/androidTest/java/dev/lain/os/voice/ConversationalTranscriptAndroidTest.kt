@@ -30,7 +30,7 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class ConversationalTranscriptAndroidTest {
     private class TranscriptBinding : RuntimeBinding {
-        private val sessionId = UUID.randomUUID().toString()
+        val sessionId = "11111111-1111-1111-1111-111111111111"
         @Volatile var failTurns = false
         var turnsRequests = 0
 
@@ -180,6 +180,7 @@ class ConversationalTranscriptAndroidTest {
                 assertTrue(before[0].contains("typed", ignoreCase = true))
                 assertTrue(before[1].contains("speech", ignoreCase = true))
                 assertTrue(before[1].contains("revision", ignoreCase = true))
+                assertTrue(before[1].contains(binding.sessionId.take(8)))
                 assertTrue(before[2].contains("typed", ignoreCase = true))
                 assertTrue(before[3].contains("assistant", ignoreCase = true))
             }
