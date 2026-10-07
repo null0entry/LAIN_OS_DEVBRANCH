@@ -64,10 +64,12 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
     fun selectVoice(engineId: String, voiceId: String): Boolean {
         val current = _voiceSelection.value ?: return false
         val selected = current.voices.firstOrNull { it.id == voiceId && it.engineId == engineId } ?: return false
+        val identity = StoredSpeechVoice(selected.engineId, selected.id)
         selectionStore.save(backend.providerId, selected)
+        if (current.selectedVoice == identity && current.staleSelection == null) return true
         updateVoiceSelection(
             current.copy(
-                selectedVoice = StoredSpeechVoice(selected.engineId, selected.id),
+                selectedVoice = identity,
                 staleSelection = null,
             )
         )
