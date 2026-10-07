@@ -31,10 +31,10 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun narrateProgress(snapshot: TrustedProgressSnapshot) {
-        val narration = progressNarration.next(snapshot, SystemClock.elapsedRealtime()) ?: return
+        val text = progressNarration.next(snapshot, SystemClock.elapsedRealtime()) ?: return
         // Progress speech is best-effort presentation. Its result is deliberately
         // not fed back into runtime state or the authoritative visual status.
-        controller.speak(narration.text)
+        controller.speak(text)
     }
 
     /** Stop app-owned talk-back only; this never cancels runtime task state. */
