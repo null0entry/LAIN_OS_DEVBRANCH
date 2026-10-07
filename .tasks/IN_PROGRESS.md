@@ -62,6 +62,14 @@ Phase 2 has a reproducible exit gate demonstrating a safe voice-first interface 
 
 - This gate prevents unresolved audio/authority/lifecycle defects from propagating into Phase-3 durable workflow work.
 
+### Progress evidence
+
+- PR #34 exact head `a1377e1ac888336c89b7d64f60ed5eaa34696711` rejects explicit low-confidence and malformed Android recognizer confidence before either can become a turn, while preserving typed fallback.
+- TDD RED: Android #579 failed because the confidence seam and `LOW_CONFIDENCE` state did not exist.
+- Fresh review receipt `5440831381`; zero unresolved review threads.
+- Verify #597 and Android #586 passed on the exact repaired head; squash merge `ae4b5b3fd6ebbff717031d54eb85359e0d1a931f`.
+- This is one acceptance slice only. The integrated reference-device matrix, physical/OEM score availability, and latency evidence remain UNVERIFIED.
+
 ### Risks / unknowns
 
 - Reference-device execution may be unavailable in CI; such latency evidence must remain explicitly UNVERIFIED.
