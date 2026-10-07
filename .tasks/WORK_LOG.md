@@ -1,5 +1,8 @@
 # Work Log
 
+## 2026-10-07 — TASK-066
+PR #35 exact head `ae516b06599d95aa5592f43913c2f2d3e13036d9` passed review #5443800436, Verify #609, and Android #598 on API 24/API 35, then squash-merged as `a4d406eea98ea1c94ad4c315df668359eaf15423`. Structured release-state truth now fails closed on TaskPlanner/package/API drift and evidence-class promotion; TASK-015 physical/OEM acceptance remains UNVERIFIED.
+
 ## 2026-10-07 — TASK-014
 PR #33 exact head `afcf2783a472f45de527cac6f2bddcea3a4ce468` passed review #5437621479, Verify #580, and Android #569 on API 24/API 35, then squash-merged as `b52523a3ab2e8f8f6510ef34b03c89230d4a0dd4`. Bounded trusted progress narration integrated; physical acceptance remains TASK-015/TASK-036.
 
