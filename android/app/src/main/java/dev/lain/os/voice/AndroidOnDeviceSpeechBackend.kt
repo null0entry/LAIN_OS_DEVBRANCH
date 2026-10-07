@@ -237,12 +237,20 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
                 ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull()
                 ?.trim()
+            val confidence = results
+                ?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+                ?.firstOrNull()
+                ?.takeIf { it.isFinite() && it in 0f..1f }
             finish(
                 token,
                 if (text.isNullOrEmpty()) {
                     BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED)
                 } else {
-                    BackendTranscriptionResult(text = text, isFinal = true)
+                    BackendTranscriptionResult(
+                        text = text,
+                        isFinal = true,
+                        confidence = confidence,
+                    )
                 },
                 cancelFirst = false,
             )
