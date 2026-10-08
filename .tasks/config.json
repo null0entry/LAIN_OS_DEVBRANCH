@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 70,
+  "nextId": 71,
   "states": [
     {
       "name": "Backlog",
@@ -421,10 +421,16 @@
         "title": "Build truthful Android durable-workflow inspection and control",
         "priority": "P1",
         "order": 63
+      },
+      {
+        "id": "TASK-070",
+        "title": "Establish bounded GGUF header-preflight and native feasibility gate",
+        "priority": "P1",
+        "order": 64
       }
     ],
     "issue": 6,
     "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "Review PR #38 exact head for TASK-054; Android CI is pending. TASK-055 follows transcript integration. TASK-015 physical/OEM acceptance remains UNVERIFIED. TASK-069 follows TASK-016/017/018/020-023 and supplies the Android surface for TASK-024."
+    "next_action": "Owner approved design PR #40 and native implementation plan on 2026-10-08. TASK-070 starts as a separate on-device GGUF feasibility/preflight slice; actual JNI model generation and Galaxy airplane-mode acceptance remain UNVERIFIED. TASK-069 and existing in-flight work are not cancelled or merged."
   }
 }
