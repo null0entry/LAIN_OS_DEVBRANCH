@@ -59,9 +59,12 @@ internal object GgufHeaderPreflight {
                 val read = source.read(bytes, offset, HEADER_BYTES - offset)
                 if (read < 0) return reject(GgufHeaderRejection.TRUNCATED_HEADER)
                 if (read == 0) return reject(GgufHeaderRejection.STALLED_INPUT)
+                if (read > HEADER_BYTES - offset) return reject(GgufHeaderRejection.READ_FAILED)
                 offset += read
             }
         } catch (_: IOException) {
+            return reject(GgufHeaderRejection.READ_FAILED)
+        } catch (_: SecurityException) {
             return reject(GgufHeaderRejection.READ_FAILED)
         }
         if (
