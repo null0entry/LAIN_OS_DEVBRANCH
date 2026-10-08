@@ -92,4 +92,22 @@ class GgufHeaderPreflightTest {
         }
         rejected(GgufHeaderPreflight.inspect(throwing, 100, 1000), GgufHeaderRejection.READ_FAILED)
     }
+
+    @Test fun rejectsReadImplementationsThatClaimMoreBytesThanRequested() {
+        val overReporting = object : InputStream() {
+            override fun read(): Int = 0
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int = length + 1
+        }
+        rejected(GgufHeaderPreflight.inspect(overReporting, 1024, 2048), GgufHeaderRejection.READ_FAILED)
+    }
+
+    @Test fun revokedStreamPermissionFailsClosed() {
+        val revoked = object : InputStream() {
+            override fun read(): Int = throw SecurityException("provider permission revoked")
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                throw SecurityException("provider permission revoked")
+        }
+        rejected(GgufHeaderPreflight.inspect(revoked, 1024, 2048), GgufHeaderRejection.READ_FAILED)
+    }
+
 }
