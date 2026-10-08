@@ -83,7 +83,7 @@ class SpeechOutputViewModel(application: Application) : AndroidViewModel(applica
     ) {
         if (responseKey.isBlank() || responseKey == lastResponseKey) return
         lastResponseKey = responseKey
-        controller.speak(text, voiceSelectionForSpeech(), onResult)
+        controller.speakProgressively(text, voiceSelectionForSpeech(), onResult)
     }
 
     fun narrateProgress(snapshot: TrustedProgressSnapshot) {
