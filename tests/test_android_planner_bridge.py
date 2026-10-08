@@ -81,6 +81,22 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
         self.assertEqual(json.loads(bridge.calls[0][1])["goal"], "test")
         self.assertNotIn("messages", json.loads(bridge.calls[0][1]))
 
+
+    def test_on_device_cannot_claim_completion_before_verified_action(self):
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model="a"*64, credential_ref=None, timeout_seconds=120.0,
+            max_response_bytes=65536, response_mode="none", allow_insecure_lan_http=False
+        )
+        bridge = FakeNativePlannerBridge({"ok": True, "body": json.dumps({
+            "status": "complete", "reason": "I did it", "actions": []
+        })})
+        with self.assertRaises(LainError) as raised:
+            AndroidPlannerFactory(self.workspace, bridge)(binding).decide(
+                "Show battery", {"iteration_count": 0, "history": []}, (),
+            )
+        self.assertEqual(raised.exception.code, ErrorCode.PLANNER_OUTPUT_INVALID)
+
     def test_on_device_malformed_json_and_native_error_fail_closed(self):
         binding = PlannerBinding(
             profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
