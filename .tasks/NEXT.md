@@ -1,5 +1,67 @@
 # Next
 
+## TASK-069: Build truthful Android durable-workflow inspection and control
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, workflow, android-ui, recovery
+**Updated:** 2026-10-08
+
+### Goal
+Expose the current durable workflow and its nodes in the Android client, with inspection and trusted Stop/recovery controls remaining usable while a worker lease is held.
+
+### Scope
+- Reuse the existing Workbench and runtime bridge to project bounded canonical workflow/node state, revision, dependency readiness, verified output references, waiting reason, and reconciliation status.
+- Clearly distinguish pending, ready, running, waiting_for_owner, succeeded, failed, cancelled, and reconciliation; unavailable state must not appear complete.
+- Route Stop and eligible recovery requests through existing trusted controls using exact workflow/revision identity.
+- Keep read-only inspection and emergency Stop independent of worker ownership.
+- Do not create a second workflow store, navigation framework, artifact viewer, new scheduler, generic executor, or automatic retry of uncertain effects.
+
+### Dependencies
+- TASK-016 durable workflow model and TASK-017 scheduler.
+- TASK-018 verified artifact references and TASK-020 revision invalidation.
+- TASK-021 wait states, TASK-022 reconciliation, and TASK-023 budget outcomes populate the final projection.
+- Existing Workbench session/Stop/bridge patterns.
+- Feed integrated evidence into TASK-024; this task implements the surface, while TASK-024 owns the whole Phase-3 acceptance gate.
+
+### Plan
+- Inspect and reuse existing bounded Workbench projection and control seams.
+- Define the smallest read-only workflow snapshot from authoritative persisted records.
+- Render node/status/revision and safe failure/wait/reconciliation reasons without treating narration as state.
+- Bind controls to current workflow/revision and reject stale or ineligible recovery.
+- Exercise lifecycle/rebind and held-lease inspection/Stop before integrated Phase-3 acceptance.
+
+### Acceptance
+- The UI reports canonical workflow and node state truthfully, including incomplete and unavailable snapshots.
+- Rebind/rotation/restart neither duplicates nodes nor substitutes stale revisions.
+- Read-only inspection and emergency Stop remain available during a held worker lease.
+- Stale UI requests and uncertain effects cannot trigger replay, grant approval, or fabricate completion.
+- Snapshot size and node display are bounded; secrets, approval tokens, private provider payloads, and raw artifact paths are excluded.
+- Existing typed fallback and session controls continue to work.
+
+### Verification
+- Deterministic snapshot/state mapping, bounds, stale-revision, missing/corrupt state, and authority-leak tests.
+- Held-lease inspection and Stop tests, plus ineligible recovery/reconciliation replay negatives.
+- Android lifecycle/rotation/rebind instrumentation using production bridge seams.
+- Canonical Verify and Android matrix on exact implementation head; physical evidence separately UNVERIFIED unless performed.
+- Architecture/security review of the cross-boundary projection and control identity.
+
+### Expected result
+The Phase-3 workflow is inspectable and interruptible from the installed Android client without a parallel state store or additional execution authority.
+
+### Evidence basis
+- Same-run main HEAD: 62690601b508c57e9671d9bd712037ba13f482b3.
+- Roadmap Phase-3 exit gate requires truthful user-readable workflow state.
+- Voice-agent 1.0 design requires read-only inspection and emergency stop even while a worker lease is held.
+- TASK-016/017 implement persistence/scheduling; TASK-018 implements artifact listing; TASK-024 validates integrated readable state; TASK-030 is video preview/export. None assigns the generic installed workflow/node inspection and control implementation.
+- Current board/open issues/open PRs/merged PR titles were checked for semantic duplication.
+
+### Projection basis
+The existing session-only Workbench must expose the later durable DAG's waits, failures, revisions, and reconciliation to make Phase-3 recovery usable and provide the installed surface consumed by Phase-4 and the golden workflow.
+
+### Risks / unknowns
+Workflow schemas are not implemented yet; consume their owning interfaces rather than defining incompatible UI-owned records. Exact UI layout follows existing Workbench patterns. Physical-device acceptance and required owner decisions remain separate gates.
+
+---
+
+
 ## TASK-068: Verify Android release compatibility matrix
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-7, release, android, compatibility, api, abi
 **Updated:** 2026-10-07

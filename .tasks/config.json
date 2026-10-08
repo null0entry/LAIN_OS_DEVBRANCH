@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 69,
+  "nextId": 70,
   "states": [
     {
       "name": "Backlog",
@@ -415,10 +415,16 @@
         "title": "Verify Android release compatibility matrix",
         "priority": "P1",
         "order": 62
+      },
+      {
+        "id": "TASK-069",
+        "title": "Build truthful Android durable-workflow inspection and control",
+        "priority": "P1",
+        "order": 63
       }
     ],
     "issue": 6,
-    "repo_head": "127a6b4d5bf8baa5baa695f605eaa4681da8112d",
-    "next_action": "TASK-054 conversational transcript UI is In Progress. Implement the approved bounded transcript projection with TDD. TASK-015 remains blocked on declared physical/OEM evidence; TASK-055 follows TASK-054."
+    "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
+    "next_action": "Review PR #38 exact head for TASK-054; Android CI is pending. TASK-055 follows transcript integration. TASK-015 physical/OEM acceptance remains UNVERIFIED. TASK-069 follows TASK-016/017/018/020-023 and supplies the Android surface for TASK-024."
   }
 }
