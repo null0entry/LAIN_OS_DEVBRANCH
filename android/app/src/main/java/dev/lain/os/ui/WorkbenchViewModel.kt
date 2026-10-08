@@ -47,7 +47,8 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
         if (before.connected == after.connected && before.ready == after.ready &&
             before.startupFailed == after.startupFailed && before.pending == after.pending &&
             before.message == after.message && before.session?.toString() == after.session?.toString() &&
-            before.history.toString() == after.history.toString()) return
+            before.history.toString() == after.history.toString() &&
+            before.conversation?.toString() == after.conversation?.toString()) return
         mutable.value = after
     }
 
@@ -182,7 +183,7 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
                 val error = reply.optString("error")
                 change { it.copy(ready = false, startupFailed = error != "APP_STARTING",
                     message = when (error) {
-                        "APP_STARTING" -> "Starting embedded runtime…"
+                        "APP_STARTING" -> "Starting embedded runtime..."
                         "APP_START_FAILED" -> "Runtime startup failed. Reconnect to try initialization again."
                         else -> "Runtime could not return state. Reconnect to inspect; no action was retried."
                     }) }
@@ -190,7 +191,6 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
             }
             val history = reply.optJSONArray("sessions") ?: org.json.JSONArray()
             var sid = saved.get<String>("session_id")
-            // Find existing durable work on a cold start; never automatically resume.
             if (sid == null) {
                 for (i in 0 until history.length()) {
                     val item = history.getJSONObject(i)
@@ -200,19 +200,24 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
                 saved["session_id"] = sid
             }
             change { it.copy(history = history, startupFailed = false) }
-            if (sid == null) {
-                refreshing = false
-                change { it.copy(ready = true, message = if (!it.ready) "Local runtime ready" else it.message) }
-                return@request
-            }
-            client.request("inspect", JSONObject().put("session_id", sid)) { inspected ->
-                refreshing = false
-                val snapshot = inspected.optJSONObject("session")
-                if (sid == saved.get<String>("session_id")) {
-                    if (snapshot != null) change { it.copy(session = snapshot, ready = true,
-                        message = if (!it.ready) "Local runtime ready; durable state inspected" else it.message) }
-                    else change { it.copy(ready = false, startupFailed = true,
-                        message = "Could not inspect durable state; no action was retried") }
+            client.request("turns", JSONObject()) { turnReply ->
+                val conversation = if (turnReply.optBoolean("ok")) turnReply.optJSONObject("conversation") else null
+                change { it.copy(conversation = conversation) }
+
+                if (sid == null) {
+                    refreshing = false
+                    change { it.copy(ready = true, message = if (!it.ready) "Local runtime ready" else it.message) }
+                    return@request
+                }
+                client.request("inspect", JSONObject().put("session_id", sid)) { inspected ->
+                    refreshing = false
+                    val snapshot = inspected.optJSONObject("session")
+                    if (sid == saved.get<String>("session_id")) {
+                        if (snapshot != null) change { it.copy(session = snapshot, ready = true,
+                            message = if (!it.ready) "Local runtime ready; durable state inspected" else it.message) }
+                        else change { it.copy(ready = false, startupFailed = true,
+                            message = "Could not inspect durable state; no action was retried") }
+                    }
                 }
             }
         }

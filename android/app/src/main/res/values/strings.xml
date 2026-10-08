@@ -42,6 +42,13 @@
     <string name="stopping">STOP REQUESTED · WAITING FOR SETTLED OUTCOME</string>
     <string name="no_results">Action results will appear here.</string>
     <string name="limited_notice">LIMITED means Android accepted the operation. It does not independently prove the UI or physical effect.</string>
+    <string name="transcript_heading">Conversation</string>
+    <string name="transcript_empty">No accepted conversation turns yet.</string>
+    <string name="transcript_unavailable">Transcript unavailable; task state remains authoritative.</string>
+    <string name="transcript_retention">Accepted turns are durable. Partial speech is provisional.</string>
+    <string name="transcript_latest">Showing latest %1$d accepted turns. Partial speech is provisional.</string>
+    <string name="transcript_provisional">Provisional · speech\n%1$s</string>
+    <string name="transcript_assistant">Assistant\n%1$s</string>
     <string name="approval_heading">Your approval is required</string>
     <string name="approval_explanation">Approve only this stored action. Private content is hidden here. Sharing opens a chooser; you choose a destination.</string>
     <string name="approve">Approve this action</string>

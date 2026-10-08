@@ -199,6 +199,29 @@ class AppConversationTurnTests(unittest.TestCase):
             65536,
         )
 
+    def test_transcript_read_returns_latest_32_accepted_turns_in_order(self):
+        for index in range(40):
+            reply = self.send(
+                "turn_submit",
+                text=f"revision-{index:02d}",
+                source="typed" if index % 2 == 0 else "speech",
+                kind="revision",
+                reference="ambiguous",
+                target_session_id=None,
+            )
+            self.assertTrue(reply["ok"])
+
+        conversation = self.send("turns")["conversation"]
+
+        self.assertEqual(len(conversation["turns"]), 32)
+        self.assertEqual(
+            [turn["turn_id"] for turn in conversation["turns"]],
+            list(range(9, 41)),
+        )
+        self.assertEqual(conversation["turns"][0]["text"], "revision-08")
+        self.assertEqual(conversation["turns"][-1]["text"], "revision-39")
+
+
     def test_explicit_revision_rejects_unknown_target_before_recording_turn(self):
         reply = self.send(
             "turn_submit",

@@ -43,6 +43,7 @@ class MainActivity : AppCompatActivity() {
             voice.onPermissionResult(it)
         }
     private var lastHistory = ""
+    private var lastTranscript = ""
     private var lastResults: String? = null
     private lateinit var plannerSettings: PlannerSettingsManager
     private var plannerProfiles = emptyList<PlannerProfileSummary>()
@@ -116,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         })
         ui.reconnectButton.visibility = if (!state.connected || state.startupFailed) View.VISIBLE else View.GONE
         ui.message.text = state.message
+        renderTranscript(state, session)
         ui.runButton.isEnabled = state.ready && !state.pending && !recovery
         updateVoiceRecordEnabled()
         speakProgress(session)
@@ -166,6 +168,84 @@ class MainActivity : AppCompatActivity() {
                     setOnClickListener { model.select(entry.getString("session_id")) }
                 })
             }
+        }
+    }
+
+    private fun renderTranscript(state: WorkbenchState, session: org.json.JSONObject?) {
+        val conversation = state.conversation
+        val turns = conversation?.optJSONArray("turns")
+        val assistant = if (session == null || session.isNull("speech_text")) {
+            ""
+        } else {
+            session.optString("speech_text", "").trim()
+        }
+        val partial = if (conversation == null || conversation.isNull("partial_text")) {
+            ""
+        } else {
+            conversation.optString("partial_text", "").trim()
+        }
+        val key = listOf(
+            conversation?.toString().orEmpty(),
+            session?.optString("session_id", "").orEmpty(),
+            session?.optString("revision", "").orEmpty(),
+            assistant,
+        ).joinToString("|")
+        if (key == lastTranscript) return
+        lastTranscript = key
+
+        ui.conversationTranscript.removeAllViews()
+        var rendered = 0
+        if (turns != null) {
+            for (index in 0 until turns.length()) {
+                val turn = turns.optJSONObject(index) ?: continue
+                val text = turn.optString("text", "").trim()
+                val turnId = turn.optInt("turn_id", 0)
+                val source = turn.optString("source", "typed")
+                val kind = turn.optString("kind", "task")
+                val target = if (turn.isNull("target_session_id")) {
+                    ""
+                } else {
+                    turn.optString("target_session_id", "").trim()
+                }
+                if (turnId < 1 || text.isEmpty()) continue
+                val label = buildString {
+                    append("Turn ")
+                    append(turnId)
+                    append(" · You · ")
+                    append(source)
+                    if (kind == "revision") append(" · revision")
+                    if (target.isNotEmpty()) {
+                        append(" · task ")
+                        append(target.take(8))
+                    }
+                }
+                ui.conversationTranscript.addView(resultText("$label\n$text"))
+                rendered += 1
+            }
+        }
+        if (partial.isNotEmpty()) {
+            ui.conversationTranscript.addView(
+                resultText(getString(R.string.transcript_provisional, partial)).apply {
+                    setTextColor(getColor(R.color.accent))
+                }
+            )
+            rendered += 1
+        }
+        if (assistant.isNotEmpty()) {
+            ui.conversationTranscript.addView(
+                resultText(getString(R.string.transcript_assistant, assistant))
+            )
+            rendered += 1
+        }
+        if (rendered == 0) {
+            ui.conversationTranscript.addView(resultText(getString(R.string.transcript_empty)))
+        }
+
+        ui.conversationTranscriptStatus.text = when {
+            conversation == null -> getString(R.string.transcript_unavailable)
+            (conversation.optInt("next_turn_id", 1) - 1) > (turns?.length() ?: 0) ->
+                getString(R.string.transcript_latest, turns?.length() ?: 0)
+            else -> getString(R.string.transcript_retention)
         }
     }
 

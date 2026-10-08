@@ -46,6 +46,7 @@ MAX_MESSAGE_BYTES = 65536
 MAX_SPEECH_TEXT_BYTES = 32768
 APPROVAL_TTL_SECONDS = 120
 TURN_RESPONSE_WINDOW = 3
+TRANSCRIPT_RESPONSE_WINDOW = 32
 _OPAQUE_CREDENTIAL_REF = re.compile(r"^cred_[0-9a-f]{32}$")
 _FIELDS = {
     "start": {"goal"},
@@ -169,7 +170,7 @@ class AppController:
                     target_session_id=arguments["target_session_id"],
                 )
             elif command == "turns":
-                result = {"conversation": self.turns.snapshot().to_dict(max_turns=TURN_RESPONSE_WINDOW)}
+                result = {"conversation": self._conversation_snapshot_for_ui()}
             elif command == "approve":
                 result = self._approve(arguments["session_id"], arguments["token"])
             elif command == "resume":
@@ -190,6 +191,20 @@ class AppController:
         if len(encoded.encode("utf-8")) > MAX_MESSAGE_BYTES:
             return '{"version":1,"ok":false,"error":"APP_RESPONSE_TOO_LARGE"}'
         return encoded
+
+    def _conversation_snapshot_for_ui(self):
+        """Return recent accepted turns without exceeding the app protocol bound."""
+        snapshot = self.turns.snapshot()
+        maximum = min(TRANSCRIPT_RESPONSE_WINDOW, len(snapshot.turns))
+        if maximum == 0:
+            return snapshot.to_dict(max_turns=1)
+        for count in range(maximum, 0, -1):
+            candidate = snapshot.to_dict(max_turns=count)
+            envelope = {"version": 1, "ok": True, "conversation": candidate}
+            encoded = json.dumps(envelope, ensure_ascii=True, separators=(",", ":"))
+            if len(encoded.encode("utf-8")) <= MAX_MESSAGE_BYTES:
+                return candidate
+        return snapshot.to_dict(max_turns=1)
 
     def _unfinished(self):
         return [s for s in self.store.list_sessions() if s.status not in TERMINAL_AGENT_STATUSES]
