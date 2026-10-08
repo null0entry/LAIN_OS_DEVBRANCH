@@ -200,24 +200,37 @@ std::string run_probe(const char * model_path, int context_tokens, int max_new_t
     return std::string("OK:") + output;
 }
 
+jbyteArray result_bytes(JNIEnv * env, const std::string& payload) {
+    // A successful probe is capped at 65,536 bytes of model output plus the OK: tag.
+    if (payload.size() > MAX_OUTPUT_BYTES + 3) {
+        return nullptr;
+    }
+    jbyteArray bytes = env->NewByteArray(static_cast<jsize>(payload.size()));
+    if (bytes != nullptr && !payload.empty()) {
+        env->SetByteArrayRegion(bytes, 0, static_cast<jsize>(payload.size()),
+                reinterpret_cast<const jbyte *>(payload.data()));
+    }
+    return bytes;
+}
+
 } // namespace
 
 extern "C"
-JNIEXPORT jstring JNICALL
-Java_dev_lain_os_planner_GgufNativeProbe_nativeProbe(
+JNIEXPORT jbyteArray JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeProbeBytes(
         JNIEnv * env,
         jobject,
         jstring model_path,
         jint context_tokens,
         jint max_new_tokens) {
     if (model_path == nullptr) {
-        return env->NewStringUTF("ERR:INVALID_BOUNDS");
+        return result_bytes(env, error("INVALID_BOUNDS"));
     }
     const char * path = env->GetStringUTFChars(model_path, nullptr);
     if (path == nullptr) {
-        return env->NewStringUTF("ERR:MODEL_NOT_FOUND");
+        return result_bytes(env, error("MODEL_NOT_FOUND"));
     }
     const std::string result = run_probe(path, context_tokens, max_new_tokens);
     env->ReleaseStringUTFChars(model_path, path);
-    return env->NewStringUTF(result.c_str());
+    return result_bytes(env, result);
 }
