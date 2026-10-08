@@ -1,7 +1,7 @@
 # TASK-070 — GGUF fixed-header preflight (partial native-inference work)
 
-**Date:** 2026-10-08  
-**Status:** source implementation + focused local JVM test evidence only. **NOT** an installed model, native `llama.cpp` build, model-import verifier or device acceptance.  
+**Date:** 2026-10-08
+**Status:** source implementation + focused local JVM test evidence only. **NOT** an installed model, native `llama.cpp` build, model-import verifier or device acceptance.
 **Design / plan:** [PR #40](https://github.com/null0entry/LAIN_OS_DEVBRANCH/pull/40) with `docs/superpowers/specs/2026-10-08-on-device-gguf-inference-design.md` and `docs/superpowers/plans/2026-10-08-on-device-gguf-inference-implementation.md`.
 
 ## Owner-approved scope adjustment
