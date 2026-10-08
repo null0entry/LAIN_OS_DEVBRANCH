@@ -58,6 +58,13 @@ internal class PlannerSettingsManager(
     private val diagnostic: (PlannerProfile) -> PlannerConnectionStatus,
     private val modelStore: OnDeviceModelStore? = null,
 ) {
+    // Preserve the existing trailing-lambda diagnostic constructor used by callers/tests.
+    constructor(
+        profiles: PlannerProfileStore,
+        secrets: SecretStore,
+        diagnostic: (PlannerProfile) -> PlannerConnectionStatus,
+    ) : this(profiles, secrets, diagnostic, null)
+
     constructor(context: Context) : this(
         PlannerProfileStore(context),
         AndroidKeystoreSecretStore(context),
