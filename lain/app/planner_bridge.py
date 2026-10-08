@@ -13,6 +13,7 @@ from lain.planner_adapters.openai_protocol import (
     normalize_openai_response,
 )
 from lain.planning.protocol import agent_planner_request, parse_agent_decision
+from lain.planning.models import AgentPlannerStatus
 
 
 _MAX_COMPLETION_TOKENS = 1024
@@ -152,7 +153,28 @@ class OnDeviceBridgePlanner:
             raise LainError(ErrorCode.PLANNER_FAILED, "native planner bridge returned invalid data")
         payload = response["body"].encode("utf-8")
         # No markdown stripping, repair, permissive coercion, or cloud retry.
-        return parse_agent_decision(
+        decision = parse_agent_decision(
             payload, max_output_bytes=self.binding.max_response_bytes,
             max_actions=self.max_actions,
         )
+        # Unlike the demo path, a local model cannot claim a completed *task*
+        # without at least one trusted executed action in the session history.
+        history = context.get("history") if isinstance(context, dict) else None
+        if decision.status is AgentPlannerStatus.COMPLETE and isinstance(history, list):
+            witnessed = any(
+                isinstance(iteration, dict)
+                and isinstance(iteration.get("actions"), list)
+                and any(
+                    isinstance(action, dict)
+                    and isinstance(action.get("result"), dict)
+                    and action["result"].get("status") == "success"
+                    and isinstance(action["result"].get("verification"), dict)
+                    and action["result"]["verification"].get("status") in {"passed", "not_applicable"}
+                    for action in iteration["actions"]
+                )
+                for iteration in history
+            )
+            if not witnessed:
+                raise LainError(ErrorCode.PLANNER_OUTPUT_INVALID,
+                                "model cannot claim completion without a verified action")
+        return decision
