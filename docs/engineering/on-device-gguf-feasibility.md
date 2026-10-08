@@ -1,7 +1,7 @@
 # TASK-070 — on-device GGUF native feasibility ledger
 
 **Date:** 2026-10-08
-**Status:** JNI source-build verification in progress. Physical GGUF token generation remains **UNVERIFIED** until the exact APK and model run on the owner device in airplane mode.
+**Status:** JNI build and missing-model instrumentation **passed on API 24/35 emulators on earlier head `a6be319`**. Physical GGUF token generation remains **UNVERIFIED** until the exact APK and model run on the owner device in airplane mode.
 
 ## Pinned upstream source
 
@@ -52,6 +52,6 @@ The future model store must supply the app-private path. This feasibility seam d
 
 ## Remaining gate
 
-CI must prove the pinned source compiles, packages, loads and returns `MODEL_NOT_FOUND` on both API 24 and API 35. That is only native-link feasibility.
+**Completed on head `a6be319`:** [Verify workflow](https://github.com/null0entry/LAIN_OS_DEVBRANCH/actions/runs/37826964857) succeeded; [Android workflow](https://github.com/null0entry/LAIN_OS_DEVBRANCH/actions/runs/37826964861) built the pinned native source and ran the missing-model instrumentation on API 24 (53 instrumentation tests) and API 35 (52 instrumentation tests), both successful. This proves JNI build/loading/error handling on x86_64 emulators, **not** model-generated tokens, arm64 device compatibility, or current-head CI after later changes. Earlier transient emulator warnings did not prevent final test success.
 
 The actual Task 1 feasibility gate remains **OPEN** until a real supported GGUF is loaded and produces bounded tokens on the exact owner phone with airplane mode on. Record the APK SHA-256, model SHA-256/license, ABI/API, peak RSS, context, time-to-first-token and thermal observation. Emulator/JVM evidence must not be promoted to that physical acceptance class.
