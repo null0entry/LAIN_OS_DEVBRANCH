@@ -42,6 +42,27 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
         }
+    private val ggufPicker =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            ui.plannerStatus.text = getString(R.string.planner_importing_model)
+            Thread({
+                try {
+                    val input = contentResolver.openInputStream(uri)
+                        ?: throw IllegalArgumentException("GGUF document unavailable")
+                    val model = plannerSettings.importOnDeviceModel(input)
+                    runOnUiThread {
+                        if (isDestroyed) return@runOnUiThread
+                        ui.plannerMode.setSelection(2)
+                        ui.plannerModel.setText(model.sha256)
+                        ui.plannerStatus.text = getString(R.string.planner_imported_model, model.sha256.take(12))
+                    }
+                } catch (exc: Exception) {
+                    runOnUiThread { if (!isDestroyed) showPlannerError(exc) }
+                }
+            }, "lain-gguf-import").start()
+        }
+
     private var lastHistory = ""
     private var lastTranscript = ""
     private var lastResults: String? = null
@@ -413,13 +434,21 @@ class MainActivity : AppCompatActivity() {
         ui.plannerMode.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
-            listOf("Cloud", "Local"),
+            listOf("Cloud", "Local", "On-device Model"),
         )
         ui.plannerResponseMode.adapter = ArrayAdapter(
             this,
             android.R.layout.simple_spinner_dropdown_item,
             listOf("JSON schema", "JSON object"),
         )
+        ui.plannerMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) =
+                updatePlannerModeFields()
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        ui.plannerImportModel.setOnClickListener {
+            ggufPicker.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
+        }
         ui.plannerProfiles.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 plannerProfiles.getOrNull(position)?.let(::showPlannerEditor)
@@ -460,7 +489,7 @@ class MainActivity : AppCompatActivity() {
         val editable = profile.id != PlannerProfile.DEMO_ID
         editingPlannerId = profile.id.takeIf { editable }
         ui.plannerName.setText(profile.name)
-        ui.plannerMode.setSelection(if (profile.mode == "local") 1 else 0)
+        ui.plannerMode.setSelection(when (profile.mode) { "local" -> 1; "on_device" -> 2; else -> 0 })
         ui.plannerEndpoint.setText(profile.baseUrl)
         ui.plannerModel.setText(profile.model)
         ui.plannerTimeout.setText(profile.timeoutSeconds.toString())
@@ -470,6 +499,7 @@ class MainActivity : AppCompatActivity() {
         ui.plannerCredentialState.text = getString(
             when {
                 !editable -> R.string.planner_credential_not_used
+                profile.mode == "on_device" -> R.string.planner_offline_credential
                 profile.credentialSaved -> R.string.planner_credential_saved
                 else -> R.string.planner_credential_missing
             }
@@ -489,6 +519,7 @@ class MainActivity : AppCompatActivity() {
         ).forEach { it.isEnabled = editable }
         ui.plannerSelect.isEnabled = true
         ui.plannerTest.isEnabled = true
+        updatePlannerModeFields()
     }
 
     private fun showNewPlannerEditor() {
@@ -518,20 +549,22 @@ class MainActivity : AppCompatActivity() {
         ui.plannerDelete.isEnabled = false
         ui.plannerTest.isEnabled = false
         ui.plannerName.requestFocus()
+        updatePlannerModeFields()
     }
 
     private fun savePlanner() {
-        val credential = ui.plannerCredential.text.toString().takeIf { it.isNotBlank() }
+        val offline = ui.plannerMode.selectedItemPosition == 2
+        val credential = ui.plannerCredential.text.toString().takeIf { !offline && it.isNotBlank() }
         try {
             val profileId = plannerSettings.save(
                 PlannerProfileDraft(
                     profileId = editingPlannerId,
                     name = ui.plannerName.text.toString(),
-                    mode = if (ui.plannerMode.selectedItemPosition == 1) "local" else "cloud",
-                    baseUrl = ui.plannerEndpoint.text.toString(),
+                    mode = when (ui.plannerMode.selectedItemPosition) { 1 -> "local"; 2 -> "on_device"; else -> "cloud" },
+                    baseUrl = if (offline) "" else ui.plannerEndpoint.text.toString(),
                     model = ui.plannerModel.text.toString(),
-                    timeoutSeconds = ui.plannerTimeout.text.toString().toDouble(),
-                    maxResponseBytes = ui.plannerMaxResponse.text.toString().toInt(),
+                    timeoutSeconds = if (offline) 120.0 else ui.plannerTimeout.text.toString().toDouble(),
+                    maxResponseBytes = if (offline) 65536 else ui.plannerMaxResponse.text.toString().toInt(),
                     responseMode = if (ui.plannerResponseMode.selectedItemPosition == 1) {
                         "json_object"
                     } else {
@@ -603,6 +636,21 @@ class MainActivity : AppCompatActivity() {
                 ui.plannerTest.isEnabled = true
             }
         }, "lain-planner-diagnostic").start()
+    }
+
+    private fun updatePlannerModeFields() {
+        val offline = ui.plannerMode.selectedItemPosition == 2
+        val visibility = if (offline) View.GONE else View.VISIBLE
+        ui.plannerEndpoint.visibility = visibility
+        ui.plannerTimeout.visibility = visibility
+        ui.plannerMaxResponse.visibility = visibility
+        ui.plannerResponseMode.visibility = visibility
+        ui.plannerCredential.visibility = visibility
+        ui.plannerRemoveCredential.visibility = visibility
+        ui.plannerImportModel.visibility = if (offline) View.VISIBLE else View.GONE
+        ui.plannerImportModel.isEnabled = offline && ui.plannerName.isEnabled
+        ui.plannerModel.isEnabled = !offline && ui.plannerName.isEnabled
+        if (offline) ui.plannerCredentialState.text = getString(R.string.planner_offline_credential)
     }
 
     private fun showPlannerError(exc: Exception) {
