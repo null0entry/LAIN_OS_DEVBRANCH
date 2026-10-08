@@ -31,7 +31,7 @@ internal class NativePlannerBridge(
         val mode = try {
             val tokener = JSONTokener(bindingJson)
             val raw = tokener.nextValue()
-            require(raw is JSONObject && tokener.nextClean() == '\\u0000')
+            require(raw is JSONObject && tokener.nextClean() == '\u0000')
             raw.getString("mode")
         } catch (_: Exception) { return failure(NativePlannerTransport.ERROR_TRANSPORT_FAILED) }
         if (mode == "on_device") return executeOnDevice(bindingJson, requestBody)
@@ -65,7 +65,7 @@ internal class NativePlannerBridge(
             val tokener = JSONTokener(bindingJson)
             val raw = tokener.nextValue() as? JSONObject
                 ?: throw IllegalArgumentException("bad native binding")
-            require(tokener.nextClean() == '\\u0000' && raw.keys().asSequence().toSet() == BINDING_FIELDS)
+            require(tokener.nextClean() == '\u0000' && raw.keys().asSequence().toSet() == BINDING_FIELDS)
             require(strictString(raw, "mode") == "on_device")
             require(strictString(raw, "protocol") == "gguf_native_v1")
             require(strictString(raw, "profile_id").isNotBlank())
