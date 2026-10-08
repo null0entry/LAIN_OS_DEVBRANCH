@@ -1,0 +1,36 @@
+# TASK-070 — GGUF fixed-header preflight (partial native-inference work)
+
+**Date:** 2026-10-08  
+**Status:** source implementation + focused local JVM test evidence only. **NOT** an installed model, native `llama.cpp` build, model-import verifier or device acceptance.  
+**Design / plan:** [PR #40](https://github.com/null0entry/LAIN_OS_DEVBRANCH/pull/40) with `docs/superpowers/specs/2026-10-08-on-device-gguf-inference-design.md` and `docs/superpowers/plans/2026-10-08-on-device-gguf-inference-implementation.md`.
+
+## Owner-approved scope adjustment
+
+The user selected native execution and then explicitly approved **guardrailed scaffolding and tests without claiming JNI hardware evidence** after the runtime environment could not build Android NDK code. This is a partial deliverable, not permission to pass the plan's native feasibility gate. We advanced the lightweight model-import **preflight** from plan Task 2 into TASK-070; leave real native-runtime feasibility from plan Task 1 **OPEN**, without skipping it for any later model import/execution.
+
+## Precisely what the Kotlin preflight checks
+
+`GgufHeaderPreflight.inspect(source, declaredSizeBytes, maxSizeBytes)` reads **at most 24 bytes**: GGUF magic (ASCII), v3 version (unsigned little-endian layout represented as checked `Int`), tensor count (`u64` range restricted to 1…1,000,000), metadata entry count (`u64` restricted to 0…100,000). It rejects invalid budgets, size <= header, over-budget size, EOF, malformed magic, unsupported versions, out-of-range counts, no-progress reads and I/O exceptions. Inputs are not retained.
+
+An accepted `GgufHeaderPreflightResult.Candidate` means **only that the fixed header is plausible**. It does not validate metadata value types/lengths, tensor layout/digests, actual file size, source trust, symlinks, compatibility, available memory or model loadability. An untrusted claimed size is not an admission decision. The later model-store/importer must independently enforce source byte accounting, all GGUF structural validation, SHA-256, private staging, atomic commit and storage/memory ceilings before allocating a verified model ID. Do **not** wire this preflight result directly into the planner.
+
+The first implementation conservatively supports GGUF header version 3 only. Earlier/later GGUF versions produce explicit `UNSUPPORTED_VERSION`, not an unsafe fallback. The count ceilings are conservative guardrails rather than proof of valid model structure.
+
+## Verification evidence
+
+- **Test-first RED observed locally:** 7/7 newly written tests failed against an intentionally inert `BAD_MAGIC` placeholder implementation; failures were specific assertions about the missing behavior, not an NDK build failure.
+- **GREEN observed locally:** 7/7 focused tests passed with the bounded parser, using local `kotlinc-jvm 1.9.0` / JDK 21 and a *non-repository* lightweight JUnit annotation/assertion shim. Cases: valid candidate/24-byte read bound, bad magic/version, truncated/header-only, size budgets, hostile tensor/metadata counts, short reads, stalled/throwing streams. The same tests are checked in as normal Android JUnit4 unit tests.
+- **Android Gradle/JUnit4 CI:** not proven by these local shim tests; verify from the exact-head Android CI workflow on PR for this branch before calling platform tests green.
+- **Native JNI/NDK compile:** UNVERIFIED. **GGUF token generation:** NOT IMPLEMENTED. **Real model import:** NOT IMPLEMENTED. **Galaxy airplane-mode test:** UNVERIFIED.
+- **Security/behavior invariants:** no network calls, no model execution, no planner changes, no new permission, no secret handling and no model file import in this slice.
+
+## Next gated work
+
+1. Verify new JUnit4 tests through the GitHub Android matrix, while keeping TASK-070 open.
+2. Pin a reviewed llama.cpp commit and license; build the native API-24-compatible JNI/NDK probe for declared arm64-v8a and x86_64 ABIs, or record an exact ABI/API blocker. Upstream Android example minSdk 33 is not a substitute for LAIN's minSdk 24.
+3. Demonstrate *real* GGUF load + bounded token generation on the exact phone in airplane mode and record model/APK hashes, memory and latency **before** claiming native feasibility.
+4. Only then proceed to trusted app-private model import, profile migration, native planner integration and later end-to-end acceptance. Keep unrelated STT and spoken “no” bug reports separate.
+
+## Ruling for the native execution ledger
+
+**Ruling:** Because Android SDK/NDK and phone access are unavailable in this execution environment, the hardware feasibility gate cannot pass. Ship only the safely testable fixed-header preflight and its focused tests as an isolated draft PR, label Task 1 INCOMPLETE, and defer source-build/physical measurement to a capable runner/device. **Risk if wrong:** promoting this candidate marker as an installed model would bypass full GGUF validation; the type and docs explicitly prohibit that promotion.
