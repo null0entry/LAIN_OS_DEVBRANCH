@@ -78,7 +78,7 @@ std::string run_probe(
     };
     if (cancelled()) return error("CANCELLED");
     if (prompt.empty() || prompt.size() > MAX_PROMPT_BYTES ||
-            prompt.find('\\0') != std::string::npos) return error("INVALID_BOUNDS");
+            prompt.find('\0') != std::string::npos) return error("INVALID_BOUNDS");
 
     if (
         model_path == nullptr || model_path[0] == '\0' ||
@@ -278,7 +278,7 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
     if (prompt_size <= 0 || static_cast<size_t>(prompt_size) > MAX_PROMPT_BYTES) {
         return result_bytes(env, error("INVALID_BOUNDS"));
     }
-    std::string prompt(static_cast<size_t>(prompt_size), '\\0');
+    std::string prompt(static_cast<size_t>(prompt_size), '\0');
     env->GetByteArrayRegion(prompt_bytes, 0, prompt_size, reinterpret_cast<jbyte *>(&prompt[0]));
     if (env->ExceptionCheck()) return nullptr;
 
