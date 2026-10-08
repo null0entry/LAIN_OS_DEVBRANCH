@@ -1,5 +1,9 @@
 package dev.lain.os.planner
 
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
+
 internal enum class GgufNativeProbeFailure {
     INVALID_BOUNDS,
     MODEL_NOT_FOUND,
@@ -39,11 +43,11 @@ internal object GgufNativeProbe {
         }
     }
 
-    private external fun nativeProbe(
+    private external fun nativeProbeBytes(
         modelPath: String,
         contextTokens: Int,
         maxNewTokens: Int,
-    ): String
+    ): ByteArray
 
     fun probe(
         modelPath: String,
@@ -61,24 +65,39 @@ internal object GgufNativeProbe {
         if (!libraryLoaded) {
             return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
         }
-        val response = try {
-            nativeProbe(modelPath, contextTokens, maxNewTokens)
+        val payload = try {
+            nativeProbeBytes(modelPath, contextTokens, maxNewTokens)
         } catch (_: UnsatisfiedLinkError) {
             return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
         } catch (_: RuntimeException) {
             return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR)
         }
-        if (response.toByteArray(Charsets.UTF_8).size > MAX_NATIVE_RESPONSE_BYTES) {
-            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.OUTPUT_INVALID)
+        return decodeNativePayload(payload)
+    }
+
+    /** JNI yields raw bytes: never use NewStringUTF on model-generated token bytes. */
+    internal fun decodeNativePayload(bytes: ByteArray): GgufNativeProbeResult {
+        fun invalid() = GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.OUTPUT_INVALID)
+        if (bytes.isEmpty() || bytes.size > MAX_NATIVE_RESPONSE_BYTES + 3 || bytes.any { it == 0.toByte() }) {
+            return invalid()
         }
+        val response = try {
+            Charsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes))
+                .toString()
+        } catch (_: CharacterCodingException) {
+            return invalid()
+        }
+
         if (response.startsWith("OK:")) {
             val text = response.removePrefix("OK:")
-            return if (text.isNotEmpty()) {
+            return if (text.isNotEmpty() && bytes.size - 3 <= MAX_NATIVE_RESPONSE_BYTES) {
                 GgufNativeProbeResult.Generated(text)
-            } else {
-                GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.OUTPUT_INVALID)
-            }
+            } else invalid()
         }
+        if (!response.startsWith("ERR:")) return invalid()
         val failure = when (response.removePrefix("ERR:")) {
             "INVALID_BOUNDS" -> GgufNativeProbeFailure.INVALID_BOUNDS
             "MODEL_NOT_FOUND" -> GgufNativeProbeFailure.MODEL_NOT_FOUND
