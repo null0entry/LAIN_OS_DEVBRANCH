@@ -41,6 +41,7 @@ The five high-risk scenarios below have specific owning tests, rather than merel
 **Files:**
 - Create: `android/app/src/main/cpp/CMakeLists.txt`
 - Create: `android/app/src/main/cpp/lain_gguf_probe.cpp`
+- Create: `android/app/src/main/java/dev/lain/os/planner/GgufNativeProbe.kt` (private JNI test seam; not a planner)
 - Create: `docs/engineering/on-device-gguf-feasibility.md`
 - Modify: `android/app/build.gradle.kts` (native source-build only)
 - Test: `android/app/src/androidTest/java/dev/lain/os/planner/GgufNativeFeasibilityAndroidTest.kt`
@@ -49,10 +50,10 @@ The five high-risk scenarios below have specific owning tests, rather than merel
 
 - [ ] **Step 1: Record and pin upstream dependency.** Inspect the current llama.cpp NDK build instructions, license and source revision; choose one reviewed exact SHA and record it in `docs/engineering/on-device-gguf-feasibility.md` with NDK version, CPU flags and required models' supported tokenizer/chat template. No unpinned network downloads in CI.
 - [ ] **Step 2: Write an instrumentation failure fixture.** `GgufNativeFeasibilityAndroidTest.nativeLibraryLoadsAndRejectsMissingModel()` asserts the exact native library loads on every claimed ABI/API and nonexistent model returns a typed failure instead of crashing. Run `cd android && ./gradlew :app:connectedDebugAndroidTest` on the configured emulator; it must fail/red while the native entry point is absent.
-- [ ] **Step 3: Build smallest CMake/JNI entry point.** Provide `external fun nativeProbe(modelPath: String, contextTokens: Int, maxNewTokens: Int): String` behind a private Kotlin test seam; reject over-bound requests before JNI and return bounded UTF-8 generation or a typed error. Use user-provided test GGUF bytes *only* from app-private storage; never give JNI an arbitrary UI path.
+- [ ] **Step 3: Build smallest CMake/JNI entry point.** In `GgufNativeProbe.kt`, provide `external fun nativeProbe(modelPath: String, contextTokens: Int, maxNewTokens: Int): String` behind a private Kotlin test seam; reject over-bound requests before JNI and return bounded UTF-8 generation or a typed error. Use user-provided test GGUF bytes *only* from app-private storage; never give JNI an arbitrary UI path.
 - [ ] **Step 4: Re-run the compatibility checks.** Run `cd android && ./gradlew :app:assembleDebug :app:testDebugUnitTest`; run `cd android && ./gradlew :app:connectedDebugAndroidTest` separately on API 24 and API 35 and report tested ABIs explicitly. Measure APK size, model size, peak RSS, context, time-to-first-token, max RAM and thermal response on the owner's actual device with airplane mode on. If unavailable, mark device evidence **UNVERIFIED**.
 - [ ] **Step 5: Fail or pass feasibility gate.** Do not continue Tasks 2–7 on a failed source-build/ABI feasibility result. Record exact source commit, device/build, model SHA and observed result; report blockers instead of switching to `Local Endpoint`.
-- [ ] **Step 6: Commit:** `git add android/app/build.gradle.kts android/app/src/main/cpp android/app/src/androidTest/java/dev/lain/os/planner/GgufNativeFeasibilityAndroidTest.kt docs/engineering/on-device-gguf-feasibility.md && git commit -m "spike: verify embedded GGUF runtime feasibility"`.
+- [ ] **Step 6: Commit:** `git add android/app/build.gradle.kts android/app/src/main/cpp android/app/src/main/java/dev/lain/os/planner/GgufNativeProbe.kt android/app/src/androidTest/java/dev/lain/os/planner/GgufNativeFeasibilityAndroidTest.kt docs/engineering/on-device-gguf-feasibility.md && git commit -m "spike: verify embedded GGUF runtime feasibility"`.
 
 ## Task 2: Private GGUF import, inventory and storage admission
 
@@ -61,7 +62,7 @@ The five high-risk scenarios below have specific owning tests, rather than merel
 - Create: `android/app/src/test/java/dev/lain/os/planner/OnDeviceModelStoreTest.kt`
 - Create: `android/app/src/androidTest/java/dev/lain/os/planner/OnDeviceModelStoreAndroidTest.kt`
 
-**Interfaces:** `OnDeviceModelStore(context)` exposes `importModel(source: InputStream, maxBytes: Long): VerifiedGgufModel`, `resolve(id: String, sha256: String): File`, `list(): List<VerifiedGgufModel>` and `remove(id: String): Boolean`. `VerifiedGgufModel` has `id: String`, `sha256: String`, `sizeBytes: Long`, `architecture: String`, `displayName: String` and `status: String`; only the native runtime receives the private resolved file.
+**Interfaces:** `OnDeviceModelStore(context, availableBytes: () -> Long = ::platformAvailableBytes)` exposes `importModel(source: InputStream, maxBytes: Long): VerifiedGgufModel`, `resolve(id: String, sha256: String): File`, `list(): List<VerifiedGgufModel>` and `remove(id: String): Boolean`. `VerifiedGgufModel` has `id: String`, `sha256: String`, `sizeBytes: Long`, `architecture: String`, `displayName: String` and `status: String`; only the native runtime receives the private resolved file.
 
 - [ ] **Step 1: Write failing unit tests** `rejectsTruncatedOrHostileGguf()`, `rejectsOversizeAndInsufficientSpace()`, `rejectsTraversalAndDigestMismatch()`, `preservesPriorModelAfterFailedImport()`; use a fake readable source, synthetic header fixtures and capacity injection. Run `cd android && ./gradlew :app:testDebugUnitTest --tests 'dev.lain.os.planner.OnDeviceModelStoreTest'`; expect red.
 - [ ] **Step 2: Implement streamed import and strict header bounds.** Bound metadata length/count and supported GGUF versions/architectures; write to private staging, compute SHA-256 while streaming, fsync and atomically rename only after checks. Never keep entire model in memory. Reject model magic alone without validation.
@@ -98,7 +99,7 @@ The five high-risk scenarios below have specific owning tests, rather than merel
 - Test: `android/app/src/androidTest/java/dev/lain/os/planner/OnDeviceModelRunnerAndroidTest.kt`
 - Modify: `android/app/src/main/cpp/CMakeLists.txt`
 
-**Interfaces:** Define `OnDeviceModelRunner.load(model: VerifiedGgufModel): LoadResult`, `generate(prompt: String, contextTokens: Int, maxNewTokens: Int, timeoutMs: Long, generationId: Long): GenerationResult`, `cancel(generationId: Long)`, `unload()`. `GenerationResult` is exactly one of `Success(text: String, modelSha256: String, generationId: Long)` or `Failure(code: String)`; output has an explicit byte ceiling. Native runner receives no Android capability or cloud credential.
+**Interfaces:** Define `OnDeviceModelRunner.load(model: VerifiedGgufModel): LoadResult`, implemented by `JniOnDeviceModelRunner(modelStore: OnDeviceModelStore)` which re-resolves app-private file identity and hash before JNI; `generate(prompt: String, contextTokens: Int, maxNewTokens: Int, timeoutMs: Long, generationId: Long): GenerationResult`, `cancel(generationId: Long)`, `unload()`. `GenerationResult` is exactly one of `Success(text: String, modelSha256: String, generationId: Long)` or `Failure(code: String)`; output has an explicit byte ceiling. Native runner receives no Android capability or cloud credential.
 
 - [ ] **Step 1: Write red cancellation/resource tests** `cancelInvalidatesLateCompletion()`, `rejectsOversizePromptAndResponse()`, `secondGenerationDoesNotRaceFirst()`, `insufficientMemoryFailsBeforeLoad()`, `unloadOnLifecycleShutdown()`. Use deterministic fake native work.
 - [ ] **Step 2: Implement thin JNI adapter** with one loaded model, single-worker generation lease, 64-bit monotonic generation IDs, bounded context/tokens/threads, timeouts and cancellation polling at native generation boundaries. No network dependencies. Never accept raw file path, unlimited token length, unbounded allocations, or a second concurrent model.
