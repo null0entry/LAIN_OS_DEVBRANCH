@@ -79,4 +79,8 @@ Returning to the background requests Stop. Interrupted work requires explicit re
     <string name="planner_deleted">Profile deleted.</string>
     <string name="planner_testing">Testing connection…</string>
     <string name="planner_error">Planner settings error: %1$s</string>
+    <string name="planner_import_model">Import on-device GGUF model</string>
+    <string name="planner_importing_model">Importing and verifying local model…</string>
+    <string name="planner_imported_model">GGUF imported locally: %1$s</string>
+    <string name="planner_offline_credential">On-device model — no API key or internet required</string>
 </resources>
