@@ -1,5 +1,36 @@
 # In Progress
 
+## TASK-070: Establish bounded GGUF header-preflight and native feasibility gate
+**Priority:** P1 | **Tags:** owner-approved, developer, on-device, offline, gguf, feasibility, android
+**Updated:** 2026-10-08
+
+### Goal
+Begin the approved on-device GGUF implementation with honest, deterministic safeguards, without claiming that a native inference backend or physical device has been proven.
+
+### Scope
+- Add an Android/Kotlin pure-JVM GGUF fixed-header preflight that reads at most 24 bytes, checks file-size budget, rejects unsupported versions and implausible counts, and returns an explicitly non-authoritative candidate status.
+- Add test-first adversarial JVM cases for corrupted/truncated headers, hostile counts, short reads, no-progress streams and I/O failure.
+- Keep current Demo/Cloud/Local planners and profile state untouched; do not wire header candidates into the planner as verified models.
+- Separate and document the still-missing pinned llama.cpp JNI/NDK build, native model generation, API/ABI matrix and physical airplane-mode acceptance.
+
+### Plan
+- Inspect current Kotlin planner and JVM test seams.
+- Implement red→green bounded header preflight in an isolated branch.
+- Run local standalone Kotlin/JVM tests, then exact-head Android CI through a draft PR.
+- Record precise evidence strength and unverified JNI/device gates; do not mark native inference delivered.
+
+### Acceptance
+- The preflight never reads past the 24-byte header and never accepts an invalid size budget or unsupported fixed-header fields.
+- Candidate output does not grant model import or execution authority.
+- All adversarial preflight tests run; unavailable Android CI/NDK or physical evidence is explicitly UNVERIFIED.
+- Existing planner behavior is unchanged.
+- The full Task 1 native GGUF feasibility gate remains OPEN until compiled JNI and hardware tests prove real token generation.
+
+### Evidence / status
+Owner approval: design [PR #40](https://github.com/null0entry/LAIN_OS_DEVBRANCH/pull/40) and native execution decision in chat. Task 1 implementation plan: `docs/superpowers/plans/2026-10-08-on-device-gguf-inference-implementation.md` on design PR #40. This task is an **initial scaffold**, not the conclusion of Task 1.
+
+---
+
 ## TASK-054: Add conversational transcript UI
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, transcript, android-ui
 **Updated:** 2026-10-04
