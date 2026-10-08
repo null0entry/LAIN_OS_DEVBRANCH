@@ -28,8 +28,9 @@ class GgufRealModelHardwareAndroidTest {
         assertTrue("Expected 64 lowercase SHA-256 characters", Regex("[0-9a-f]{64}").matches(hash!!))
 
         val context = instrumentation.targetContext
-        val model = File(File(context.filesDir, "models"), "$hash.gguf")
-        assertEquals("Model must be an app-private canonical file", model.absolutePath, model.canonicalPath)
+        val privateModels = File(context.filesDir, "models").canonicalFile
+        val model = File(privateModels, "$hash.gguf").canonicalFile
+        assertEquals("Model must stay under the private models directory", privateModels.path, model.parentFile?.canonicalPath)
         assertTrue("Missing app-private GGUF model", model.isFile)
         val sha = MessageDigest.getInstance("SHA-256")
         model.inputStream().buffered().use { input ->
