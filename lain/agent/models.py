@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from enum import Enum
 import math
+import re
 import ipaddress
 from typing import Any
 from urllib.parse import urlsplit
@@ -129,9 +130,9 @@ class PlannerBinding:
     def __post_init__(self) -> None:
         if not isinstance(self.profile_id, str) or not self.profile_id.strip():
             raise _invalid("planner profile_id must be non-empty")
-        if self.mode not in {"demo", "cloud", "local"}:
+        if self.mode not in {"demo", "cloud", "local", "on_device"}:
             raise _invalid("planner mode is invalid")
-        if self.protocol not in {"demo_v1", "openai_compatible_v1"}:
+        if self.protocol not in {"demo_v1", "openai_compatible_v1", "gguf_native_v1"}:
             raise _invalid("planner protocol is invalid")
         if not isinstance(self.base_url, str) or not isinstance(self.model, str):
             raise _invalid("planner endpoint/model fields are invalid")
@@ -167,6 +168,20 @@ class PlannerBinding:
                 or self.allow_insecure_lan_http
             ):
                 raise _invalid("demo planner binding is invalid")
+        elif self.mode == "on_device":
+            if (
+                self.protocol != "gguf_native_v1"
+                or self.base_url
+                or self.credential_ref is not None
+                or re.fullmatch(r"[0-9a-f]{64}", self.model) is None
+                or self.timeout_seconds <= 0
+                or self.timeout_seconds > 180
+                or self.max_response_bytes < 128
+                or self.max_response_bytes > 65536
+                or self.response_mode != "none"
+                or self.allow_insecure_lan_http
+            ):
+                raise _invalid("on-device planner binding is invalid")
         else:
             if (
                 self.protocol != "openai_compatible_v1"
