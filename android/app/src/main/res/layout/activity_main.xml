@@ -144,6 +144,10 @@
                 android:layout_height="wrap_content" android:hint="@string/planner_model"
                 android:maxLength="512" android:importantForAutofill="no"
                 android:textColor="@color/text_primary" android:textColorHint="@color/text_secondary" />
+            <Button android:id="@+id/planner_import_model"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/planner_import_model" android:textAllCaps="false"
+                android:visibility="gone" />
             <EditText android:id="@+id/planner_timeout" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:hint="@string/planner_timeout"
                 android:inputType="numberDecimal" android:maxLength="8" android:importantForAutofill="no"
