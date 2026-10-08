@@ -1,6 +1,8 @@
 package dev.lain.os.voice
 
 const val MAX_LOCAL_SYNTHESIS_TEXT_BYTES = 32_768
+const val MAX_PROGRESSIVE_SEGMENT_BYTES = 1_024
+const val MAX_PROGRESSIVE_SEGMENTS = 64
 
 enum class LocalSynthesisFailure {
     PROVIDER_UNAVAILABLE,
@@ -22,6 +24,9 @@ interface LocalSpeechSynthesisBackend {
 
     fun prepareVoices(onReady: (List<LocalSpeechVoice>) -> Unit)
     fun speak(text: String, voice: LocalSpeechVoice): Boolean
+    /** Optional same-provider ordered TTS queue. False means delivery failed, not unsupported. */
+    val supportsProgressiveSpeech: Boolean get() = false
+    fun speakSegments(segments: List<String>, voice: LocalSpeechVoice): Boolean = false
     fun stop()
     fun close() = stop()
 }
@@ -51,6 +56,20 @@ class OnDeviceSpeechSynthesisController(
         text: String,
         selection: StoredSpeechVoice? = null,
         onResult: (LocalSynthesisFailure?) -> Unit = {},
+    ) = requestSpeech(text, selection, progressive = false, onResult)
+
+    /** Assistant responses may use bounded ordered chunks. Progress narration uses speak(). */
+    fun speakProgressively(
+        text: String,
+        selection: StoredSpeechVoice? = null,
+        onResult: (LocalSynthesisFailure?) -> Unit = {},
+    ) = requestSpeech(text, selection, progressive = true, onResult)
+
+    private fun requestSpeech(
+        text: String,
+        selection: StoredSpeechVoice?,
+        progressive: Boolean,
+        onResult: (LocalSynthesisFailure?) -> Unit,
     ) {
         val encodedSize = try {
             text.toByteArray(Charsets.UTF_8).size
@@ -59,6 +78,13 @@ class OnDeviceSpeechSynthesisController(
             return
         }
         if (text.isBlank() || encodedSize > MAX_LOCAL_SYNTHESIS_TEXT_BYTES) {
+            onResult(LocalSynthesisFailure.RESOURCE_LIMIT)
+            return
+        }
+
+        // Segment before touching the provider, preserving text and Unicode code points.
+        val segments = if (progressive) segmentText(text) else null
+        if (progressive && segments == null) {
             onResult(LocalSynthesisFailure.RESOURCE_LIMIT)
             return
         }
@@ -95,17 +121,55 @@ class OnDeviceSpeechSynthesisController(
                         null
                     } else {
                         try {
-                            backend.speak(text, voice)
+                            if (progressive && backend.supportsProgressiveSpeech) {
+                                backend.speakSegments(requireNotNull(segments), voice)
+                            } else {
+                                // Unsupported engines keep the same exact offline selection.
+                                backend.speak(text, voice)
+                            }
                         } catch (_: Exception) {
                             false
                         }
                     }
                 } ?: return@prepareVoices
+                if (synchronized(gate) { requestGeneration != generation }) return@prepareVoices
+                // Presentation status only. Never reports task execution success/failure.
                 onResult(if (accepted) null else LocalSynthesisFailure.SYNTHESIS_FAILED)
             }
         } catch (_: Exception) {
-            onResult(LocalSynthesisFailure.PROVIDER_UNAVAILABLE)
+            if (synchronized(gate) { requestGeneration == generation }) {
+                onResult(LocalSynthesisFailure.PROVIDER_UNAVAILABLE)
+            }
         }
+    }
+
+    private fun segmentText(text: String): List<String>? {
+        val segments = mutableListOf<String>()
+        var start = 0
+        while (start < text.length) {
+            var end = start
+            var bytes = 0
+            var boundary = start
+            while (end < text.length) {
+                val cp = Character.codePointAt(text, end)
+                val cpBytes = String(Character.toChars(cp)).toByteArray(Charsets.UTF_8).size
+                if (bytes + cpBytes > MAX_PROGRESSIVE_SEGMENT_BYTES) break
+                bytes += cpBytes
+                end += Character.charCount(cp)
+                if (Character.isWhitespace(cp) || cp == '.'.code || cp == '!'.code || cp == '?'.code) {
+                    boundary = end
+                }
+            }
+            if (end == start) return null
+            val cut = if (end < text.length && boundary > start &&
+                !text.substring(start, boundary).isBlank()) boundary else end
+            val chunk = text.substring(start, cut)
+            if (chunk.isBlank()) return null
+            segments.add(chunk)
+            if (segments.size > MAX_PROGRESSIVE_SEGMENTS) return null
+            start = cut
+        }
+        return segments
     }
 
     fun stop() {
