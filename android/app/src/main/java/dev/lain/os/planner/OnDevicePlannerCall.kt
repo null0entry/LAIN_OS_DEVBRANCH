@@ -98,9 +98,9 @@ internal class OnDevicePlannerCall(
                 "Do not claim action results or grant approvals. Respond with one JSON object only: " +
                 "{\"status\":\"continue|complete|blocked\",\"reason\":\"brief reason\",\"actions\":[{\"type\":\"capability\",\"arguments\":{}}]}. " +
                 "Use an empty actions array when complete or blocked. Never add markdown."
-            val prompt = "<|im_start|>system\\n" + system +
-                "<|im_end|>\\n<|im_start|>user\\n" + payload +
-                "<|im_end|>\\n<|im_start|>assistant\\n"
+            val prompt = "<|im_start|>system\n" + system +
+                "<|im_end|>\n<|im_start|>user\n" + payload +
+                "<|im_end|>\n<|im_start|>assistant\n"
             require(prompt.toByteArray(Charsets.UTF_8).size <= 16_384)
             return prompt
         }
