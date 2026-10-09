@@ -1,5 +1,32 @@
 # Done
 
+## TASK-071: Harden offline GGUF cancellation and profile-save responsiveness
+**Priority:** P2 | **Tags:** android, offline, gguf, lifecycle
+**Updated:** 2026-10-09
+
+### Goal
+Address review findings in the draft offline planner integration without promoting unverified physical-device acceptance.
+
+### Plan
+- Preserve per-generation Stop through native startup, hash verification, load and CPU decode, with bounded registrations and worker-owned cleanup.
+- Keep offline profile saves responsive across recreation and preserve the correct profile/draft after failure.
+- Coordinate Python asset extraction across both Android processes and align request byte bounds.
+- Verify the implementation and provide a physical offline-task acceptance procedure without promoting skipped model tests to hardware evidence.
+
+### Acceptance
+- Stop cannot be lost before JNI generation begins, and cancellation resources are released.
+- Model hashing and profile save cannot block the UI thread.
+- API/emulator evidence and physical airplane-mode execution remain separately reported.
+
+### Verification
+Implementation commit `a49281d2fab1f32ac309819ac320693a36737f46`:
+- [Verify](https://github.com/null0entry/LAIN_OS_DEVBRANCH/actions/runs/37874739310): passed 325 portable tests and eight native lifecycle groups.
+- [Android](https://github.com/null0entry/LAIN_OS_DEVBRANCH/actions/runs/37874739298): build, JVM tests, lint and instrumentation passed on API 24 and API 35. API 24 reported 67 tests with three skips; API 35 reported 66 tests with one skip.
+- Local Android JVM suite: 96 tests, zero failures/errors. Host lifecycle harness also passed ASAN/UBSAN; NDK 29 checks used actual pinned llama.cpp headers for ARM64 and x86_64 at API 24.
+- Real-model hardware smoke was skipped. Physical Qwen inference, airplane-mode trusted task execution and measured Stop/resource acceptance remain UNVERIFIED; TASK-070 remains open.
+
+---
+
 ## TASK-053: Implement selectable agent speech voices
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
 **Updated:** 2026-10-07

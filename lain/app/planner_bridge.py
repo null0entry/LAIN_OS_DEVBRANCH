@@ -17,7 +17,10 @@ from lain.planning.models import AgentPlannerStatus
 
 
 _MAX_COMPLETION_TOKENS = 1024
+# Reserve space inside the native 16 KiB prompt for the trusted chat envelope.
+_MAX_ON_DEVICE_REQUEST_BYTES = 12_288
 _ERROR_MAP = {
+    "PLANNER_REQUEST_INVALID": ErrorCode.PLANNER_FAILED,
     "PLANNER_CANCELLED": ErrorCode.PLANNER_CANCELLED,
     "PLANNER_TIMEOUT": ErrorCode.PLANNER_TIMEOUT,
     "PLANNER_AUTH_REJECTED": ErrorCode.AUTHENTICATION_FAILED,
@@ -135,7 +138,7 @@ class OnDeviceBridgePlanner:
         # The untrusted goal and context are serialized as data; the native prompt
         # may repeat trusted rules, but only parse_agent_decision grants shape authority.
         body = json.dumps(request, ensure_ascii=False, separators=(",", ":"))
-        if len(body.encode("utf-8")) > 16384:
+        if len(body.encode("utf-8")) > _MAX_ON_DEVICE_REQUEST_BYTES:
             raise LainError(ErrorCode.PLANNER_FAILED, "offline planner request is too large")
         binding_json = json.dumps(self.binding.to_dict(), separators=(",", ":"))
         try:
@@ -147,6 +150,8 @@ class OnDeviceBridgePlanner:
         if response["ok"] is False:
             if set(response) != {"ok", "error"} or not isinstance(response["error"], str):
                 raise LainError(ErrorCode.PLANNER_FAILED, "native planner bridge returned invalid data")
+            if response["error"] == "PLANNER_REQUEST_INVALID":
+                raise LainError(ErrorCode.PLANNER_FAILED, "offline planner request is invalid")
             code = _ERROR_MAP.get(response["error"], ErrorCode.PLANNER_UNAVAILABLE)
             raise LainError(code, "offline model generation failed")
         if set(response) != {"ok", "body"} or not isinstance(response["body"], str):

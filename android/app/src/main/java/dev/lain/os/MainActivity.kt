@@ -18,6 +18,8 @@ import dev.lain.os.planner.PlannerProfile
 import dev.lain.os.planner.PlannerProfileDraft
 import dev.lain.os.planner.PlannerProfileSummary
 import dev.lain.os.planner.PlannerSettingsManager
+import dev.lain.os.planner.OnDevicePlannerSaveState
+import dev.lain.os.planner.OnDevicePlannerSaveViewModel
 import dev.lain.os.ui.WorkbenchState
 import dev.lain.os.ui.WorkbenchViewModel
 import dev.lain.os.voice.MicrophoneFailure
@@ -38,13 +40,15 @@ class MainActivity : AppCompatActivity() {
     private val model: WorkbenchViewModel by viewModels()
     private val voice: VoiceCaptureViewModel by viewModels()
     private val speechOutput: SpeechOutputViewModel by viewModels()
+    private val onDevicePlannerSave: OnDevicePlannerSaveViewModel by viewModels()
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
         }
     private val ggufPicker =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri == null) return@registerForActivityResult
+            if (uri == null || onDevicePlannerSave.isSaving) return@registerForActivityResult
+            val editorRevision = plannerEditorRevision
             ui.plannerStatus.text = getString(R.string.planner_importing_model)
             Thread({
                 try {
@@ -52,13 +56,19 @@ class MainActivity : AppCompatActivity() {
                         ?: throw IllegalArgumentException("GGUF document unavailable")
                     val model = plannerSettings.importOnDeviceModel(input)
                     runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
+                        if (isDestroyed || plannerEditorRevision != editorRevision || onDevicePlannerSave.isSaving) {
+                            return@runOnUiThread
+                        }
                         ui.plannerMode.setSelection(2)
                         ui.plannerModel.setText(model.sha256)
                         ui.plannerStatus.text = getString(R.string.planner_imported_model, model.sha256.take(12))
                     }
                 } catch (exc: Exception) {
-                    runOnUiThread { if (!isDestroyed) showPlannerError(exc) }
+                    runOnUiThread {
+                        if (!isDestroyed && plannerEditorRevision == editorRevision && !onDevicePlannerSave.isSaving) {
+                            showPlannerError(exc)
+                        }
+                    }
                 }
             }, "lain-gguf-import").start()
         }
@@ -69,6 +79,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var plannerSettings: PlannerSettingsManager
     private var plannerProfiles = emptyList<PlannerProfileSummary>()
     private var editingPlannerId: String? = null
+    private var plannerEditorRevision = 0L
+    private var preservedDraftSelectionId: String? = null
+    private var preservingPlannerDraft = false
     private var speechVoices = emptyList<LocalSpeechVoice>()
     private var speechVoiceOffset = 0
     private var renderingSpeechVoices = false
@@ -102,6 +115,7 @@ class MainActivity : AppCompatActivity() {
         setupSpeechVoiceSelection()
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
+        onDevicePlannerSave.state.observe(this, ::renderOnDevicePlannerSave)
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
         demos.forEach { command ->
             val button = Button(this).apply {
@@ -447,16 +461,23 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
         ui.plannerImportModel.setOnClickListener {
-            ggufPicker.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
+            if (!onDevicePlannerSave.isSaving) {
+                ggufPicker.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
+            }
         }
         ui.plannerProfiles.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                plannerProfiles.getOrNull(position)?.let(::showPlannerEditor)
+                if (onDevicePlannerSave.isSaving || position != ui.plannerProfiles.selectedItemPosition) return
+                val profile = plannerProfiles.getOrNull(position) ?: return
+                // Restoring a retained draft changes Spinner selection asynchronously.
+                // Its callback must not replace unsaved fields with stored profile fields.
+                if (preservingPlannerDraft && profile.id == preservedDraftSelectionId) return
+                showPlannerEditor(profile)
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
-        ui.plannerNew.setOnClickListener { showNewPlannerEditor() }
+        ui.plannerNew.setOnClickListener { if (!onDevicePlannerSave.isSaving) showNewPlannerEditor() }
         ui.plannerSave.setOnClickListener { savePlanner() }
         ui.plannerSelect.setOnClickListener { selectPlanner() }
         ui.plannerRemoveCredential.setOnClickListener { removePlannerCredential() }
@@ -486,6 +507,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPlannerEditor(profile: PlannerProfileSummary) {
+        preservingPlannerDraft = false
+        preservedDraftSelectionId = null
+        plannerEditorRevision += 1
+        ui.plannerProfiles.isEnabled = true
+        ui.plannerNew.isEnabled = true
         val editable = profile.id != PlannerProfile.DEMO_ID
         editingPlannerId = profile.id.takeIf { editable }
         ui.plannerName.setText(profile.name)
@@ -523,6 +549,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showNewPlannerEditor() {
+        preservingPlannerDraft = false
+        preservedDraftSelectionId = null
+        plannerEditorRevision += 1
+        ui.plannerProfiles.isEnabled = true
+        ui.plannerNew.isEnabled = true
         editingPlannerId = null
         ui.plannerName.text.clear()
         ui.plannerMode.setSelection(0)
@@ -553,26 +584,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun savePlanner() {
+        if (onDevicePlannerSave.isSaving) return
         val offline = ui.plannerMode.selectedItemPosition == 2
         val credential = ui.plannerCredential.text.toString().takeIf { !offline && it.isNotBlank() }
         try {
-            val profileId = plannerSettings.save(
-                PlannerProfileDraft(
-                    profileId = editingPlannerId,
-                    name = ui.plannerName.text.toString(),
-                    mode = when (ui.plannerMode.selectedItemPosition) { 1 -> "local"; 2 -> "on_device"; else -> "cloud" },
-                    baseUrl = if (offline) "" else ui.plannerEndpoint.text.toString(),
-                    model = ui.plannerModel.text.toString(),
-                    timeoutSeconds = if (offline) 120.0 else ui.plannerTimeout.text.toString().toDouble(),
-                    maxResponseBytes = if (offline) 65536 else ui.plannerMaxResponse.text.toString().toInt(),
-                    responseMode = if (ui.plannerResponseMode.selectedItemPosition == 1) {
-                        "json_object"
-                    } else {
-                        "json_schema"
-                    },
-                    credential = credential,
-                )
+            val draft = PlannerProfileDraft(
+                profileId = editingPlannerId,
+                name = ui.plannerName.text.toString(),
+                mode = when (ui.plannerMode.selectedItemPosition) { 1 -> "local"; 2 -> "on_device"; else -> "cloud" },
+                baseUrl = if (offline) "" else ui.plannerEndpoint.text.toString(),
+                model = ui.plannerModel.text.toString(),
+                timeoutSeconds = if (offline) 120.0 else ui.plannerTimeout.text.toString().toDouble(),
+                maxResponseBytes = if (offline) 65536 else ui.plannerMaxResponse.text.toString().toInt(),
+                responseMode = if (ui.plannerResponseMode.selectedItemPosition == 1) {
+                    "json_object"
+                } else {
+                    "json_schema"
+                },
+                credential = credential,
             )
+            if (offline) {
+                plannerEditorRevision += 1
+                onDevicePlannerSave.save(draft)
+                return
+            }
+            val profileId = plannerSettings.save(draft)
             plannerSettings.select(profileId)
             ui.plannerStatus.text = getString(R.string.planner_saved)
             refreshPlannerSettings(profileId)
@@ -586,7 +622,54 @@ class MainActivity : AppCompatActivity() {
     private fun selectedPlanner(): PlannerProfileSummary? =
         plannerProfiles.getOrNull(ui.plannerProfiles.selectedItemPosition)
 
+    private fun renderOnDevicePlannerSave(state: OnDevicePlannerSaveState) {
+        when (state) {
+            OnDevicePlannerSaveState.Idle -> Unit
+            is OnDevicePlannerSaveState.Saving -> {
+                showOnDeviceSaveDraft(state.draft, true)
+                ui.plannerStatus.text = getString(R.string.planner_verifying_save)
+            }
+            is OnDevicePlannerSaveState.Saved -> {
+                refreshPlannerSettings(state.profileId)
+                ui.plannerStatus.text = getString(R.string.planner_saved)
+                onDevicePlannerSave.consumeResult()
+            }
+            is OnDevicePlannerSaveState.Failed -> {
+                showOnDeviceSaveDraft(state.draft, false)
+                ui.plannerStatus.text = getString(R.string.planner_error, state.message)
+                onDevicePlannerSave.consumeResult()
+            }
+        }
+    }
+
+    private fun showOnDeviceSaveDraft(draft: PlannerProfileDraft, busy: Boolean) {
+        editingPlannerId = draft.profileId
+        preservingPlannerDraft = true
+        val profileIndex = plannerProfiles.indexOfFirst { it.id == draft.profileId }
+        preservedDraftSelectionId = if (profileIndex >= 0) draft.profileId else selectedPlanner()?.id
+        if (profileIndex >= 0) ui.plannerProfiles.setSelection(profileIndex)
+        ui.plannerName.setText(draft.name)
+        ui.plannerMode.setSelection(2)
+        ui.plannerEndpoint.text.clear()
+        ui.plannerModel.setText(draft.model)
+        ui.plannerTimeout.setText(draft.timeoutSeconds.toString())
+        ui.plannerMaxResponse.setText(draft.maxResponseBytes.toString())
+        ui.plannerCredential.text.clear()
+        listOf(
+            ui.plannerName, ui.plannerMode, ui.plannerEndpoint, ui.plannerModel,
+            ui.plannerTimeout, ui.plannerMaxResponse, ui.plannerResponseMode,
+            ui.plannerCredential, ui.plannerSave, ui.plannerNew, ui.plannerProfiles,
+        ).forEach { it.isEnabled = !busy }
+        val existing = draft.profileId != null
+        ui.plannerSelect.isEnabled = !busy && existing
+        ui.plannerDelete.isEnabled = !busy && existing
+        ui.plannerTest.isEnabled = !busy && existing
+        ui.plannerRemoveCredential.isEnabled = false
+        updatePlannerModeFields()
+    }
+
     private fun selectPlanner() {
+        if (onDevicePlannerSave.isSaving) return
         val profile = selectedPlanner() ?: return
         try {
             plannerSettings.select(profile.id)
@@ -598,6 +681,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun removePlannerCredential() {
+        if (onDevicePlannerSave.isSaving) return
         val profile = selectedPlanner() ?: return
         try {
             plannerSettings.removeCredential(profile.id)
@@ -609,6 +693,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun deletePlanner() {
+        if (onDevicePlannerSave.isSaving) return
         val profile = selectedPlanner() ?: return
         try {
             if (plannerSettings.delete(profile.id)) {
@@ -621,7 +706,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun testPlannerConnection() {
+        if (onDevicePlannerSave.isSaving) return
         val profile = selectedPlanner() ?: return
+        val editorRevision = plannerEditorRevision
         ui.plannerTest.isEnabled = false
         ui.plannerStatus.text = getString(R.string.planner_testing)
         Thread({
@@ -631,8 +718,12 @@ class MainActivity : AppCompatActivity() {
                 PlannerConnectionStatus.UNAVAILABLE
             }
             runOnUiThread {
-                if (isDestroyed) return@runOnUiThread
-                ui.plannerStatus.text = result.name.lowercase().replace('_', ' ')
+                if (isDestroyed || plannerEditorRevision != editorRevision || onDevicePlannerSave.isSaving) {
+                    return@runOnUiThread
+                }
+                ui.plannerStatus.text = if (result == PlannerConnectionStatus.MODEL_READY) {
+                    getString(R.string.planner_model_integrity_verified)
+                } else result.name.lowercase().replace('_', ' ')
                 ui.plannerTest.isEnabled = true
             }
         }, "lain-planner-diagnostic").start()

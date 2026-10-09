@@ -4,8 +4,11 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <exception>
+#include <memory>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "llama.h"
@@ -15,10 +18,41 @@ namespace {
 constexpr size_t MAX_OUTPUT_BYTES = 65'536;
 constexpr size_t MAX_PROMPT_BYTES = 16'384;
 std::mutex model_lease;
-std::atomic<uint64_t> active_generation{0};
-std::atomic<uint64_t> cancelled_generation{0};
-struct ActiveGenerationReset {
-    ~ActiveGenerationReset() { active_generation.store(0); }
+// Registration outlives the JNI call and starts before the worker enters native
+// generation. A bounded registry remembers early Stop without retaining history.
+constexpr size_t MAX_REGISTERED_GENERATIONS = 8;
+struct GenerationCancellation { std::atomic<bool> cancelled{false}; };
+std::mutex generation_registry_mutex;
+std::unordered_map<uint64_t, std::shared_ptr<GenerationCancellation>> generation_registry;
+
+std::shared_ptr<GenerationCancellation> registered_generation(uint64_t id) {
+    std::lock_guard<std::mutex> lock(generation_registry_mutex);
+    const auto found = generation_registry.find(id);
+    return found == generation_registry.end() ? nullptr : found->second;
+}
+
+bool load_progress(float, void * data) {
+    return !static_cast<GenerationCancellation *>(data)->cancelled.load();
+}
+
+bool abort_decode(void * data) {
+    return static_cast<GenerationCancellation *>(data)->cancelled.load();
+}
+
+struct NativeResources {
+    bool backend_initialized = false;
+    llama_model * model = nullptr;
+    llama_context * context = nullptr;
+    llama_batch_ext * batch = nullptr;
+    llama_sampler * sampler = nullptr;
+
+    ~NativeResources() {
+        if (sampler) llama_sampler_free(sampler);
+        if (batch) llama_batch_ext_free(batch);
+        if (context) llama_free(context);
+        if (model) llama_model_free(model);
+        if (backend_initialized) llama_backend_free();
+    }
 };
 constexpr int MIN_CONTEXT_TOKENS = 64;
 constexpr int MAX_CONTEXT_TOKENS = 4096;
@@ -71,10 +105,11 @@ std::string run_probe(
         int context_tokens, int max_new_tokens, uint64_t generation_id) {
     std::unique_lock<std::mutex> lease(model_lease, std::try_to_lock);
     if (!lease.owns_lock()) return error("MODEL_BUSY");
-    active_generation.store(generation_id);
-    ActiveGenerationReset clear_active;
+    const auto cancellation = generation_id == 0
+            ? std::make_shared<GenerationCancellation>() : registered_generation(generation_id);
+    if (!cancellation) return error("INVALID_BOUNDS");
     const auto cancelled = [&]() {
-        return generation_id != 0 && cancelled_generation.load() == generation_id;
+        return cancellation->cancelled.load();
     };
     if (cancelled()) return error("CANCELLED");
     if (prompt.empty() || prompt.size() > MAX_PROMPT_BYTES ||
@@ -92,26 +127,25 @@ std::string run_probe(
         return error("MODEL_NOT_FOUND");
     }
 
+    NativeResources resources;
     llama_backend_init();
+    resources.backend_initialized = true;
 
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;
     model_params.check_tensors = true;
+    model_params.progress_callback = load_progress;
+    model_params.progress_callback_user_data = cancellation.get();
 
-    llama_model * model = llama_model_load_from_file(model_path, model_params);
+    llama_model * model = resources.model = llama_model_load_from_file(model_path, model_params);
     if (model == nullptr) {
-        llama_backend_free();
-        return error("MODEL_LOAD_FAILED");
+        return error(cancelled() ? "CANCELLED" : "MODEL_LOAD_FAILED");
     }
 
     if (cancelled()) {
-        llama_model_free(model);
-        llama_backend_free();
         return error("CANCELLED");
     }
     if (llama_model_has_encoder(model)) {
-        llama_model_free(model);
-        llama_backend_free();
         return error("MODEL_LOAD_FAILED");
     }
 
@@ -126,8 +160,6 @@ std::string run_probe(
         true
     );
     if (token_count <= 0 || token_count + max_new_tokens > context_tokens) {
-        llama_model_free(model);
-        llama_backend_free();
         return error("TOKENIZE_FAILED");
     }
 
@@ -140,54 +172,46 @@ std::string run_probe(
             token_count,
             true,
             true) < 0) {
-        llama_model_free(model);
-        llama_backend_free();
         return error("TOKENIZE_FAILED");
     }
+    if (cancelled()) return error("CANCELLED");
 
     llama_context_params context_params = llama_context_default_params();
     context_params.n_ctx = static_cast<uint32_t>(context_tokens);
     context_params.n_batch = static_cast<uint32_t>(std::max(token_count, 1));
-    context_params.n_ubatch = context_params.n_batch;
+    // Bound physical prompt evaluation memory independently of logical context.
+    context_params.n_ubatch = std::min(context_params.n_batch, uint32_t{128});
     context_params.n_threads = 2;
     context_params.n_threads_batch = 2;
     context_params.no_perf = true;
+    context_params.abort_callback = abort_decode;
+    context_params.abort_callback_data = cancellation.get();
 
-    llama_context * context = llama_init_from_model(model, context_params);
+    llama_context * context = resources.context = llama_init_from_model(model, context_params);
     if (context == nullptr) {
-        llama_model_free(model);
-        llama_backend_free();
-        return error("CONTEXT_FAILED");
+        return error(cancelled() ? "CANCELLED" : "CONTEXT_FAILED");
     }
+    if (cancelled()) return error("CANCELLED");
 
-    llama_batch_ext * batch = llama_batch_ext_init(context);
+    llama_batch_ext * batch = resources.batch = llama_batch_ext_init(context);
     if (batch == nullptr) {
-        llama_free(context);
-        llama_model_free(model);
-        llama_backend_free();
         return error("CONTEXT_FAILED");
     }
 
     auto sampler_params = llama_sampler_chain_default_params();
     sampler_params.no_perf = true;
-    llama_sampler * sampler = llama_sampler_chain_init(sampler_params);
+    llama_sampler * sampler = resources.sampler = llama_sampler_chain_init(sampler_params);
     if (sampler == nullptr) {
-        llama_batch_ext_free(batch);
-        llama_free(context);
-        llama_model_free(model);
-        llama_backend_free();
         return error("CONTEXT_FAILED");
     }
-    llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
+    llama_sampler * greedy = llama_sampler_init_greedy();
+    if (greedy == nullptr) return error("CONTEXT_FAILED");
+    llama_sampler_chain_add(sampler, greedy);
 
+    if (cancelled()) return error("CANCELLED");
     batch_set_tokens(batch, prompt_tokens.data(), token_count, 0);
     if (llama_process(context, LLAMA_PROCESS_TYPE_DECODE, batch) != 0) {
-        llama_sampler_free(sampler);
-        llama_batch_ext_free(batch);
-        llama_free(context);
-        llama_model_free(model);
-        llama_backend_free();
-        return error("DECODE_FAILED");
+        return error(cancelled() ? "CANCELLED" : "DECODE_FAILED");
     }
 
     std::string output;
@@ -217,17 +241,22 @@ std::string run_probe(
         }
     }
 
-    llama_sampler_free(sampler);
-    llama_batch_ext_free(batch);
-    llama_free(context);
-    llama_model_free(model);
-    llama_backend_free();
-
     if (cancelled() || stopped) return error("CANCELLED");
     if (output.empty()) {
         return error("OUTPUT_INVALID");
     }
     return std::string("OK:") + output;
+}
+
+std::string safe_run_probe(
+        const char * model_path, const std::string & prompt,
+        int context_tokens, int max_new_tokens, uint64_t generation_id) {
+    try {
+        return run_probe(model_path, prompt, context_tokens, max_new_tokens, generation_id);
+    } catch (const std::exception &) {
+        // RAII releases model/context/sampler and the model lease on allocation failure.
+        return error("CONTEXT_FAILED");
+    }
 }
 
 jbyteArray result_bytes(JNIEnv * env, const std::string& payload) {
@@ -260,7 +289,7 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeProbeBytes(
     if (path == nullptr) {
         return result_bytes(env, error("MODEL_NOT_FOUND"));
     }
-    const std::string result = run_probe(path, "Reply with OK.", context_tokens, max_new_tokens, 0);
+    const std::string result = safe_run_probe(path, "Reply with OK.", context_tokens, max_new_tokens, 0);
     env->ReleaseStringUTFChars(model_path, path);
     return result_bytes(env, result);
 }
@@ -284,7 +313,7 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
 
     const char * path = env->GetStringUTFChars(model_path, nullptr);
     if (path == nullptr) return result_bytes(env, error("MODEL_NOT_FOUND"));
-    const std::string result = run_probe(path, prompt, context_tokens,
+    const std::string result = safe_run_probe(path, prompt, context_tokens,
             max_new_tokens, static_cast<uint64_t>(generation_id));
     env->ReleaseStringUTFChars(model_path, path);
     return result_bytes(env, result);
@@ -294,8 +323,31 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelGeneration(
         JNIEnv *, jobject, jlong generation_id) {
-    if (generation_id > 0 &&
-            active_generation.load() == static_cast<uint64_t>(generation_id)) {
-        cancelled_generation.store(static_cast<uint64_t>(generation_id));
+    if (generation_id <= 0) return;
+    const auto cancellation = registered_generation(static_cast<uint64_t>(generation_id));
+    if (cancellation) cancellation->cancelled.store(true);
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeRegisterGeneration(
+        JNIEnv *, jobject, jlong generation_id) {
+    if (generation_id <= 0) return JNI_FALSE;
+    std::lock_guard<std::mutex> lock(generation_registry_mutex);
+    if (generation_registry.size() >= MAX_REGISTERED_GENERATIONS) return JNI_FALSE;
+    try {
+        return generation_registry.emplace(static_cast<uint64_t>(generation_id),
+                std::make_shared<GenerationCancellation>()).second ? JNI_TRUE : JNI_FALSE;
+    } catch (const std::exception &) {
+        return JNI_FALSE;
     }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeReleaseGeneration(
+        JNIEnv *, jobject, jlong generation_id) {
+    if (generation_id <= 0) return;
+    std::lock_guard<std::mutex> lock(generation_registry_mutex);
+    generation_registry.erase(static_cast<uint64_t>(generation_id));
 }

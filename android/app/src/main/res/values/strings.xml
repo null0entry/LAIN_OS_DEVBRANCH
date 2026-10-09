@@ -74,6 +74,8 @@ Returning to the background requests Stop. Interrupted work requires explicit re
     <string name="planner_remove_credential">Remove credential</string>
     <string name="planner_delete">Delete profile</string>
     <string name="planner_saved">Profile saved and selected.</string>
+    <string name="planner_verifying_save">Verifying local model and saving profile…</string>
+    <string name="planner_model_integrity_verified">Model integrity verified. Inference has not been tested.</string>
     <string name="planner_selected">Planner selected for future tasks.</string>
     <string name="planner_removed">Credential removed.</string>
     <string name="planner_deleted">Profile deleted.</string>

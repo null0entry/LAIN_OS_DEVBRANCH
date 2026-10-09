@@ -1,6 +1,6 @@
 # TASK-070: owner-device GGUF token-generation smoke (opt-in)
 
-**This exercises only the JNI feasibility probe, not LAIN planner execution.** The app's ordinary Workbench still cannot select or import GGUF. A successful run here is *not* the airplane-mode `Show battery` acceptance test.
+**This exercises only the JNI feasibility probe, not LAIN planner execution.** The instructions below describe the original feasibility APK. The offline integration also adds Workbench import and selection; use the [offline task acceptance procedure](on-device-gguf-task-acceptance.md) to test that path. A successful probe here does not establish airplane-mode `Show battery` acceptance.
 
 ## Preconditions
 
@@ -48,4 +48,4 @@ If your shell or ADB version lacks `exec-in`, do not bypass app-private confinem
 
 ## Boundaries
 
-The probe retains its fixed harmless prompt `Reply with OK.` and context/token ceilings. It does **not** provide a model-import UI, verified private model inventory, live cancellation, agent decision validation, policy, approval, or trusted task execution. Those remain explicitly blocked as subsequent design-plan tasks. The purpose of this smoke is to answer the first unresolved hardware feasibility question truthfully.
+The probe retains its fixed harmless prompt `Reply with OK.` and context/token ceilings. This test bypasses Workbench import, profile selection, planner decision validation, policy, approval and trusted task execution. It cannot validate those integration features, even when they are present in the APK. Its purpose is to establish token generation on the declared hardware.

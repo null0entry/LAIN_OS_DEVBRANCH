@@ -15,9 +15,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.PyObject
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import dev.lain.os.planner.PlannerProfileStore
+import dev.lain.os.runtime.EmbeddedPythonRuntime
 import dev.lain.os.runtime.NativeCapabilities
 import dev.lain.os.runtime.RuntimeBinding
 import dev.lain.os.runtime.RuntimeClient
@@ -127,7 +126,7 @@ class PlannerRuntimeGuiAcceptanceTest {
     @Test fun cloudAndLocalProfilesCompleteTrustedActionThroughInstalledWorkbench() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        if (!Python.isStarted()) Python.start(AndroidPlatform(context))
+        val controllerModule = EmbeddedPythonRuntime.controllerModule(context)
         val store = PlannerProfileStore(context)
 
         for (mode in listOf("cloud", "local")) {
@@ -135,7 +134,7 @@ class PlannerRuntimeGuiAcceptanceTest {
             val name = "GUI $mode $suffix"
             val bridge = FakePlannerBridge()
             val root = File(context.filesDir, "lain-gui-acceptance/$mode-$suffix")
-            val controller = Python.getInstance().getModule("lain.app.control").callAttr(
+            val controller = controllerModule.callAttr(
                 "create_controller",
                 root.absolutePath,
                 NativeCapabilities(context),
