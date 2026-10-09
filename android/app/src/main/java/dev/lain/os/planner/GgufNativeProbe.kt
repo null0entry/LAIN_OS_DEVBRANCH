@@ -142,6 +142,8 @@ internal object GgufNativeProbe {
             "INVALID_BOUNDS" -> GgufNativeProbeFailure.INVALID_BOUNDS
             "MODEL_NOT_FOUND" -> GgufNativeProbeFailure.MODEL_NOT_FOUND
             "MODEL_LOAD_FAILED" -> GgufNativeProbeFailure.MODEL_LOAD_FAILED
+            "MODEL_BUSY" -> GgufNativeProbeFailure.MODEL_BUSY
+            "CANCELLED" -> GgufNativeProbeFailure.CANCELLED
             "TOKENIZE_FAILED" -> GgufNativeProbeFailure.TOKENIZE_FAILED
             "CONTEXT_FAILED" -> GgufNativeProbeFailure.CONTEXT_FAILED
             "DECODE_FAILED" -> GgufNativeProbeFailure.DECODE_FAILED
