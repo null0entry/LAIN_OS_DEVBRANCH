@@ -36,6 +36,20 @@ class GgufNativePayloadTest {
         assertEquals(GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.MODEL_NOT_FOUND), parsed("ERR:MODEL_NOT_FOUND"))
     }
 
+    @Test fun mapsNativeCancellationToCancellationInsteadOfGenericFailure() {
+        assertEquals(
+            GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.CANCELLED),
+            parsed("ERR:CANCELLED")
+        )
+    }
+
+    @Test fun mapsNativeContentionToExplicitModelBusyFailure() {
+        assertEquals(
+            GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.MODEL_BUSY),
+            parsed("ERR:MODEL_BUSY")
+        )
+    }
+
     @Test fun rejectsMissingProtocolPrefixAndEmptySuccess() {
         assertEquals(invalid, parsed("OK:"))
         assertEquals(invalid, parsed("model says yes"))
