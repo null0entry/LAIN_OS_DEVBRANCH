@@ -1,26 +1,5 @@
 # In Progress
 
-## TASK-071: Harden offline GGUF cancellation and profile-save responsiveness
-**Priority:** P1 | **Tags:** android, offline, gguf, lifecycle
-**Updated:** 2026-10-09
-
-### Goal
-Address review findings in the draft offline planner integration without promoting unverified physical-device acceptance.
-
-### Plan
-- Review PR #42 and retrieve exact-head Android failure evidence.
-- Move model-verifying profile saves off the Android UI thread with lifecycle-safe completion.
-- Preserve Stop across native generation startup and abort model verification/load/decode cooperatively.
-- Add focused cancellation and UI responsiveness regressions, run portable and available Android/native verification.
-- Provide a truthful offline-task hardware acceptance procedure and record remaining device gates.
-
-### Acceptance
-- Stop cannot be lost before JNI generation begins, and cancellation resources are released.
-- Model hashing and profile save cannot block the UI thread.
-- API/emulator evidence and physical airplane-mode execution remain separately reported.
-
----
-
 ## TASK-070: Establish bounded GGUF header-preflight and native feasibility gate
 **Priority:** P1 | **Tags:** owner-approved, developer, on-device, offline, gguf, feasibility, android
 **Updated:** 2026-10-08
