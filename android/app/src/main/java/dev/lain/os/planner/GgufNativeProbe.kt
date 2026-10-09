@@ -9,6 +9,8 @@ internal enum class GgufNativeProbeFailure {
     MODEL_NOT_FOUND,
     NATIVE_LIBRARY_UNAVAILABLE,
     MODEL_LOAD_FAILED,
+    MODEL_BUSY,
+    CANCELLED,
     TOKENIZE_FAILED,
     CONTEXT_FAILED,
     DECODE_FAILED,
@@ -48,6 +50,44 @@ internal object GgufNativeProbe {
         contextTokens: Int,
         maxNewTokens: Int,
     ): ByteArray
+
+    private external fun nativeGenerateBytes(
+        modelPath: String, promptUtf8: ByteArray,
+        contextTokens: Int, maxNewTokens: Int, generationId: Long,
+    ): ByteArray
+
+    private external fun nativeCancelGeneration(generationId: Long)
+
+    /** A private JNI seam; planner decisions are still validated elsewhere. */
+    fun generate(
+        modelPath: String, prompt: String, contextTokens: Int,
+        maxNewTokens: Int, generationId: Long,
+    ): GgufNativeProbeResult {
+        val bytes = prompt.toByteArray(Charsets.UTF_8)
+        if (
+            generationId <= 0 || modelPath.isBlank() || bytes.isEmpty() ||
+            bytes.size > 16_384 || bytes.any { it == 0.toByte() } ||
+            contextTokens !in MIN_CONTEXT_TOKENS..MAX_CONTEXT_TOKENS ||
+            maxNewTokens !in MIN_NEW_TOKENS..MAX_NEW_TOKENS ||
+            maxNewTokens >= contextTokens
+        ) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS)
+        }
+        if (!libraryLoaded) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        return try {
+            decodeNativePayload(nativeGenerateBytes(modelPath, bytes, contextTokens, maxNewTokens, generationId))
+        } catch (_: UnsatisfiedLinkError) {
+            GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        } catch (_: RuntimeException) {
+            GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR)
+        }
+    }
+
+    fun cancel(generationId: Long) {
+        if (generationId <= 0 || !libraryLoaded) return
+        try { nativeCancelGeneration(generationId) }
+        catch (_: UnsatisfiedLinkError) { /* missing native library is already unavailable */ }
+    }
 
     fun probe(
         modelPath: String,
@@ -102,6 +142,8 @@ internal object GgufNativeProbe {
             "INVALID_BOUNDS" -> GgufNativeProbeFailure.INVALID_BOUNDS
             "MODEL_NOT_FOUND" -> GgufNativeProbeFailure.MODEL_NOT_FOUND
             "MODEL_LOAD_FAILED" -> GgufNativeProbeFailure.MODEL_LOAD_FAILED
+            "MODEL_BUSY" -> GgufNativeProbeFailure.MODEL_BUSY
+            "CANCELLED" -> GgufNativeProbeFailure.CANCELLED
             "TOKENIZE_FAILED" -> GgufNativeProbeFailure.TOKENIZE_FAILED
             "CONTEXT_FAILED" -> GgufNativeProbeFailure.CONTEXT_FAILED
             "DECODE_FAILED" -> GgufNativeProbeFailure.DECODE_FAILED

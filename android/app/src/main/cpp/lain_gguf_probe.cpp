@@ -2,6 +2,9 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <atomic>
+#include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -10,6 +13,13 @@
 namespace {
 
 constexpr size_t MAX_OUTPUT_BYTES = 65'536;
+constexpr size_t MAX_PROMPT_BYTES = 16'384;
+std::mutex model_lease;
+std::atomic<uint64_t> active_generation{0};
+std::atomic<uint64_t> cancelled_generation{0};
+struct ActiveGenerationReset {
+    ~ActiveGenerationReset() { active_generation.store(0); }
+};
 constexpr int MIN_CONTEXT_TOKENS = 64;
 constexpr int MAX_CONTEXT_TOKENS = 4096;
 constexpr int MIN_NEW_TOKENS = 1;
@@ -56,7 +66,20 @@ std::string token_piece(const llama_vocab * vocab, llama_token token) {
     return std::string(large.data(), static_cast<size_t>(size));
 }
 
-std::string run_probe(const char * model_path, int context_tokens, int max_new_tokens) {
+std::string run_probe(
+        const char * model_path, const std::string & prompt,
+        int context_tokens, int max_new_tokens, uint64_t generation_id) {
+    std::unique_lock<std::mutex> lease(model_lease, std::try_to_lock);
+    if (!lease.owns_lock()) return error("MODEL_BUSY");
+    active_generation.store(generation_id);
+    ActiveGenerationReset clear_active;
+    const auto cancelled = [&]() {
+        return generation_id != 0 && cancelled_generation.load() == generation_id;
+    };
+    if (cancelled()) return error("CANCELLED");
+    if (prompt.empty() || prompt.size() > MAX_PROMPT_BYTES ||
+            prompt.find('\0') != std::string::npos) return error("INVALID_BOUNDS");
+
     if (
         model_path == nullptr || model_path[0] == '\0' ||
         context_tokens < MIN_CONTEXT_TOKENS || context_tokens > MAX_CONTEXT_TOKENS ||
@@ -81,6 +104,11 @@ std::string run_probe(const char * model_path, int context_tokens, int max_new_t
         return error("MODEL_LOAD_FAILED");
     }
 
+    if (cancelled()) {
+        llama_model_free(model);
+        llama_backend_free();
+        return error("CANCELLED");
+    }
     if (llama_model_has_encoder(model)) {
         llama_model_free(model);
         llama_backend_free();
@@ -88,7 +116,6 @@ std::string run_probe(const char * model_path, int context_tokens, int max_new_t
     }
 
     const llama_vocab * vocab = llama_model_get_vocab(model);
-    const std::string prompt = "Reply with OK.";
     const int32_t token_count = -llama_tokenize(
         vocab,
         prompt.c_str(),
@@ -164,8 +191,10 @@ std::string run_probe(const char * model_path, int context_tokens, int max_new_t
     }
 
     std::string output;
+    bool stopped = false;
     llama_pos position = token_count;
     for (int i = 0; i < max_new_tokens; ++i) {
+        if (cancelled()) { stopped = true; break; }
         const llama_token token = llama_sampler_sample(sampler, context, -1);
         if (llama_vocab_is_eog(vocab, token)) {
             break;
@@ -194,6 +223,7 @@ std::string run_probe(const char * model_path, int context_tokens, int max_new_t
     llama_model_free(model);
     llama_backend_free();
 
+    if (cancelled() || stopped) return error("CANCELLED");
     if (output.empty()) {
         return error("OUTPUT_INVALID");
     }
@@ -230,7 +260,42 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeProbeBytes(
     if (path == nullptr) {
         return result_bytes(env, error("MODEL_NOT_FOUND"));
     }
-    const std::string result = run_probe(path, context_tokens, max_new_tokens);
+    const std::string result = run_probe(path, "Reply with OK.", context_tokens, max_new_tokens, 0);
     env->ReleaseStringUTFChars(model_path, path);
     return result_bytes(env, result);
+}
+
+
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
+        JNIEnv * env, jobject, jstring model_path, jbyteArray prompt_bytes,
+        jint context_tokens, jint max_new_tokens, jlong generation_id) {
+    if (model_path == nullptr || prompt_bytes == nullptr || generation_id <= 0) {
+        return result_bytes(env, error("INVALID_BOUNDS"));
+    }
+    const jsize prompt_size = env->GetArrayLength(prompt_bytes);
+    if (prompt_size <= 0 || static_cast<size_t>(prompt_size) > MAX_PROMPT_BYTES) {
+        return result_bytes(env, error("INVALID_BOUNDS"));
+    }
+    std::string prompt(static_cast<size_t>(prompt_size), '\0');
+    env->GetByteArrayRegion(prompt_bytes, 0, prompt_size, reinterpret_cast<jbyte *>(&prompt[0]));
+    if (env->ExceptionCheck()) return nullptr;
+
+    const char * path = env->GetStringUTFChars(model_path, nullptr);
+    if (path == nullptr) return result_bytes(env, error("MODEL_NOT_FOUND"));
+    const std::string result = run_probe(path, prompt, context_tokens,
+            max_new_tokens, static_cast<uint64_t>(generation_id));
+    env->ReleaseStringUTFChars(model_path, path);
+    return result_bytes(env, result);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelGeneration(
+        JNIEnv *, jobject, jlong generation_id) {
+    if (generation_id > 0 &&
+            active_generation.load() == static_cast<uint64_t>(generation_id)) {
+        cancelled_generation.store(static_cast<uint64_t>(generation_id));
+    }
 }

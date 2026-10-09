@@ -108,7 +108,7 @@ internal class PlannerProfileStore internal constructor(private val root: File) 
             if (raw.keys().asSequence().toSet() != STATE_FIELDS) {
                 throw PlannerProfileStoreException(ERROR_STATE_INVALID)
             }
-            if (raw.get("version") !is Int || raw.getInt("version") != STATE_VERSION) {
+            if (raw.get("version") !is Int || raw.getInt("version") !in setOf(1, STATE_VERSION)) {
                 throw PlannerProfileStoreException(ERROR_STATE_INVALID)
             }
             val active = raw.get("active_profile_id")
@@ -199,7 +199,7 @@ internal class PlannerProfileStore internal constructor(private val root: File) 
         private const val STORE_DIRECTORY = "planner-profiles"
         private const val STATE_FILE = "profiles.json"
         private const val LOCK_FILE = ".profiles.lock"
-        private const val STATE_VERSION = 1
+        private const val STATE_VERSION = 2
         private const val MAX_PROFILES = 32
         private const val MAX_STATE_BYTES = 512 * 1024
         private val PROCESS_LOCK = Any()

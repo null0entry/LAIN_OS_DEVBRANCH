@@ -13,6 +13,7 @@ from lain.planner_adapters.openai_protocol import (
     normalize_openai_response,
 )
 from lain.planning.protocol import agent_planner_request, parse_agent_decision
+from lain.planning.models import AgentPlannerStatus
 
 
 _MAX_COMPLETION_TOKENS = 1024
@@ -33,6 +34,9 @@ _ERROR_MAP = {
     "PLANNER_RESPONSE_TOO_LARGE": ErrorCode.PLANNER_OUTPUT_TOO_LARGE,
     "PLANNER_RESPONSE_MALFORMED": ErrorCode.PLANNER_OUTPUT_INVALID,
     "PLANNER_RESPONSE_UNSUPPORTED": ErrorCode.PLANNER_OUTPUT_INVALID,
+    "PLANNER_MODEL_LOAD_FAILED": ErrorCode.PLANNER_UNAVAILABLE,
+    "PLANNER_OUTPUT_INVALID": ErrorCode.PLANNER_OUTPUT_INVALID,
+    "PLANNER_MODEL_BUSY": ErrorCode.PLANNER_UNAVAILABLE,
 }
 
 
@@ -56,6 +60,8 @@ class AndroidPlannerFactory:
             return DemoPlanner(self.workspace)
         if self.native_bridge is None:
             raise LainError(ErrorCode.PLANNER_UNAVAILABLE, "native planner bridge is unavailable")
+        if binding.mode == "on_device":
+            return OnDeviceBridgePlanner(binding, self.native_bridge)
         return NativeBridgePlanner(binding, self.native_bridge)
 
 
@@ -112,3 +118,63 @@ class NativeBridgePlanner:
             max_output_bytes=self.binding.max_response_bytes,
             max_actions=self.max_actions,
         )
+
+
+class OnDeviceBridgePlanner:
+    """Native GGUF output is *raw decision JSON*, never an OpenAI HTTP envelope."""
+
+    def __init__(self, binding: PlannerBinding, native_bridge, *, max_actions: int = 1):
+        if binding.mode != "on_device" or binding.protocol != "gguf_native_v1":
+            raise LainError(ErrorCode.PLANNER_UNAVAILABLE, "not an on-device binding")
+        self.binding = binding
+        self.native_bridge = native_bridge
+        self.max_actions = max_actions
+
+    def decide(self, goal, context, capabilities):
+        request = agent_planner_request(goal, context, capabilities, self.max_actions)
+        # The untrusted goal and context are serialized as data; the native prompt
+        # may repeat trusted rules, but only parse_agent_decision grants shape authority.
+        body = json.dumps(request, ensure_ascii=False, separators=(",", ":"))
+        if len(body.encode("utf-8")) > 16384:
+            raise LainError(ErrorCode.PLANNER_FAILED, "offline planner request is too large")
+        binding_json = json.dumps(self.binding.to_dict(), separators=(",", ":"))
+        try:
+            response = json.loads(str(self.native_bridge.execute(binding_json, body)))
+        except (ValueError, TypeError, UnicodeError) as exc:
+            raise LainError(ErrorCode.PLANNER_FAILED, "native planner bridge returned invalid data") from exc
+        if not isinstance(response, dict) or response.get("ok") not in (True, False):
+            raise LainError(ErrorCode.PLANNER_FAILED, "native planner bridge returned invalid data")
+        if response["ok"] is False:
+            if set(response) != {"ok", "error"} or not isinstance(response["error"], str):
+                raise LainError(ErrorCode.PLANNER_FAILED, "native planner bridge returned invalid data")
+            code = _ERROR_MAP.get(response["error"], ErrorCode.PLANNER_UNAVAILABLE)
+            raise LainError(code, "offline model generation failed")
+        if set(response) != {"ok", "body"} or not isinstance(response["body"], str):
+            raise LainError(ErrorCode.PLANNER_FAILED, "native planner bridge returned invalid data")
+        payload = response["body"].encode("utf-8")
+        # No markdown stripping, repair, permissive coercion, or cloud retry.
+        decision = parse_agent_decision(
+            payload, max_output_bytes=self.binding.max_response_bytes,
+            max_actions=self.max_actions,
+        )
+        # Unlike the demo path, a local model cannot claim a completed *task*
+        # without at least one trusted executed action in the session history.
+        history = context.get("history") if isinstance(context, dict) else None
+        if decision.status is AgentPlannerStatus.COMPLETE and isinstance(history, list):
+            witnessed = any(
+                isinstance(iteration, dict)
+                and isinstance(iteration.get("actions"), list)
+                and any(
+                    isinstance(action, dict)
+                    and isinstance(action.get("result"), dict)
+                    and action["result"].get("status") == "success"
+                    and isinstance(action["result"].get("verification"), dict)
+                    and action["result"]["verification"].get("status") in {"passed", "not_applicable"}
+                    for action in iteration["actions"]
+                )
+                for iteration in history
+            )
+            if not witnessed:
+                raise LainError(ErrorCode.PLANNER_OUTPUT_INVALID,
+                                "model cannot claim completion without a verified action")
+        return decision

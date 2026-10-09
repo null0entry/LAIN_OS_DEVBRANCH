@@ -63,6 +63,53 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.workspace = Path(self.directory.name)
 
+
+    def test_on_device_uses_direct_json_without_http_envelope(self):
+        digest = "a" * 64
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model=digest, credential_ref=None,
+            timeout_seconds=120.0, max_response_bytes=65536, response_mode="none",
+            allow_insecure_lan_http=False,
+        )
+        bridge = FakeNativePlannerBridge({"ok": True, "body": json.dumps({
+            "status": "complete", "reason": "ready", "actions": []
+        })})
+        result = AndroidPlannerFactory(self.workspace, bridge)(binding).decide("test", {}, ())
+        self.assertEqual(result.status, AgentPlannerStatus.COMPLETE)
+        self.assertEqual(json.loads(bridge.calls[0][0])["mode"], "on_device")
+        self.assertEqual(json.loads(bridge.calls[0][1])["goal"], "test")
+        self.assertNotIn("messages", json.loads(bridge.calls[0][1]))
+
+
+    def test_on_device_cannot_claim_completion_before_verified_action(self):
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model="a"*64, credential_ref=None, timeout_seconds=120.0,
+            max_response_bytes=65536, response_mode="none", allow_insecure_lan_http=False
+        )
+        bridge = FakeNativePlannerBridge({"ok": True, "body": json.dumps({
+            "status": "complete", "reason": "I did it", "actions": []
+        })})
+        with self.assertRaises(LainError) as raised:
+            AndroidPlannerFactory(self.workspace, bridge)(binding).decide(
+                "Show battery", {"iteration_count": 0, "history": []}, (),
+            )
+        self.assertEqual(raised.exception.code, ErrorCode.PLANNER_OUTPUT_INVALID)
+
+    def test_on_device_malformed_json_and_native_error_fail_closed(self):
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model="a"*64, credential_ref=None, timeout_seconds=120.0,
+            max_response_bytes=65536, response_mode="none", allow_insecure_lan_http=False
+        )
+        for response in ({"ok": True, "body": "garbage"}, {"ok": False, "error": "PLANNER_MODEL_NOT_FOUND"}):
+            with self.subTest(response=response):
+                bridge = FakeNativePlannerBridge(response)
+                with self.assertRaises(LainError):
+                    AndroidPlannerFactory(self.workspace, bridge)(binding).decide("test", {}, ())
+                self.assertEqual(len(bridge.calls), 1)
+
     def test_demo_binding_stays_offline_and_does_not_call_native_bridge(self):
         bridge = FakeNativePlannerBridge()
         planner = AndroidPlannerFactory(self.workspace, bridge)(OFFLINE_DEMO_BINDING)
