@@ -3,6 +3,7 @@ package dev.lain.os.planner
 import android.content.Context
 import java.io.File
 import java.io.InputStream
+import java.io.InterruptedIOException
 import java.security.MessageDigest
 import java.util.UUID
 
@@ -14,9 +15,13 @@ internal data class ImportedGgufModel(val sha256: String, val bytes: Long)
  * This is an import/integrity check, NOT an assertion that all GGUF tensor layouts are valid.
  */
 internal class OnDeviceModelStore(
-    context: Context,
-    private val root: File = File(context.applicationContext.filesDir, "models"),
+    private val root: File,
 ) {
+    constructor(
+        context: Context,
+        root: File = File(context.applicationContext.filesDir, "models"),
+    ) : this(root)
+
     companion object {
         private val SHA = Regex("^[0-9a-f]{64}$")
         private const val DEFAULT_MAX_BYTES = 2_000_000_000L
@@ -36,6 +41,7 @@ internal class OnDeviceModelStore(
                 stage.outputStream().buffered().use { output ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
+                        checkCancellation { false }
                         val n = input.read(buffer)
                         if (n < 0) break
                         require(n > 0) { "GGUF import stream stalled" }
@@ -47,6 +53,7 @@ internal class OnDeviceModelStore(
                     }
                 }
             }
+            checkCancellation { false }
             require(bytes > 24) { "invalid GGUF size" }
             require(
                 stage.inputStream().use {
@@ -67,8 +74,9 @@ internal class OnDeviceModelStore(
         }
     }
 
-    @Synchronized
-    fun resolve(hash: String): File {
+    // Published model files are immutable; resolving does not wait behind a long import.
+    fun resolve(hash: String, isCancelled: () -> Boolean = { false }): File {
+        checkCancellation(isCancelled)
         require(SHA.matches(hash)) { "invalid GGUF model identity" }
         val parent = root.canonicalFile
         val file = File(parent, "$hash.gguf")
@@ -80,15 +88,23 @@ internal class OnDeviceModelStore(
         file.inputStream().buffered().use { input ->
             val buffer = ByteArray(64 * 1024)
             while (true) {
+                checkCancellation(isCancelled)
                 val n = input.read(buffer)
                 if (n < 0) break
                 require(n > 0) { "GGUF hash stream stalled" }
                 digest.update(buffer, 0, n)
             }
         }
+        checkCancellation(isCancelled)
         val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
         require(hash == actual) { "GGUF digest mismatch" }
         return file
+    }
+
+    private fun checkCancellation(isCancelled: () -> Boolean) {
+        if (Thread.currentThread().isInterrupted || isCancelled()) {
+            throw InterruptedIOException("GGUF verification cancelled")
+        }
     }
 
     @Synchronized

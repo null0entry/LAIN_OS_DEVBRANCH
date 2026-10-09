@@ -10,6 +10,7 @@ from lain.app.demo import DemoPlanner
 from lain.app.planner_bridge import AndroidPlannerFactory
 from lain.errors import ErrorCode, LainError
 from lain.planning import AgentPlannerStatus
+from lain.planning.protocol import agent_planner_request
 from lain.runtime.engine import RuntimeEngine
 from lain.config import RuntimeConfig
 
@@ -62,6 +63,44 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.workspace = Path(self.directory.name)
+
+    def test_on_device_request_budget_counts_serialized_utf8_before_native_call(self):
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model="a" * 64, credential_ref=None, timeout_seconds=120.0,
+            max_response_bytes=65536, response_mode="none", allow_insecure_lan_http=False,
+        )
+        overhead = len(json.dumps(
+            agent_planner_request("", {}, (), 1), ensure_ascii=False, separators=(",", ":"),
+        ).encode("utf-8"))
+        for request_bytes in (12_287, 12_288, 12_289):
+            with self.subTest(request_bytes=request_bytes):
+                # A multibyte character proves the budget is bytes, not characters.
+                goal = "é" + "x" * (request_bytes - overhead - 2)
+                bridge = FakeNativePlannerBridge({"ok": True, "body": json.dumps({
+                    "status": "blocked", "reason": "no action", "actions": [],
+                })})
+                planner = AndroidPlannerFactory(self.workspace, bridge)(binding)
+                if request_bytes <= 12_288:
+                    self.assertEqual(planner.decide(goal, {}, ()).status, AgentPlannerStatus.BLOCKED)
+                    self.assertEqual(len(bridge.calls[0][1].encode("utf-8")), request_bytes)
+                else:
+                    with self.assertRaises(LainError) as raised:
+                        planner.decide(goal, {}, ())
+                    self.assertEqual(raised.exception.code, ErrorCode.PLANNER_FAILED)
+                    self.assertEqual(bridge.calls, [])
+
+    def test_on_device_invalid_request_is_not_reported_as_invalid_model_output(self):
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model="a" * 64, credential_ref=None, timeout_seconds=120.0,
+            max_response_bytes=65536, response_mode="none", allow_insecure_lan_http=False,
+        )
+        bridge = FakeNativePlannerBridge({"ok": False, "error": "PLANNER_REQUEST_INVALID"})
+        with self.assertRaises(LainError) as raised:
+            AndroidPlannerFactory(self.workspace, bridge)(binding).decide("Show battery", {}, ())
+        self.assertEqual(raised.exception.code, ErrorCode.PLANNER_FAILED)
+        self.assertEqual(str(raised.exception), "offline planner request is invalid")
 
 
     def test_on_device_uses_direct_json_without_http_envelope(self):

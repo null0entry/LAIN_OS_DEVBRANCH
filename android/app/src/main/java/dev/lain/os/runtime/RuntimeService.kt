@@ -6,8 +6,6 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.Parcel
 import com.chaquo.python.PyObject
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import dev.lain.os.planner.NativePlannerBridge
 import dev.lain.os.planner.PlannerProfileStore
 import org.json.JSONObject
@@ -32,10 +30,10 @@ class RuntimeService : Service() {
         worker.removeOnCancelPolicy = true
         worker.execute {
             try {
-                if (!Python.isStarted()) Python.start(AndroidPlatform(this))
+                val module = EmbeddedPythonRuntime.controllerModule(this)
                 val bridge = NativePlannerBridge(this)
                 plannerBridge = bridge
-                controller = Python.getInstance().getModule("lain.app.control").callAttr(
+                controller = module.callAttr(
                     "create_controller",
                     File(filesDir, "lain").absolutePath,
                     NativeCapabilities(this),

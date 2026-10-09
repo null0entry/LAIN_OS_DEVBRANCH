@@ -23,11 +23,22 @@ internal sealed interface GgufNativeProbeResult {
     data class Rejected(val reason: GgufNativeProbeFailure) : GgufNativeProbeResult
 }
 
+/** A generation keeps its registered Stop flag until the worker has released resources. */
+internal interface OnDevicePlannerEngine {
+    fun registerGeneration(generationId: Long): GgufNativeProbeFailure?
+    fun releaseGeneration(generationId: Long)
+    fun generate(
+        modelPath: String, prompt: String, contextTokens: Int,
+        maxNewTokens: Int, generationId: Long,
+    ): GgufNativeProbeResult
+    fun cancel(generationId: Long)
+}
+
 /**
  * Private feasibility seam only. This is not a planner and grants no execution authority.
- * Model paths must come from app-private storage; later model-store work owns that admission.
+ * Callers resolve model paths through the app-private model store before generation.
  */
-internal object GgufNativeProbe {
+internal object GgufNativeProbe : OnDevicePlannerEngine {
     private const val MIN_CONTEXT_TOKENS = 64
     private const val MAX_CONTEXT_TOKENS = 4096
     private const val MIN_NEW_TOKENS = 1
@@ -57,9 +68,29 @@ internal object GgufNativeProbe {
     ): ByteArray
 
     private external fun nativeCancelGeneration(generationId: Long)
+    private external fun nativeRegisterGeneration(generationId: Long): Boolean
+    private external fun nativeReleaseGeneration(generationId: Long)
 
-    /** A private JNI seam; planner decisions are still validated elsewhere. */
-    fun generate(
+    override fun registerGeneration(generationId: Long): GgufNativeProbeFailure? {
+        if (generationId <= 0) return GgufNativeProbeFailure.INVALID_BOUNDS
+        if (!libraryLoaded) return GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE
+        return try {
+            if (nativeRegisterGeneration(generationId)) null else GgufNativeProbeFailure.MODEL_BUSY
+        } catch (_: UnsatisfiedLinkError) {
+            GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE
+        } catch (_: RuntimeException) {
+            GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR
+        }
+    }
+
+    override fun releaseGeneration(generationId: Long) {
+        if (generationId <= 0 || !libraryLoaded) return
+        try { nativeReleaseGeneration(generationId) }
+        catch (_: UnsatisfiedLinkError) { /* library already reported unavailable */ }
+    }
+
+    /** Caller registers generationId before entry and releases it after native cleanup. */
+    override fun generate(
         modelPath: String, prompt: String, contextTokens: Int,
         maxNewTokens: Int, generationId: Long,
     ): GgufNativeProbeResult {
@@ -83,7 +114,7 @@ internal object GgufNativeProbe {
         }
     }
 
-    fun cancel(generationId: Long) {
+    override fun cancel(generationId: Long) {
         if (generationId <= 0 || !libraryLoaded) return
         try { nativeCancelGeneration(generationId) }
         catch (_: UnsatisfiedLinkError) { /* missing native library is already unavailable */ }
