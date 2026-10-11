@@ -102,7 +102,13 @@ class MainActivity : AppCompatActivity() {
         ui.resumeButton.setOnClickListener { model.resume() }
         ui.reconnectButton.setOnClickListener { model.reconnect() }
         ui.openChatButton.setOnClickListener {
-            startActivity(Intent(this, LocalChatActivity::class.java))
+            // The task runtime uses a separate Android process. Do not overlap
+            // native model loads on a memory-constrained phone.
+            if (model.state.value?.session?.optBoolean("active") == true) {
+                ui.message.text = "Stop or finish the active task before starting local chat."
+            } else {
+                startActivity(Intent(this, LocalChatActivity::class.java))
+            }
         }
         ui.voiceRecordButton.setOnClickListener {
             if (voice.state.value?.status == MicrophoneStatus.RECORDING) {
