@@ -1,6 +1,7 @@
 package dev.lain.os
 
 import android.graphics.Color
+import android.text.InputFilter
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -91,7 +92,7 @@ class LocalChatActivity : AppCompatActivity() {
             setHintTextColor(Color.LTGRAY)
             minLines = 2
             maxLines = 5
-            maxLength = 4096
+            filters = arrayOf(InputFilter.LengthFilter(4096))
             inputType = android.text.InputType.TYPE_CLASS_TEXT or
                 android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or
                 android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
