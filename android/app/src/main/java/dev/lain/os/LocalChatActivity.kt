@@ -73,7 +73,7 @@ class LocalChatActivity : AppCompatActivity() {
             }
         }
         root.addView(newChat)
-        historyScroll = ScrollView(this).apply { fillViewport = true }
+        historyScroll = ScrollView(this).apply { isFillViewport = true }
         history = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
         }
