@@ -1,6 +1,7 @@
 package dev.lain.os
 
 import android.Manifest
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.AdapterView
@@ -100,6 +101,9 @@ class MainActivity : AppCompatActivity() {
         ui.approveButton.setOnClickListener { model.approve() }
         ui.resumeButton.setOnClickListener { model.resume() }
         ui.reconnectButton.setOnClickListener { model.reconnect() }
+        ui.openChatButton.setOnClickListener {
+            startActivity(Intent(this, LocalChatActivity::class.java))
+        }
         ui.voiceRecordButton.setOnClickListener {
             if (voice.state.value?.status == MicrophoneStatus.RECORDING) {
                 voice.stop()
