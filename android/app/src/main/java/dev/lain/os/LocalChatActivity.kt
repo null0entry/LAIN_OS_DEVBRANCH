@@ -126,7 +126,7 @@ class LocalChatActivity : AppCompatActivity() {
         if (profile?.id != ready?.id || profile?.model != ready?.model) {
             cancelCurrent()
             profile = ready
-            val selectedId = ready?.id ?: ""
+            val selectedId = ready?.let { it.id + ":" + it.model } ?: ""
             val storedId = preferences.getString("profile_id", "") ?: ""
             if (storedId != selectedId) {
                 messages.clear()
@@ -172,7 +172,7 @@ class LocalChatActivity : AppCompatActivity() {
             array.put(JSONObject().put("role", message.role).put("content", message.text))
         }
         return preferences.edit()
-            .putString("profile_id", profile?.id ?: "")
+            .putString("profile_id", profile?.let { it.id + ":" + it.model } ?: "")
             .putString("messages", array.toString())
             .commit()
     }
