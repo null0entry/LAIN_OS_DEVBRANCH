@@ -20,13 +20,13 @@ class QwenChatPromptTest {
     @Test fun preservesLastUserMessageWhenOldHistoryOverflows() {
         val turns = mutableListOf<QwenChatTurn>()
         repeat(12) {
-            turns.add(QwenChatTurn("user", "older ".repeat(400)))
+            turns.add(QwenChatTurn("user", (if (it == 0) "OLDEST_MARKER " else "older ") + "x".repeat(1800)))
             turns.add(QwenChatTurn("assistant", "response ".repeat(300)))
         }
         turns.add(QwenChatTurn("user", "Newest query"))
         val prompt = QwenChatPrompt.build(turns)
         assertTrue(prompt.contains("Newest query"))
-        assertFalse(prompt.contains("older ".repeat(400)))
+        assertFalse(prompt.contains("OLDEST_MARKER"))
         assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 8192)
     }
 
