@@ -20,6 +20,7 @@ internal class OnDevicePlannerCall(
     private val timeoutSeconds: Double,
     private val maxResponseBytes: Int,
     private val engine: OnDevicePlannerEngine = GgufNativeProbe,
+    private val buildPrompt: (String) -> String = ::promptForQwen,
 ) {
     constructor(
         store: OnDeviceModelStore, modelSha256: String, request: String,
@@ -40,7 +41,9 @@ internal class OnDevicePlannerCall(
     fun execute(): String {
         if (cancelled.get()) return failure("PLANNER_CANCELLED")
         if (!started.compareAndSet(false, true)) return failure("PLANNER_MODEL_BUSY")
-        val prompt = try { promptForQwen(request) } catch (_: Exception) {
+        val prompt = try {
+            buildPrompt(request).also { require(it.toByteArray(Charsets.UTF_8).size <= 16_384) }
+        } catch (_: Exception) {
             return failure("PLANNER_REQUEST_INVALID")
         }
         val task = FutureTask<GgufNativeProbeResult> {
@@ -113,6 +116,15 @@ internal class OnDevicePlannerCall(
         // Matches the serialized request budget in lain.app.planner_bridge.
         const val MAX_REQUEST_BYTES = 12_288
         private val NEXT_GENERATION = AtomicLong(1000L)
+
+        /** Shares the exact GGUF worker, generation lease and cancellation path with task planning. */
+        fun chat(
+            store: OnDeviceModelStore, modelSha256: String, prompt: String,
+            timeoutSeconds: Double = 120.0,
+        ): OnDevicePlannerCall = OnDevicePlannerCall(
+            store::resolve, modelSha256, prompt, timeoutSeconds, 16384,
+            GgufNativeProbe, { raw -> raw },
+        )
         private fun failure(code: String) = JSONObject().put("ok", false).put("error", code).toString()
 
         /** Qwen2.5 chat format for the first supported offline GGUF family. */
