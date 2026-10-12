@@ -38,6 +38,10 @@
             android:layout_height="wrap_content" android:text="@string/bootstrap_error"
             android:textColor="@color/text_primary" android:visibility="gone"
             android:accessibilityLiveRegion="polite" />
+        <TextView android:id="@+id/bootstrap_progress" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:text="@string/bootstrap_saving"
+            android:textColor="@color/text_secondary" android:visibility="gone"
+            android:accessibilityLiveRegion="polite" />
         <Button android:id="@+id/bootstrap_finish" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:minHeight="48dp"
             android:layout_marginTop="16dp" android:text="@string/bootstrap_finish"

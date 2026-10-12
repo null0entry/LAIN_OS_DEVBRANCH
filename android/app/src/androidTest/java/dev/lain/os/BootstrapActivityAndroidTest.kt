@@ -2,6 +2,7 @@ package dev.lain.os
 
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.widget.Button
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
@@ -22,6 +23,7 @@ import java.util.UUID
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -33,6 +35,30 @@ class BootstrapActivityAndroidTest {
         Context.MODE_PRIVATE,
     )
     private val store = BootstrapStateStore(prefs)
+
+    private fun awaitCompletion() {
+        val deadline = SystemClock.elapsedRealtime() + 15000
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (store.isComplete()) return
+            SystemClock.sleep(50)
+        }
+        fail("Setup did not persist completion")
+    }
+
+    private fun awaitWorkbench() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val deadline = SystemClock.elapsedRealtime() + 15000
+        while (SystemClock.elapsedRealtime() < deadline) {
+            var resumed = false
+            instrumentation.runOnMainSync {
+                resumed = ActivityLifecycleMonitorRegistry.getInstance()
+                    .getActivitiesInStage(Stage.RESUMED).any { it is MainActivity }
+            }
+            if (resumed) return
+            SystemClock.sleep(50)
+        }
+        fail("Setup did not reach the workbench")
+    }
 
     @After fun resetFactories() {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
@@ -87,6 +113,9 @@ class BootstrapActivityAndroidTest {
             scenario.onActivity { activity ->
                 assertTrue(activity.findViewById<Button>(R.id.bootstrap_demo).performClick())
             }
+            awaitCompletion()
+            awaitWorkbench()
+            onView(withId(R.id.command_input)).check(matches(isDisplayed()))
         }
 
         assertTrue(store.isComplete())
@@ -190,6 +219,9 @@ class BootstrapActivityAndroidTest {
             scenario.onActivity { activity ->
                 assertTrue(activity.findViewById<Button>(R.id.bootstrap_finish).performClick())
             }
+            awaitCompletion()
+            awaitWorkbench()
+            onView(withId(R.id.command_input)).check(matches(isDisplayed()))
         }
         assertTrue(store.isComplete())
     }

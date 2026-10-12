@@ -12,8 +12,17 @@ internal class BootstrapStateStore(private val preferences: SharedPreferences) {
     fun isComplete(): Boolean = preferences.getInt("setup_version", 0) == SETUP_VERSION
 
     fun complete() {
-        check(preferences.edit().putInt("setup_version", SETUP_VERSION).commit()) {
-            "Could not save setup completion"
+        val previous = if (preferences.contains("setup_version")) {
+            preferences.getInt("setup_version", 0)
+        } else null
+        if (!preferences.edit().putInt("setup_version", SETUP_VERSION).commit()) {
+            // commit applies to memory even when writing to disk fails. Restore
+            // that memory state before a recreated launcher can read it.
+            val rollback = preferences.edit()
+            if (previous == null) rollback.remove("setup_version")
+            else rollback.putInt("setup_version", previous)
+            rollback.commit()
+            error("Could not save setup completion")
         }
     }
 

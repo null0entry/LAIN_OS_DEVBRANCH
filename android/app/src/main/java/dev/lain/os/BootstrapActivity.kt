@@ -16,6 +16,7 @@ import dev.lain.os.databinding.ActivityBootstrapBinding
 class BootstrapActivity : AppCompatActivity() {
     private lateinit var ui: ActivityBootstrapBinding
     private val model: BootstrapViewModel by viewModels()
+    private var navigationStarted = false
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             // A result is a signal to rescan, never a persisted grant assertion.
@@ -53,25 +54,36 @@ class BootstrapActivity : AppCompatActivity() {
     }
 
     private fun render(state: BootstrapState) {
+        if (state.complete) {
+            openWorkbench()
+            return
+        }
         ui.bootstrapCapabilities.text = state.capabilities.joinToString("\n") {
             "${it.capability}: ${it.state.name}"
         }
-        ui.bootstrapMicrophone.isEnabled = state.capabilities.any {
+        ui.bootstrapDemo.isEnabled = !state.finishing
+        ui.bootstrapFinish.isEnabled = !state.finishing
+        ui.bootstrapConfigurePlanner.isEnabled = !state.finishing
+        ui.bootstrapMicrophone.isEnabled = !state.finishing && state.capabilities.any {
             it.capability == "voice.input" && it.state == AvailabilityState.NEEDS_PERMISSION
         }
-        ui.bootstrapPlanner.text = when (state.plannerMode) {
-            "demo" -> getString(R.string.bootstrap_planner_demo)
-            null -> getString(R.string.bootstrap_planner_unavailable)
+        ui.bootstrapPlanner.text = when {
+            state.plannerLoading -> getString(R.string.bootstrap_planner_loading)
+            state.plannerMode == "demo" -> getString(R.string.bootstrap_planner_demo)
+            state.plannerMode == null -> getString(R.string.bootstrap_planner_unavailable)
             else -> getString(R.string.bootstrap_planner_configured, state.plannerName)
         }
         ui.bootstrapError.visibility = if (state.error) View.VISIBLE else View.GONE
+        ui.bootstrapProgress.visibility = if (state.finishing) View.VISIBLE else View.GONE
     }
 
     private fun finishSetup(useDemo: Boolean) {
-        if (model.finish(useDemo)) openWorkbench()
+        model.finish(useDemo)
     }
 
     private fun openWorkbench() {
+        if (navigationStarted) return
+        navigationStarted = true
         startActivity(Intent(this, MainActivity::class.java))
         finish()
     }

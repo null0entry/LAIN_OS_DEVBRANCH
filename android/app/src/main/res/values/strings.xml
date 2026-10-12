@@ -9,9 +9,11 @@
     <string name="bootstrap_microphone">Enable microphone</string>
     <string name="bootstrap_microphone_explanation">Microphone access enables voice.input and, on supported devices, voice.on_device_stt. You can deny access and keep using typed commands and Demo. Permission alone does not guarantee an installed speech recognition service.</string>
     <string name="bootstrap_planner_demo">Built-in Demo is available offline. No helper apps or permissions are required.</string>
+    <string name="bootstrap_planner_loading">Checking selected planner…</string>
     <string name="bootstrap_planner_configured">Selected planner: %1$s. Configure planner to check its connection or model; setup does not verify inference.</string>
     <string name="bootstrap_planner_unavailable">Planner state could not be read. Continue with Demo to retry using the built-in planner.</string>
     <string name="bootstrap_error">Setup state could not be read or saved. Retry or configure your planner.</string>
+    <string name="bootstrap_saving">Saving setup…</string>
     <string name="app_name">LAIN_OS</string>
     <string name="eyebrow">LOYAL AUTONOMOUS INTELLIGENCE NETWORK</string>
     <string name="subtitle">Your device. Your actions. Your control.</string>
