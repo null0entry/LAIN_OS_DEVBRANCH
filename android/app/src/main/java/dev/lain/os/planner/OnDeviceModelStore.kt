@@ -46,8 +46,8 @@ internal class OnDeviceModelStore(
         val sha = MessageDigest.getInstance("SHA-256")
         var bytes = 0L
         try {
-            checkCancellation(isCancelled)
             source.use { input ->
+                checkCancellation(isCancelled)
                 stage.outputStream().buffered().use { output ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
