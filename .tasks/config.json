@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 76,
+  "nextId": 77,
   "states": [
     {
       "name": "Backlog",
@@ -451,10 +451,16 @@
         "title": "Close physical universal-command clean-device acceptance",
         "priority": "P0",
         "order": 68
+      },
+      {
+        "id": "TASK-076",
+        "title": "Deliver real non-executing model replies for Workbench CHAT turns",
+        "priority": "P1",
+        "order": 69
       }
     ],
     "issue": 6,
     "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "Finish and physically validate PR #41→#44 native GGUF stack, then TASK-071 clean-install bootstrap, TASK-072 in-app pinned Qwen download, TASK-073 universal command bridge, TASK-074 core Android capabilities, and TASK-075 physical clean-device universal-command acceptance. Durable workflow/media work follows this phone-control path."
+    "next_action": "Close TASK-073 Android API35 emulator gate and reconcile its stack; then TASK-074 Android capabilities and TASK-076 non-executing Workbench model replies before TASK-075 physical universal-command acceptance. Preserve separate device-vs-CI evidence."
   }
 }
