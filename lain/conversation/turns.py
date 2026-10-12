@@ -121,6 +121,7 @@ class ConversationSnapshot:
     active_task_id: str | None
     turns: tuple[TurnRecord, ...]
     partial_text: str | None = None
+    assistant_replies: tuple[tuple[int, str, str], ...] = ()
 
     def to_dict(self, *, max_turns: int | None = None) -> dict[str, object]:
         turns = self.turns if max_turns is None else self.turns[-max_turns:]
@@ -129,6 +130,11 @@ class ConversationSnapshot:
             "active_task_id": self.active_task_id,
             "turns": [turn.to_dict() for turn in turns],
             "partial_text": self.partial_text,
+            "assistant_replies": [
+                {"turn_id": turn_id, "state": state, "text": text}
+                for turn_id, state, text in self.assistant_replies
+                if any(turn.turn_id == turn_id for turn in turns)
+            ],
         }
 
 
@@ -148,6 +154,8 @@ class ConversationTurnManager:
         self._next_turn_id = 1
         self._active_task_id: str | None = None
         self._turns: tuple[TurnRecord, ...] = ()
+        self._assistant_replies: dict[int, tuple[str, str]] = {}
+        self._task_links: dict[int, str] = {}
         if self.path.exists():
             self._load()
 
@@ -158,6 +166,9 @@ class ConversationTurnManager:
                 active_task_id=self._active_task_id,
                 turns=self._turns,
                 partial_text=self._partial_text,
+                assistant_replies=tuple(
+                    (turn_id, *value) for turn_id, value in sorted(self._assistant_replies.items())
+                ),
             )
 
     def update_partial(self, text: str) -> ConversationSnapshot:
@@ -238,18 +249,71 @@ class ConversationTurnManager:
             self._next_turn_id += 1
             self._partial_text = None
             self._turns = (*self._turns, record)[-MAX_DURABLE_TURNS:]
+            valid_ids = {turn.turn_id for turn in self._turns}
+            self._assistant_replies = {
+                key: value for key, value in self._assistant_replies.items() if key in valid_ids
+            }
+            self._task_links = {
+                key: value for key, value in self._task_links.items() if key in valid_ids
+            }
             self._save()
             return TurnDecision(record)
+
+    def _record_for(self, turn_id: int) -> TurnRecord:
+        if type(turn_id) is not int or turn_id < 1:
+            raise ValueError("invalid turn ID")
+        record = next((turn for turn in self._turns if turn.turn_id == turn_id), None)
+        if record is None:
+            raise ValueError("turn is no longer retained")
+        return record
+
+    def begin_reply(self, turn_id: int) -> None:
+        with self._lock:
+            record = self._record_for(turn_id)
+            if record.route is not TurnRoute.CHAT or turn_id in self._assistant_replies:
+                raise ValueError("turn cannot begin a chat reply")
+            self._assistant_replies[turn_id] = ("pending", "")
+            self._save()
+
+    def finish_reply(self, turn_id: int, text: str, state: str = "complete") -> None:
+        if state not in {"complete", "failed"}:
+            raise ValueError("invalid reply state")
+        text = _bounded_text(text)
+        with self._lock:
+            self._record_for(turn_id)
+            if self._assistant_replies.get(turn_id) != ("pending", ""):
+                raise ValueError("reply is not pending")
+            self._assistant_replies[turn_id] = (state, text)
+            self._save()
+
+    def reply_state(self, turn_id: int) -> str | None:
+        with self._lock:
+            item = self._assistant_replies.get(turn_id)
+            return item[0] if item else None
+
+    def link_task(self, turn_id: int, session_id: str) -> None:
+        session_id = _canonical_uuid(session_id)
+        with self._lock:
+            record = self._record_for(turn_id)
+            if record.route is not TurnRoute.START_TASK or turn_id in self._task_links:
+                raise ValueError("turn cannot link a task")
+            self._task_links[turn_id] = session_id
+            self._save()
+
+    def task_session_id(self, turn_id: int) -> str | None:
+        with self._lock:
+            return self._task_links.get(turn_id)
 
     def _load(self) -> None:
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
-            if not isinstance(raw, dict) or set(raw) != {
-                "version", "next_turn_id", "active_task_id", "turns",
-            }:
+            if not isinstance(raw, dict):
                 raise ValueError("conversation state fields are invalid")
-            if raw["version"] != 1:
-                raise ValueError("conversation state version is invalid")
+            legacy_keys = {"version", "next_turn_id", "active_task_id", "turns"}
+            version = raw.get("version")
+            expected = legacy_keys if version == 1 else legacy_keys | {"assistant_replies", "task_links"}
+            if type(version) is not int or version not in {1, 2} or set(raw) != expected:
+                raise ValueError("conversation state version or fields are invalid")
             next_turn_id = raw["next_turn_id"]
             if (
                 not isinstance(next_turn_id, int)
@@ -269,20 +333,66 @@ class ConversationTurnManager:
                 raise ValueError("turn IDs are not strictly monotonic")
             if ids and next_turn_id <= ids[-1]:
                 raise ValueError("next_turn_id does not follow durable history")
+            replies = {}
+            links = {}
+            if version == 2:
+                raw_replies = raw["assistant_replies"]
+                raw_links = raw["task_links"]
+                if not isinstance(raw_replies, list) or not isinstance(raw_links, list):
+                    raise ValueError("invalid conversation attachments")
+                if len(raw_replies) > MAX_DURABLE_TURNS or len(raw_links) > MAX_DURABLE_TURNS:
+                    raise ValueError("conversation attachments exceed bound")
+                records = {turn.turn_id: turn for turn in turns}
+                for entry in raw_replies:
+                    if not isinstance(entry, dict) or set(entry) != {"turn_id", "state", "text"}:
+                        raise ValueError("invalid assistant reply")
+                    turn_id = entry["turn_id"]
+                    state = entry["state"]
+                    text = entry["text"]
+                    if type(turn_id) is not int or turn_id in replies or turn_id not in records:
+                        raise ValueError("invalid reply turn")
+                    if records[turn_id].route is not TurnRoute.CHAT:
+                        raise ValueError("reply must refer to chat")
+                    if state == "pending" and text == "":
+                        pass
+                    elif state in {"complete", "failed"}:
+                        _bounded_text(text)
+                    else:
+                        raise ValueError("invalid reply state")
+                    replies[turn_id] = (state, text)
+                for entry in raw_links:
+                    if not isinstance(entry, dict) or set(entry) != {"turn_id", "session_id"}:
+                        raise ValueError("invalid task link")
+                    turn_id = entry["turn_id"]
+                    if type(turn_id) is not int or turn_id in links or turn_id not in records:
+                        raise ValueError("invalid task link turn")
+                    if records[turn_id].route is not TurnRoute.START_TASK:
+                        raise ValueError("task link must refer to task")
+                    links[turn_id] = _canonical_uuid(entry["session_id"])
         except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
             raise ValueError("conversation state is invalid") from exc
 
         self._next_turn_id = next_turn_id
         self._active_task_id = active
         self._turns = turns
+        self._assistant_replies = replies
+        self._task_links = links
         os.chmod(self.path, 0o600)
 
     def _save(self) -> None:
         payload = {
-            "version": 1,
+            "version": 2,
             "next_turn_id": self._next_turn_id,
             "active_task_id": self._active_task_id,
             "turns": [turn.to_dict() for turn in self._turns],
+            "assistant_replies": [
+                {"turn_id": turn_id, "state": state, "text": text}
+                for turn_id, (state, text) in sorted(self._assistant_replies.items())
+            ],
+            "task_links": [
+                {"turn_id": turn_id, "session_id": session_id}
+                for turn_id, session_id in sorted(self._task_links.items())
+            ],
         }
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         temp = self.root / ".state.tmp"

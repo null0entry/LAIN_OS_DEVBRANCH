@@ -74,7 +74,9 @@ class RuntimeService : Service() {
     private fun process(payload: String): String {
         val python = controller ?: return RuntimeProtocol.failure(
             if (startupFailed) "APP_START_FAILED" else "APP_STARTING")
-        val command = JSONObject(payload).optString("command")
+        val request = JSONObject(payload)
+        val command = request.optString("command")
+        val turnKind = request.optJSONObject("arguments")?.optString("kind")
         if (command in RuntimeProtocol.readCommands) {
             if (command == "stop") plannerBridge?.cancel()
             val result = python.callAttr("dispatch", payload).toString()
@@ -95,8 +97,22 @@ class RuntimeService : Service() {
             }
         }
         return try {
-            val result = pending.get(5, TimeUnit.SECONDS)
+            val result = pending.get(RuntimeTimeoutPolicy.seconds(command, turnKind), TimeUnit.SECONDS)
             if (RuntimeProtocol.shouldAdvance(command, result)) kick()
+            // Routing is bounded, but a full on-device reply can take much longer.
+            // Schedule it after the accepted turn is durable so Binder returns
+            // promptly and the Workbench can keep inspecting its conversation.
+            if (command == "turn_submit") {
+                val accepted = JSONObject(result)
+                if (accepted.optBoolean("ok") && accepted.optBoolean("chat_pending")) {
+                    val turnId = accepted.optJSONObject("turn")?.optInt("turn_id", 0) ?: 0
+                    if (turnId > 0) worker.execute {
+                        try { python.callAttr("complete_chat", turnId) } catch (_: Exception) {
+                            // State remains inspectable; never reinterpret chat as work.
+                        }
+                    }
+                }
+            }
             result
         } catch (_: Exception) {
             pending.cancel(false)
