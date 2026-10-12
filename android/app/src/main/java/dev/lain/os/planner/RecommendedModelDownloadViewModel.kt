@@ -33,7 +33,6 @@ internal sealed interface RecommendedModelDownloadState {
     data class Downloaded(
         val model: RecommendedModel,
         val imported: ImportedGgufModel,
-        val publicDownloadUri: String? = null,
         override val editor: RecommendedModelEditorSnapshot? = null,
     ) : RecommendedModelDownloadState
 
