@@ -90,6 +90,35 @@ internal class NativePlannerBridge(
         finally { activeNativeCall.compareAndSet(call, null) }
     }
 
+    /**
+     * Advisory JSON routing only. Shares the native GGUF generation lease,
+     * verified private model store, timeout and cancellation with task planning.
+     * This method cannot execute any device capability.
+     */
+    fun route(bindingJson: String, prompt: String): String {
+        if (bindingJson.toByteArray(Charsets.UTF_8).size > MAX_BINDING_BYTES ||
+            prompt.toByteArray(Charsets.UTF_8).size > 16_384) {
+            return failure("PLANNER_REQUEST_INVALID")
+        }
+        val store = modelStore ?: return failure("PLANNER_MODEL_NOT_FOUND")
+        val call = try {
+            val binding = parseBinding(bindingJson)
+            require(binding.mode == "on_device" && binding.protocol == "gguf_native_v1")
+            require(binding.baseUrl.isEmpty() && binding.credentialRef == null)
+            require(binding.responseMode == "none" && !binding.allowInsecureLanHttp)
+            require(Regex("^[0-9a-f]{64}$").matches(binding.model))
+            require(binding.timeoutSeconds.isFinite() && binding.timeoutSeconds in 1.0..180.0)
+            OnDevicePlannerCall.chat(store, binding.model, prompt, binding.timeoutSeconds)
+        } catch (_: Exception) {
+            return failure("PLANNER_REQUEST_INVALID")
+        }
+        if (activeCall.get() != null || !activeNativeCall.compareAndSet(null, call)) {
+            return failure("PLANNER_MODEL_BUSY")
+        }
+        return try { call.execute() }
+        finally { activeNativeCall.compareAndSet(call, null) }
+    }
+
     fun cancel() {
         activeCall.get()?.cancel()
         activeNativeCall.get()?.cancel()
