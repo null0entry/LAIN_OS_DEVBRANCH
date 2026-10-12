@@ -74,7 +74,9 @@ class RuntimeService : Service() {
     private fun process(payload: String): String {
         val python = controller ?: return RuntimeProtocol.failure(
             if (startupFailed) "APP_START_FAILED" else "APP_STARTING")
-        val command = JSONObject(payload).optString("command")
+        val request = JSONObject(payload)
+        val command = request.optString("command")
+        val turnKind = request.optJSONObject("arguments")?.optString("kind")
         if (command in RuntimeProtocol.readCommands) {
             if (command == "stop") plannerBridge?.cancel()
             val result = python.callAttr("dispatch", payload).toString()
@@ -95,7 +97,7 @@ class RuntimeService : Service() {
             }
         }
         return try {
-            val result = pending.get(5, TimeUnit.SECONDS)
+            val result = pending.get(RuntimeTimeoutPolicy.seconds(command, turnKind), TimeUnit.SECONDS)
             if (RuntimeProtocol.shouldAdvance(command, result)) kick()
             result
         } catch (_: Exception) {
