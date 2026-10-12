@@ -21,6 +21,7 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     private val mutable = MutableLiveData(WorkbenchState())
     val state: LiveData<WorkbenchState> = mutable
     private var visible = false
+    private var lastAcceptedFinalSpeechId = 0L
     private var refreshing = false
     private val terminal = setOf("complete", "cancelled", "failed", "blocked", "budget_exhausted")
     private val tick = object : Runnable {
@@ -46,7 +47,8 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
         // text selection. Real connection, approval, and result changes publish.
         if (before.connected == after.connected && before.ready == after.ready &&
             before.startupFailed == after.startupFailed && before.pending == after.pending &&
-            before.message == after.message && before.session?.toString() == after.session?.toString() &&
+            before.message == after.message && before.conversationResponse == after.conversationResponse &&
+            before.session?.toString() == after.session?.toString() &&
             before.history.toString() == after.history.toString() &&
             before.conversation?.toString() == after.conversation?.toString()) return
         mutable.value = after
@@ -73,38 +75,40 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     }
 
     fun run(goal: String) {
-        val snapshot = current()
-        if (snapshot.pending || !snapshot.ready) return
-        if (goal.isBlank()) { change { it.copy(message = "Choose a demo command first") }; return }
-        if (snapshot.session?.optBoolean("recovery_required") == true) return
-        val text = goal.trim()
-        if (snapshot.session?.optBoolean("active") == true) {
-            submitRevision(text, "typed")
-        } else {
-            mutate("start", JSONObject().put("goal", text))
+        if (goal.isBlank()) {
+            change { it.copy(message = "Enter a command or question") }
+            return
         }
+        submitFinalTurn(goal, "typed")
     }
 
-    fun submitSpeech(text: String): Boolean {
+    /** Only accepted, FINAL local transcripts arrive here; partials never dispatch. */
+    fun submitSpeech(text: String, finalId: Long = 0L): Boolean {
+        // A sticky LiveData READY event must never submit the same capture again
+        // when Android recreates/rebinds the Activity. A NEW capture gets a new ID.
+        if (finalId > 0L && finalId <= lastAcceptedFinalSpeechId) return true
+        val accepted = submitFinalTurn(text, "speech")
+        if (accepted && finalId > 0L) lastAcceptedFinalSpeechId = finalId
+        return accepted
+    }
+
+    private fun submitFinalTurn(text: String, source: String): Boolean {
         val snapshot = current()
-        val session = snapshot.session
         if (
-            snapshot.pending ||
-            !snapshot.ready ||
-            text.isBlank() ||
-            session?.optBoolean("recovery_required") == true ||
+            snapshot.pending || !snapshot.ready || text.isBlank() ||
+            snapshot.session?.optBoolean("recovery_required") == true ||
             text.toByteArray(Charsets.UTF_8).size > 4096
         ) return false
         val normalized = text.trim()
-        if (session?.optBoolean("active") == true) {
-            submitRevision(normalized, "speech")
+        if (snapshot.session?.optBoolean("active") == true) {
+            submitRevision(normalized, source)
         } else {
             mutate(
                 "turn_submit",
                 JSONObject()
                     .put("text", normalized)
-                    .put("source", "speech")
-                    .put("kind", "task")
+                    .put("source", source)
+                    .put("kind", "auto")
                     .put("reference", "none")
                     .put("target_session_id", JSONObject.NULL),
             )
@@ -163,13 +167,19 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
 
     private fun mutate(command: String, arguments: JSONObject) {
         if (current().pending || !current().ready) return
-        change { it.copy(pending = true, message = "Submitting owner request…") }
+        change { it.copy(pending = true, conversationResponse = null, message = "Submitting owner request…") }
         client.request(command, arguments) { reply ->
             val session = reply.optJSONObject("session")
             if (session != null) saved["session_id"] = session.getString("session_id")
             change { it.copy(pending = false, session = session ?: it.session,
-                message = if (reply.optBoolean("ok")) "Request accepted" else
-                    reply.optString("message", "Request rejected; inspect state before retrying")) }
+                conversationResponse = if (reply.optBoolean("ok"))
+                    reply.optString("conversation_response").takeIf { value -> value.isNotBlank() }
+                    else null,
+                message = if (reply.optBoolean("ok")) {
+                    reply.optString("conversation_response").takeIf { it.isNotBlank() }
+                        ?: if (reply.optBoolean("clarification_required")) "Please clarify the command."
+                        else "Request accepted"
+                } else reply.optString("message", "Request rejected; inspect state before retrying")) }
             refresh()
         }
     }

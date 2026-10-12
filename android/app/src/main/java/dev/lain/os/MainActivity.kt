@@ -255,6 +255,7 @@ class MainActivity : AppCompatActivity() {
             session?.optString("session_id", "").orEmpty(),
             session?.optString("revision", "").orEmpty(),
             assistant,
+            state.conversationResponse.orEmpty(),
         ).joinToString("|")
         if (key == lastTranscript) return
         lastTranscript = key
@@ -300,6 +301,12 @@ class MainActivity : AppCompatActivity() {
         if (assistant.isNotEmpty()) {
             ui.conversationTranscript.addView(
                 resultText(getString(R.string.transcript_assistant, assistant))
+            )
+            rendered += 1
+        }
+        state.conversationResponse?.takeIf { it.isNotBlank() }?.let { response ->
+            ui.conversationTranscript.addView(
+                resultText(getString(R.string.transcript_assistant, response))
             )
             rendered += 1
         }
@@ -366,7 +373,7 @@ class MainActivity : AppCompatActivity() {
         updateVoiceRecordEnabled()
         if (state.status == SpeechInputStatus.READY) {
             val text = state.result?.text
-            if (text != null && model.submitSpeech(text)) voice.consumeFinalTranscript()
+            if (text != null && model.submitSpeech(text, state.finalId)) voice.consumeFinalTranscript()
         }
     }
 
