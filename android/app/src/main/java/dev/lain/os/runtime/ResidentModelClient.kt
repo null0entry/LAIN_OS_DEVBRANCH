@@ -67,7 +67,7 @@ internal class ResidentModelClient(
             check(target.transact(method, data, reply, 0))
             reply.readException()
             val response = reply.readString() ?: error("PLANNER_MODEL_LOAD_FAILED")
-            require(response.toByteArray(Charsets.UTF_8).size <= 20_000)
+            require(response.toByteArray(Charsets.UTF_8).size <= 65536)
             response
         } catch (_: Exception) { error("PLANNER_MODEL_LOAD_FAILED") }
         finally { data.recycle(); reply.recycle() }
