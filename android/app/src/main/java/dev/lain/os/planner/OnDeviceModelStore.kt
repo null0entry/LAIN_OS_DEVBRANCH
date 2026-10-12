@@ -16,11 +16,12 @@ internal data class ImportedGgufModel(val sha256: String, val bytes: Long)
  */
 internal class OnDeviceModelStore(
     private val root: File,
+    private val usableSpace: () -> Long = { root.usableSpace },
 ) {
     constructor(
         context: Context,
         root: File = File(context.applicationContext.filesDir, "models"),
-    ) : this(root)
+    ) : this(root, { root.usableSpace })
 
     companion object {
         private val SHA = Regex("^[0-9a-f]{64}$")
@@ -30,30 +31,51 @@ internal class OnDeviceModelStore(
 
     init { require(root.isDirectory || root.mkdirs()) { "private model storage unavailable" } }
 
+    fun requireStagingCapacity(expectedBytes: Long) {
+        require(expectedBytes > 24 && expectedBytes <= DEFAULT_MAX_BYTES) {
+            "invalid GGUF staging budget"
+        }
+        require(usableSpace() >= expectedBytes + FREE_SPACE_FLOOR_BYTES) {
+            "insufficient private model storage"
+        }
+    }
+
     @Synchronized
-    fun importModel(source: InputStream, maxBytes: Long = DEFAULT_MAX_BYTES): ImportedGgufModel {
+    fun importModel(
+        source: InputStream,
+        maxBytes: Long = DEFAULT_MAX_BYTES,
+        expectedSha256: String? = null,
+        isCancelled: () -> Boolean = { false },
+    ): ImportedGgufModel {
         require(maxBytes > 24 && maxBytes <= DEFAULT_MAX_BYTES) { "invalid GGUF import budget" }
+        require(expectedSha256 == null || SHA.matches(expectedSha256)) {
+            "invalid expected GGUF digest"
+        }
         val stage = File(root, ".import-${UUID.randomUUID()}.part")
         val sha = MessageDigest.getInstance("SHA-256")
         var bytes = 0L
         try {
             source.use { input ->
+                checkCancellation(isCancelled)
                 stage.outputStream().buffered().use { output ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
-                        checkCancellation { false }
+                        checkCancellation(isCancelled)
                         val n = input.read(buffer)
                         if (n < 0) break
                         require(n > 0) { "GGUF import stream stalled" }
+                        checkCancellation(isCancelled)
                         bytes += n
                         require(bytes <= maxBytes) { "GGUF exceeds configured size" }
-                        require(root.usableSpace > FREE_SPACE_FLOOR_BYTES) { "insufficient private model storage" }
+                        require(usableSpace() > FREE_SPACE_FLOOR_BYTES) {
+                            "insufficient private model storage"
+                        }
                         sha.update(buffer, 0, n)
                         output.write(buffer, 0, n)
                     }
                 }
             }
-            checkCancellation { false }
+            checkCancellation(isCancelled)
             require(bytes > 24) { "invalid GGUF size" }
             require(
                 stage.inputStream().use {
@@ -62,9 +84,13 @@ internal class OnDeviceModelStore(
             ) { "unsupported GGUF fixed header" }
 
             val hash = sha.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
+            require(expectedSha256 == null || hash == expectedSha256) {
+                "GGUF digest did not match pinned model"
+            }
+            checkCancellation(isCancelled)
             val destination = File(root, "$hash.gguf")
             if (destination.exists()) {
-                resolve(hash) // Fail closed on a corrupted pre-existing model.
+                resolve(hash, isCancelled)
             } else {
                 require(stage.renameTo(destination)) { "atomic GGUF import failed" }
             }
@@ -74,7 +100,6 @@ internal class OnDeviceModelStore(
         }
     }
 
-    // Published model files are immutable; resolving does not wait behind a long import.
     fun resolve(hash: String, isCancelled: () -> Boolean = { false }): File {
         checkCancellation(isCancelled)
         require(SHA.matches(hash)) { "invalid GGUF model identity" }
