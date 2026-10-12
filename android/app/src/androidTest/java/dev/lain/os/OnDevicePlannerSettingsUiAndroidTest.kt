@@ -13,10 +13,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import dev.lain.os.planner.OnDeviceModelStore
 import dev.lain.os.planner.OnDevicePlannerSaveViewModel
+import dev.lain.os.planner.ImportedGgufModel
+import dev.lain.os.planner.RecommendedModelDownloadViewModel
 import dev.lain.os.planner.PlannerProfileDraft
 import dev.lain.os.planner.PlannerSettingsManager
 import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.InterruptedIOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.UUID
@@ -246,4 +249,77 @@ class OnDevicePlannerSettingsUiAndroidTest {
             File(app.filesDir, "models/${imported.sha256}.gguf").delete()
         }
     }
+
+    @Test fun recommendedDownloadRetainsAcrossRecreationAndLocksConflictingPlannerEdits() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val calls = AtomicInteger()
+        val importedHash = "a".repeat(64)
+        val originalFactory = RecommendedModelDownloadViewModel.downloadActionFactory
+        RecommendedModelDownloadViewModel.downloadActionFactory = {
+            { model, progress, cancelled ->
+                calls.incrementAndGet()
+                entered.countDown()
+                progress(model.expectedBytes / 2L, model.expectedBytes)
+                check(release.await(60, TimeUnit.SECONDS)) { "download gate timed out" }
+                if (cancelled()) throw InterruptedIOException("cancelled")
+                ImportedGgufModel(importedHash, model.expectedBytes)
+            }
+        }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                scenario.onActivity { activity ->
+                    activity.findViewById<Button>(R.id.planner_new).performClick()
+                    activity.findViewById<Spinner>(R.id.planner_mode).setSelection(2)
+                }
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                scenario.onActivity { activity ->
+                    activity.findViewById<Button>(R.id.planner_download_model).performClick()
+                }
+                assertTrue("download must begin on a worker", entered.await(10, TimeUnit.SECONDS))
+                scenario.onActivity { activity ->
+                    assertFalse(activity.findViewById<Button>(R.id.planner_import_model).isEnabled)
+                    assertFalse(activity.findViewById<Button>(R.id.planner_save).isEnabled)
+                    assertFalse(activity.findViewById<Button>(R.id.planner_new).isEnabled)
+                    assertFalse(activity.findViewById<Spinner>(R.id.planner_profiles).isEnabled)
+                    assertFalse(activity.findViewById<Spinner>(R.id.planner_mode).isEnabled)
+                    assertTrue(activity.findViewById<Button>(R.id.planner_download_model).isEnabled)
+                    assertTrue(
+                        activity.findViewById<Button>(R.id.planner_download_model)
+                            .text.toString().contains("Cancel"),
+                    )
+                }
+
+                scenario.recreate()
+                InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+                scenario.onActivity { activity ->
+                    assertFalse(activity.findViewById<Button>(R.id.planner_new).isEnabled)
+                    assertFalse(activity.findViewById<Spinner>(R.id.planner_profiles).isEnabled)
+                    assertFalse(activity.findViewById<Spinner>(R.id.planner_mode).isEnabled)
+                }
+                assertEquals(1, calls.get())
+
+                release.countDown()
+                await(scenario) { activity ->
+                    activity.findViewById<EditText>(R.id.planner_model).text.toString() == importedHash
+                }
+                scenario.onActivity { activity ->
+                    assertEquals(2, activity.findViewById<Spinner>(R.id.planner_mode).selectedItemPosition)
+                    assertTrue(activity.findViewById<Button>(R.id.planner_new).isEnabled)
+                    assertTrue(activity.findViewById<Spinner>(R.id.planner_profiles).isEnabled)
+                    assertTrue(activity.findViewById<Spinner>(R.id.planner_mode).isEnabled)
+                    assertTrue(
+                        activity.findViewById<TextView>(R.id.planner_download_status)
+                            .text.toString().contains("downloaded and verified", ignoreCase = true),
+                    )
+                }
+                assertEquals(1, calls.get())
+            }
+        } finally {
+            release.countDown()
+            RecommendedModelDownloadViewModel.downloadActionFactory = originalFactory
+        }
+    }
+
 }
