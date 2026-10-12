@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="bootstrap_heading">Set up LAIN_OS</string>
+    <string name="bootstrap_intro">Try the built-in Demo immediately, or configure a planner and import an on-device GGUF model in Planner Settings. Demo uses fixed examples; an on-device model is required for local chat.</string>
+    <string name="bootstrap_demo">Continue with Demo</string>
+    <string name="bootstrap_configure_planner">Configure planner</string>
+    <string name="bootstrap_download_qwen">Download recommended Qwen</string>
+    <string name="bootstrap_download_metadata">Qwen3 1.7B Q4_K_M · ~1.28 GB · source: https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf · SHA-256 d2387ca2dbfe… pinned before use</string>
+    <string name="bootstrap_download_complete">Recommended Qwen downloaded and verified. Configure planner to select it.</string>
+    <string name="bootstrap_finish">Finish setup</string>
+    <string name="bootstrap_capabilities_heading">Device capabilities</string>
+    <string name="bootstrap_microphone">Enable microphone</string>
+    <string name="bootstrap_microphone_explanation">Microphone access enables voice.input and, on supported devices, voice.on_device_stt. You can deny access and keep using typed commands and Demo. Permission alone does not guarantee an installed speech recognition service.</string>
+    <string name="bootstrap_planner_demo">Built-in Demo is available offline. No helper apps or permissions are required.</string>
+    <string name="bootstrap_planner_loading">Checking selected planner…</string>
+    <string name="bootstrap_planner_configured">Selected planner: %1$s. Configure planner to check its connection or model; setup does not verify inference.</string>
+    <string name="bootstrap_planner_unavailable">Planner state could not be read. Continue with Demo to retry using the built-in planner.</string>
+    <string name="bootstrap_error">Setup state could not be read or saved. Retry or configure your planner.</string>
+    <string name="bootstrap_saving">Saving setup…</string>
     <string name="app_name">LAIN_OS</string>
     <string name="eyebrow">LOYAL AUTONOMOUS INTELLIGENCE NETWORK</string>
     <string name="subtitle">Your device. Your actions. Your control.</string>
@@ -10,6 +27,7 @@
     <string name="command_heading">What would you like to do?</string>
     <string name="demo_notice">Planner selection is pinned when a task starts. Changing it affects future tasks only.</string>
     <string name="command_hint">Describe a task…</string>
+    <string name="chat_open">Chat with On-device Qwen (offline)</string>
     <string name="run">Run task</string>
     <string name="voice_record">Record voice</string>
     <string name="voice_stop">Stop voice</string>
@@ -74,9 +92,22 @@ Returning to the background requests Stop. Interrupted work requires explicit re
     <string name="planner_remove_credential">Remove credential</string>
     <string name="planner_delete">Delete profile</string>
     <string name="planner_saved">Profile saved and selected.</string>
+    <string name="planner_verifying_save">Verifying local model and saving profile…</string>
+    <string name="planner_model_integrity_verified">Model integrity verified. Inference has not been tested.</string>
     <string name="planner_selected">Planner selected for future tasks.</string>
     <string name="planner_removed">Credential removed.</string>
     <string name="planner_deleted">Profile deleted.</string>
     <string name="planner_testing">Testing connection…</string>
     <string name="planner_error">Planner settings error: %1$s</string>
+    <string name="planner_import_model">Import on-device GGUF model</string>
+    <string name="planner_download_model">Download recommended Qwen</string>
+    <string name="planner_download_cancel">Cancel Qwen download</string>
+    <string name="planner_download_metadata">Qwen3 1.7B Q4_K_M · ~1.28 GB · source: https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf · SHA-256 d2387ca2dbfe… pinned before use</string>
+    <string name="planner_download_progress">Downloading recommended Qwen… %1$d%% (%2$d / %3$d MiB)</string>
+    <string name="planner_download_complete">Qwen downloaded and verified: %1$s</string>
+    <string name="planner_download_cancelled">Qwen download cancelled. No partial model was published.</string>
+    <string name="planner_download_failed">Qwen download failed: %1$s</string>
+    <string name="planner_importing_model">Importing and verifying local model…</string>
+    <string name="planner_imported_model">GGUF imported locally: %1$s</string>
+    <string name="planner_offline_credential">On-device model — no API key or internet required</string>
 </resources>

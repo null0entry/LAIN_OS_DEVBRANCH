@@ -25,3 +25,5 @@ jobs:
           python scripts/verify.py
           --diff-range
           "${{ github.event.pull_request.base.sha || github.event.before }}..${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Check native GGUF cancellation and cleanup
+        run: bash tests/native/run_gguf_lifecycle_test.sh

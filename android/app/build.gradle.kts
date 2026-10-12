@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "dev.lain.os"
     compileSdk = 35
+    ndkVersion = "29.0.13113456"
     defaultConfig {
         applicationId = "dev.lain.os"
         minSdk = 24
@@ -15,6 +16,18 @@ android {
         versionName = "0.1.4-interface"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_STL=c++_shared"
+                cppFlags += "-std=c++17"
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

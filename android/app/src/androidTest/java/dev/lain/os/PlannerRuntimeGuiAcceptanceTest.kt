@@ -15,9 +15,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.chaquo.python.PyObject
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import dev.lain.os.planner.PlannerProfileStore
+import dev.lain.os.runtime.EmbeddedPythonRuntime
 import dev.lain.os.runtime.NativeCapabilities
 import dev.lain.os.runtime.RuntimeBinding
 import dev.lain.os.runtime.RuntimeClient
@@ -37,13 +36,28 @@ import org.junit.runner.RunWith
 class PlannerRuntimeGuiAcceptanceTest {
     private class FakePlannerBridge {
         val modes = mutableListOf<String>()
+        val routeModes = mutableListOf<String>()
         private var calls = 0
 
         fun execute(bindingJson: String, requestBody: String): String {
             val binding = JSONObject(bindingJson)
             val request = JSONObject(requestBody)
-            modes += binding.getString("mode")
             assertEquals("model-a", request.getString("model"))
+            val system = request.getJSONArray("messages").getJSONObject(0).getString("content")
+            if (system.startsWith("Classify the USER's final utterance")) {
+                routeModes += binding.getString("mode")
+                val classification = JSONObject()
+                    .put("disposition", "task")
+                    .put("response_text", "")
+                    .put("reason", "explicit device action")
+                return JSONObject().put("ok", true).put("body", JSONObject().put(
+                    "choices",
+                    JSONArray().put(JSONObject().put(
+                        "message", JSONObject().put("content", classification.toString()),
+                    )),
+                ).toString()).toString()
+            }
+            modes += binding.getString("mode")
             calls += 1
             val decision = if (calls % 2 == 1) {
                 JSONObject()
@@ -91,7 +105,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                 val payload = data.readString() ?: error("missing payload")
                 val command = JSONObject(payload).getString("command")
                 val response = controller.callAttr("dispatch", payload).toString()
-                if (command in setOf("start", "approve", "resume")) {
+                if (command in setOf("start", "turn_submit", "approve", "resume")) {
                     while (controller.callAttr("advance").toBoolean()) {
                         // Drain the same bounded controller pump used by RuntimeService.
                     }
@@ -127,7 +141,7 @@ class PlannerRuntimeGuiAcceptanceTest {
     @Test fun cloudAndLocalProfilesCompleteTrustedActionThroughInstalledWorkbench() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val context = instrumentation.targetContext
-        if (!Python.isStarted()) Python.start(AndroidPlatform(context))
+        val controllerModule = EmbeddedPythonRuntime.controllerModule(context)
         val store = PlannerProfileStore(context)
 
         for (mode in listOf("cloud", "local")) {
@@ -135,7 +149,7 @@ class PlannerRuntimeGuiAcceptanceTest {
             val name = "GUI $mode $suffix"
             val bridge = FakePlannerBridge()
             val root = File(context.filesDir, "lain-gui-acceptance/$mode-$suffix")
-            val controller = Python.getInstance().getModule("lain.app.control").callAttr(
+            val controller = controllerModule.callAttr(
                 "create_controller",
                 root.absolutePath,
                 NativeCapabilities(context),
@@ -171,7 +185,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                             .contains(name)
                     }
                     scenario.onActivity {
-                        it.findViewById<EditText>(R.id.command_input).setText("Read battery")
+                        it.findViewById<EditText>(R.id.command_input).setText("Check my battery level")
                         assertTrue(it.findViewById<View>(R.id.run_button).performClick())
                     }
                     await(scenario) {
@@ -193,6 +207,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                             .contains("Offline Demo · offline_demo")
                     }
                 }
+                assertEquals(listOf(mode), bridge.routeModes)
                 assertEquals(listOf(mode, mode), bridge.modes)
             } finally {
                 WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application) }

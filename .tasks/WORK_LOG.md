@@ -1,5 +1,8 @@
 # Work Log
 
+## 2026-10-09 — TASK-071
+Draft PR #43 implementation `a49281d` passed Verify and Android API 24/API 35 build, JVM tests, lint and instrumentation. Offline GGUF cancellation/save lifecycle and cross-process Python startup are hardened; physical Qwen/airplane-mode acceptance remains UNVERIFIED and TASK-070 stays open.
+
 ## 2026-10-07 — TASK-053
 PR #37 exact head `ca3872e32aebc8958aafef1b0c49892dee3cf0c8` passed final review #5447733343, Verify #637, and Android #626 on API 24/API 35, then squash-merged as `bf89b0215afec919ee87c7df7e86bc143eb2c091`. Selectable installed-offline speech voices are integrated; TASK-015/TASK-036 still own physical/OEM acceptance.
 

@@ -29,6 +29,9 @@ import org.junit.runner.RunWith
 class ConversationalRevisionAndroidTest {
     private class ActiveSessionBinding : RuntimeBinding {
         val requests = Collections.synchronizedList(mutableListOf<JSONObject>())
+        // Synchronized collection operations do not synchronize iteration:
+        // snapshot under the same monitor before any any/count/filter in test threads.
+        fun requestsSnapshot(): List<JSONObject> = synchronized(requests) { requests.toList() }
         private val sessionId = UUID.randomUUID().toString()
         private var revision = "revision-1"
 
@@ -139,7 +142,7 @@ class ConversationalRevisionAndroidTest {
                 model.run("Make it shorter")
             }
             await(scenario) {
-                binding.requests.any { request ->
+                binding.requestsSnapshot().any { request ->
                     request.optString("command") == "turn_submit" &&
                         request.getJSONObject("arguments").optString("source") == "typed"
                 }
@@ -150,11 +153,11 @@ class ConversationalRevisionAndroidTest {
                 assertTrue(model.submitSpeech("Use fewer words"))
             }
             await(scenario) {
-                binding.requests.count { it.optString("command") == "turn_submit" } >= 2
+                binding.requestsSnapshot().count { it.optString("command") == "turn_submit" } >= 2
             }
         }
 
-        val turns = binding.requests.filter { it.optString("command") == "turn_submit" }
+        val turns = binding.requestsSnapshot().filter { it.optString("command") == "turn_submit" }
         assertEquals(2, turns.size)
         assertEquals(listOf("typed", "speech"), turns.map {
             it.getJSONObject("arguments").getString("source")

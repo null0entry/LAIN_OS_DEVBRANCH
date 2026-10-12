@@ -3,6 +3,7 @@ package dev.lain.os.planner
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.InputStream
 import java.util.UUID
 
 internal data class PlannerProfileDraft(
@@ -36,6 +37,7 @@ internal data class PlannerSettingsSnapshot(
 
 internal enum class PlannerConnectionStatus {
     OFFLINE_DEMO,
+    MODEL_READY,
     CONNECTED,
     AUTHENTICATION_REJECTED,
     MODEL_UNAVAILABLE,
@@ -54,11 +56,20 @@ internal class PlannerSettingsManager(
     private val profiles: PlannerProfileStore,
     private val secrets: SecretStore,
     private val diagnostic: (PlannerProfile) -> PlannerConnectionStatus,
+    private val modelStore: OnDeviceModelStore? = null,
 ) {
+    // Preserve the existing trailing-lambda diagnostic constructor used by callers/tests.
+    constructor(
+        profiles: PlannerProfileStore,
+        secrets: SecretStore,
+        diagnostic: (PlannerProfile) -> PlannerConnectionStatus,
+    ) : this(profiles, secrets, diagnostic, null)
+
     constructor(context: Context) : this(
         PlannerProfileStore(context),
         AndroidKeystoreSecretStore(context),
         PlannerConnectionDiagnostic(context)::test,
+        OnDeviceModelStore(context),
     )
 
     fun snapshot(): PlannerSettingsSnapshot {
@@ -88,12 +99,20 @@ internal class PlannerSettingsManager(
     }
 
     fun save(draft: PlannerProfileDraft): String {
-        require(draft.mode == "cloud" || draft.mode == "local") {
-            "planner profile mode must be cloud or local"
+        require(draft.mode in setOf("cloud", "local", "on_device")) {
+            "unknown planner profile mode"
         }
         val existing = draft.profileId?.let { id ->
             require(id != PlannerProfile.DEMO_ID) { "offline demo profile is built in" }
             profiles.get(id) ?: throw IllegalArgumentException("planner profile does not exist")
+        }
+        require(existing == null || existing.mode == draft.mode) {
+            "planner profile mode is immutable; create a new profile"
+        }
+        if (draft.mode == "on_device") {
+            require(draft.baseUrl.isEmpty() && draft.credential.isNullOrBlank())
+            val store = modelStore ?: throw IllegalArgumentException("local model store unavailable")
+            store.resolve(draft.model) // Hash+path proof before making a profile selectable.
         }
         val id = existing?.id ?: newProfileId()
         val replacement = draft.credential?.takeIf { it.isNotBlank() }
@@ -109,13 +128,13 @@ internal class PlannerSettingsManager(
                 id = id,
                 name = draft.name,
                 mode = draft.mode,
-                protocol = "openai_compatible_v1",
+                protocol = if (draft.mode == "on_device") "gguf_native_v1" else "openai_compatible_v1",
                 baseUrl = draft.baseUrl,
                 model = draft.model,
                 credentialRef = credentialRef,
-                timeoutSeconds = draft.timeoutSeconds,
-                maxResponseBytes = draft.maxResponseBytes,
-                responseMode = draft.responseMode,
+                timeoutSeconds = if (draft.mode == "on_device") 120.0 else draft.timeoutSeconds,
+                maxResponseBytes = if (draft.mode == "on_device") 65536 else draft.maxResponseBytes,
+                responseMode = if (draft.mode == "on_device") "none" else draft.responseMode,
                 allowInsecureLanHttp = false,
             )
         } catch (exc: Exception) {
@@ -134,6 +153,9 @@ internal class PlannerSettingsManager(
         }
         return id
     }
+
+    fun importOnDeviceModel(source: InputStream): ImportedGgufModel =
+        (modelStore ?: throw IllegalArgumentException("private GGUF store unavailable")).importModel(source)
 
     fun select(profileId: String) {
         profiles.select(profileId)
@@ -158,6 +180,15 @@ internal class PlannerSettingsManager(
         val profile = profiles.get(profileId)
             ?: throw IllegalArgumentException("planner profile does not exist")
         if (profile.mode == "demo") return PlannerConnectionStatus.OFFLINE_DEMO
+        if (profile.mode == "on_device") {
+            return try {
+                modelStore?.resolve(profile.model)
+                    ?: return PlannerConnectionStatus.MODEL_UNAVAILABLE
+                PlannerConnectionStatus.MODEL_READY
+            } catch (_: Exception) {
+                PlannerConnectionStatus.MODEL_UNAVAILABLE
+            }
+        }
         if (profile.mode == "cloud" && profile.credentialRef == null) {
             return PlannerConnectionStatus.MISSING_CREDENTIAL
         }

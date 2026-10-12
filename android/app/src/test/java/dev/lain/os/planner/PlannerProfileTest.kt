@@ -7,6 +7,27 @@ import org.junit.Test
 import org.json.JSONObject
 
 class PlannerProfileTest {
+
+    @Test fun onDeviceProfilePinsShaAndForbidsEndpointAndCredential() {
+        val profile = PlannerProfile(
+            id = "offline-qwen", name = "Qwen Offline", mode = "on_device",
+            protocol = "gguf_native_v1", baseUrl = "", model = "a".repeat(64),
+            credentialRef = null, timeoutSeconds = 120.0,
+            maxResponseBytes = 65536, responseMode = "none", allowInsecureLanHttp = false
+        )
+        assertEquals("on_device", profile.toTrustedBindingJson().getString("mode"))
+        assertEquals("a".repeat(64), profile.toTrustedBindingJson().getString("model"))
+        val invalid = listOf(
+            { profile.copy(baseUrl = "https://api.example.invalid/v1") },
+            { profile.copy(credentialRef = "cred_0123456789abcdef0123456789abcdef") },
+            { profile.copy(model = "../evil.gguf") },
+            { profile.copy(model = "b".repeat(63)) },
+            { profile.copy(responseMode = "json_schema") },
+            { profile.copy(allowInsecureLanHttp = true) }
+        )
+        invalid.forEach { assertThrows(IllegalArgumentException::class.java) { it() } }
+    }
+
     @Test fun demoProfileProducesTrustedOfflineBinding() {
         val profile = PlannerProfile.offlineDemo()
 

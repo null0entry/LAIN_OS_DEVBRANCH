@@ -361,13 +361,15 @@ class VoiceTalkBackAndroidTest {
                 assertTrue(it.findViewById<android.view.View>(R.id.run_button).performClick())
             }
             await(scenario) {
-                binding.requests.any { it.optString("command") == "start" }
+                binding.requests.any { it.optString("command") == "turn_submit" }
             }
         }
 
-        val typed = binding.requests.single { it.optString("command") == "start" }
-        assertEquals("Show battery", typed.getJSONObject("arguments").getString("goal"))
-        assertTrue(binding.requests.none { it.optString("command") == "turn_submit" })
+        val typed = binding.requests.single { it.optString("command") == "turn_submit" }
+        assertEquals("Show battery", typed.getJSONObject("arguments").getString("text"))
+        assertEquals("typed", typed.getJSONObject("arguments").getString("source"))
+        assertEquals("auto", typed.getJSONObject("arguments").getString("kind"))
+        assertEquals(1, binding.requests.count { it.optString("command") == "turn_submit" })
     }
 
     @Test fun capturedPcmBecomesOneSpeechTurnAndFinalReplyTalksBack() {
@@ -399,7 +401,7 @@ class VoiceTalkBackAndroidTest {
         val args = turns.single().getJSONObject("arguments")
         assertEquals("Show battery", args.getString("text"))
         assertEquals("speech", args.getString("source"))
-        assertEquals("task", args.getString("kind"))
+        assertEquals("auto", args.getString("kind"))
         assertEquals(listOf("Battery is at fifty percent."), tts.spoken.toList())
     }
 }

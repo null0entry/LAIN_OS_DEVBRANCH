@@ -28,7 +28,7 @@ internal data class PlannerProfile(
             "invalid planner profile name"
         }
         require(name.none { it.isISOControl() }) { "invalid planner profile name" }
-        require(mode in setOf("demo", "cloud", "local")) { "invalid planner profile mode" }
+        require(mode in setOf("demo", "cloud", "local", "on_device")) { "invalid planner profile mode" }
         require(credentialRef == null || CREDENTIAL_REF.matches(credentialRef)) {
             "invalid planner credential reference"
         }
@@ -41,6 +41,15 @@ internal data class PlannerProfile(
             require(credentialRef == null)
             require(timeoutSeconds == 0.0)
             require(maxResponseBytes == 0)
+            require(responseMode == "none")
+            require(!allowInsecureLanHttp)
+        } else if (mode == "on_device") {
+            require(id != DEMO_ID)
+            require(protocol == "gguf_native_v1")
+            require(baseUrl.isEmpty() && credentialRef == null)
+            require(GGUF_SHA.matches(model)) { "model must be a verified GGUF SHA-256" }
+            require(timeoutSeconds.isFinite() && timeoutSeconds in 1.0..180.0)
+            require(maxResponseBytes in 128..65536)
             require(responseMode == "none")
             require(!allowInsecureLanHttp)
         } else {
@@ -90,6 +99,7 @@ internal data class PlannerProfile(
         private const val MAX_MODEL_BYTES = 512
         private const val MAX_URL_BYTES = 4096
 
+        private val GGUF_SHA = Regex("^[0-9a-f]{64}$")
         private val PROFILE_ID = Regex("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
         private val CREDENTIAL_REF = Regex("^cred_[0-9a-f]{32}$")
         private val STORAGE_FIELDS = setOf(

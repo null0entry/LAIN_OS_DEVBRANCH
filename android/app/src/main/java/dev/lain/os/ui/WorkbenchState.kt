@@ -11,5 +11,6 @@ data class WorkbenchState(
     val session: JSONObject? = null,
     val history: JSONArray = JSONArray(),
     val conversation: JSONObject? = null,
+    val conversationResponse: String? = null,
     val message: String = "Connecting to local runtime…"
 )

@@ -1,0 +1,207 @@
+package dev.lain.os.planner
+
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
+
+internal enum class GgufNativeProbeFailure {
+    INVALID_BOUNDS,
+    MODEL_NOT_FOUND,
+    NATIVE_LIBRARY_UNAVAILABLE,
+    MODEL_LOAD_FAILED,
+    MODEL_BUSY,
+    CANCELLED,
+    TOKENIZE_FAILED,
+    CONTEXT_FAILED,
+    DECODE_FAILED,
+    OUTPUT_INVALID,
+    UNKNOWN_NATIVE_ERROR,
+}
+
+internal sealed interface GgufNativeProbeResult {
+    data class Generated(val text: String) : GgufNativeProbeResult
+    data class Rejected(val reason: GgufNativeProbeFailure) : GgufNativeProbeResult
+}
+
+/** A generation keeps its registered Stop flag until the worker has released resources. */
+internal interface OnDevicePlannerEngine {
+    fun registerGeneration(generationId: Long): GgufNativeProbeFailure?
+    fun releaseGeneration(generationId: Long)
+    fun generate(
+        modelPath: String, prompt: String, contextTokens: Int,
+        maxNewTokens: Int, generationId: Long,
+    ): GgufNativeProbeResult
+    fun cancel(generationId: Long)
+}
+
+/**
+ * Private feasibility seam only. This is not a planner and grants no execution authority.
+ * Callers resolve model paths through the app-private model store before generation.
+ */
+internal object GgufNativeProbe : OnDevicePlannerEngine {
+    private const val MIN_CONTEXT_TOKENS = 64
+    private const val MAX_CONTEXT_TOKENS = 4096
+    private const val MIN_NEW_TOKENS = 1
+    private const val MAX_NEW_TOKENS = 256
+    private const val MAX_NATIVE_RESPONSE_BYTES = 65_536
+
+    private val libraryLoaded: Boolean by lazy {
+        try {
+            System.loadLibrary("lain_gguf_probe")
+            true
+        } catch (_: UnsatisfiedLinkError) {
+            false
+        } catch (_: SecurityException) {
+            false
+        }
+    }
+
+    private external fun nativeProbeBytes(
+        modelPath: String,
+        contextTokens: Int,
+        maxNewTokens: Int,
+    ): ByteArray
+
+    private external fun nativeGenerateBytes(
+        modelPath: String, promptUtf8: ByteArray,
+        contextTokens: Int, maxNewTokens: Int, generationId: Long,
+    ): ByteArray
+
+    private external fun nativeWarmModelBytes(modelPath: String): ByteArray
+    private external fun nativeCancelWarmModel()
+    private external fun nativeUnloadModel()
+
+    /** Resolve and checksum-verify app-private GGUF before calling this off the UI thread. */
+    fun warm(modelPath: String): GgufNativeProbeResult {
+        if (modelPath.isBlank()) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS)
+        if (!libraryLoaded) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        return try { decodeNativePayload(nativeWarmModelBytes(modelPath)) }
+        catch (_: UnsatisfiedLinkError) { GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE) }
+        catch (_: RuntimeException) { GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.MODEL_LOAD_FAILED) }
+    }
+
+    fun cancelWarm() {
+        if (libraryLoaded) try { nativeCancelWarmModel() } catch (_: UnsatisfiedLinkError) { }
+    }
+
+    fun unload() {
+        if (libraryLoaded) try { nativeUnloadModel() } catch (_: UnsatisfiedLinkError) { }
+    }
+
+    private external fun nativeCancelGeneration(generationId: Long)
+    private external fun nativeRegisterGeneration(generationId: Long): Boolean
+    private external fun nativeReleaseGeneration(generationId: Long)
+
+    override fun registerGeneration(generationId: Long): GgufNativeProbeFailure? {
+        if (generationId <= 0) return GgufNativeProbeFailure.INVALID_BOUNDS
+        if (!libraryLoaded) return GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE
+        return try {
+            if (nativeRegisterGeneration(generationId)) null else GgufNativeProbeFailure.MODEL_BUSY
+        } catch (_: UnsatisfiedLinkError) {
+            GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE
+        } catch (_: RuntimeException) {
+            GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR
+        }
+    }
+
+    override fun releaseGeneration(generationId: Long) {
+        if (generationId <= 0 || !libraryLoaded) return
+        try { nativeReleaseGeneration(generationId) }
+        catch (_: UnsatisfiedLinkError) { /* library already reported unavailable */ }
+    }
+
+    /** Caller registers generationId before entry and releases it after native cleanup. */
+    override fun generate(
+        modelPath: String, prompt: String, contextTokens: Int,
+        maxNewTokens: Int, generationId: Long,
+    ): GgufNativeProbeResult {
+        val bytes = prompt.toByteArray(Charsets.UTF_8)
+        if (
+            generationId <= 0 || modelPath.isBlank() || bytes.isEmpty() ||
+            bytes.size > 16_384 || bytes.any { it == 0.toByte() } ||
+            contextTokens !in MIN_CONTEXT_TOKENS..MAX_CONTEXT_TOKENS ||
+            maxNewTokens !in MIN_NEW_TOKENS..MAX_NEW_TOKENS ||
+            maxNewTokens >= contextTokens
+        ) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS)
+        }
+        if (!libraryLoaded) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        return try {
+            decodeNativePayload(nativeGenerateBytes(modelPath, bytes, contextTokens, maxNewTokens, generationId))
+        } catch (_: UnsatisfiedLinkError) {
+            GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        } catch (_: RuntimeException) {
+            GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR)
+        }
+    }
+
+    override fun cancel(generationId: Long) {
+        if (generationId <= 0 || !libraryLoaded) return
+        try { nativeCancelGeneration(generationId) }
+        catch (_: UnsatisfiedLinkError) { /* missing native library is already unavailable */ }
+    }
+
+    fun probe(
+        modelPath: String,
+        contextTokens: Int,
+        maxNewTokens: Int,
+    ): GgufNativeProbeResult {
+        if (
+            modelPath.isBlank() ||
+            contextTokens !in MIN_CONTEXT_TOKENS..MAX_CONTEXT_TOKENS ||
+            maxNewTokens !in MIN_NEW_TOKENS..MAX_NEW_TOKENS ||
+            maxNewTokens >= contextTokens
+        ) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS)
+        }
+        if (!libraryLoaded) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        }
+        val payload = try {
+            nativeProbeBytes(modelPath, contextTokens, maxNewTokens)
+        } catch (_: UnsatisfiedLinkError) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        } catch (_: RuntimeException) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR)
+        }
+        return decodeNativePayload(payload)
+    }
+
+    /** JNI yields raw bytes: never use NewStringUTF on model-generated token bytes. */
+    internal fun decodeNativePayload(bytes: ByteArray): GgufNativeProbeResult {
+        fun invalid() = GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.OUTPUT_INVALID)
+        if (bytes.isEmpty() || bytes.size > MAX_NATIVE_RESPONSE_BYTES + 3 || bytes.any { it == 0.toByte() }) {
+            return invalid()
+        }
+        val response = try {
+            Charsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT)
+                .decode(ByteBuffer.wrap(bytes))
+                .toString()
+        } catch (_: CharacterCodingException) {
+            return invalid()
+        }
+
+        if (response.startsWith("OK:")) {
+            val text = response.removePrefix("OK:")
+            return if (text.isNotEmpty() && bytes.size - 3 <= MAX_NATIVE_RESPONSE_BYTES) {
+                GgufNativeProbeResult.Generated(text)
+            } else invalid()
+        }
+        if (!response.startsWith("ERR:")) return invalid()
+        val failure = when (response.removePrefix("ERR:")) {
+            "INVALID_BOUNDS" -> GgufNativeProbeFailure.INVALID_BOUNDS
+            "MODEL_NOT_FOUND" -> GgufNativeProbeFailure.MODEL_NOT_FOUND
+            "MODEL_LOAD_FAILED" -> GgufNativeProbeFailure.MODEL_LOAD_FAILED
+            "MODEL_BUSY" -> GgufNativeProbeFailure.MODEL_BUSY
+            "CANCELLED" -> GgufNativeProbeFailure.CANCELLED
+            "TOKENIZE_FAILED" -> GgufNativeProbeFailure.TOKENIZE_FAILED
+            "CONTEXT_FAILED" -> GgufNativeProbeFailure.CONTEXT_FAILED
+            "DECODE_FAILED" -> GgufNativeProbeFailure.DECODE_FAILED
+            "OUTPUT_INVALID" -> GgufNativeProbeFailure.OUTPUT_INVALID
+            else -> GgufNativeProbeFailure.UNKNOWN_NATIVE_ERROR
+        }
+        return GgufNativeProbeResult.Rejected(failure)
+    }
+}

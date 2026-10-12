@@ -45,8 +45,29 @@ def session(binding=OFFLINE_DEMO_BINDING):
         planner_binding=binding,
     )
 
+ON_DEVICE_SHA = "a" * 64
+
+
+def on_device_binding():
+    return PlannerBinding(
+        profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+        base_url="", model=ON_DEVICE_SHA, credential_ref=None,
+        timeout_seconds=120.0, max_response_bytes=65536,
+        response_mode="none", allow_insecure_lan_http=False,
+    )
+
+
 
 class PlannerBindingTests(unittest.TestCase):
+    def test_on_device_binding_round_trips_and_rejects_network_authority(self):
+        model = on_device_binding()
+        self.assertEqual(PlannerBinding.from_dict(model.to_dict()), model)
+        raw = model.to_dict()
+        for updates in ({'base_url':'https://evil.example'}, {'credential_ref':'cred-secret'}, {'protocol':'openai_compatible_v1'}, {'model':'../../evil'}, {'allow_insecure_lan_http':True}):
+            with self.subTest(updates=updates), self.assertRaises(LainError):
+                PlannerBinding.from_dict({**raw, **updates})
+
+
     def test_round_trip_preserves_binding_exactly(self):
         binding = PlannerBinding(
             profile_id="cloud-primary",
