@@ -10,22 +10,42 @@ import java.io.InterruptedIOException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal data class RecommendedModelEditorSnapshot(
+    val profileId: String?,
+    val name: String,
+    val model: String,
+)
+
 internal sealed interface RecommendedModelDownloadState {
-    data object Idle : RecommendedModelDownloadState
+    val editor: RecommendedModelEditorSnapshot?
+
+    data object Idle : RecommendedModelDownloadState {
+        override val editor: RecommendedModelEditorSnapshot? = null
+    }
+
     data class Downloading(
         val model: RecommendedModel,
         val downloadedBytes: Long,
         val expectedBytes: Long,
+        override val editor: RecommendedModelEditorSnapshot? = null,
     ) : RecommendedModelDownloadState
+
     data class Downloaded(
         val model: RecommendedModel,
         val imported: ImportedGgufModel,
+        override val editor: RecommendedModelEditorSnapshot? = null,
     ) : RecommendedModelDownloadState
+
     data class Failed(
         val model: RecommendedModel,
         val message: String,
+        override val editor: RecommendedModelEditorSnapshot? = null,
     ) : RecommendedModelDownloadState
-    data class Cancelled(val model: RecommendedModel) : RecommendedModelDownloadState
+
+    data class Cancelled(
+        val model: RecommendedModel,
+        override val editor: RecommendedModelEditorSnapshot? = null,
+    ) : RecommendedModelDownloadState
 }
 
 /** Retains one bounded recommended-model download across Activity recreation. */
@@ -58,13 +78,21 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
     @Volatile private var cancellation = AtomicBoolean(false)
     @Volatile private var activeThread: Thread? = null
 
-    fun start(model: RecommendedModel = RecommendedModelCatalog.default()): Boolean {
+    fun start(
+        model: RecommendedModel = RecommendedModelCatalog.default(),
+        editor: RecommendedModelEditorSnapshot? = null,
+    ): Boolean {
         check(Looper.myLooper() == Looper.getMainLooper())
         if (cleared || isDownloading) return false
 
         val cancelled = AtomicBoolean(false)
         cancellation = cancelled
-        mutable.value = RecommendedModelDownloadState.Downloading(model, 0L, model.expectedBytes)
+        mutable.value = RecommendedModelDownloadState.Downloading(
+            model,
+            0L,
+            model.expectedBytes,
+            editor,
+        )
         worker.execute {
             activeThread = Thread.currentThread()
             var lastReported = 0L
@@ -82,6 +110,7 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                                         model,
                                         downloaded.coerceAtMost(expected),
                                         expected,
+                                        editor,
                                     )
                                 }
                             }
@@ -91,16 +120,17 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                 )
                 // A returned import means the exact model was already verified and published.
                 // A late Cancel cannot truthfully roll that completed publication back.
-                RecommendedModelDownloadState.Downloaded(model, imported)
+                RecommendedModelDownloadState.Downloaded(model, imported, editor)
             } catch (_: InterruptedIOException) {
-                RecommendedModelDownloadState.Cancelled(model)
+                RecommendedModelDownloadState.Cancelled(model, editor)
             } catch (exc: Exception) {
                 if (cancelled.get()) {
-                    RecommendedModelDownloadState.Cancelled(model)
+                    RecommendedModelDownloadState.Cancelled(model, editor)
                 } else {
                     RecommendedModelDownloadState.Failed(
                         model,
                         exc.message?.takeIf { it.isNotBlank() } ?: exc.javaClass.simpleName,
+                        editor,
                     )
                 }
             }
