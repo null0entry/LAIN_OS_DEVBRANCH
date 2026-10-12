@@ -1,5 +1,61 @@
 # Next
 
+## TASK-081: Unify Local chat and Workbench under one canonical conversation
+**Priority:** P0 | **Tags:** overseer-assigned, developer, android, context, on-device, voice, command-bridge
+**Updated:** 2026-10-12
+
+### Goal
+Make standalone Local chat and Workbench two views of one canonical persisted thread, sharing prior user typed/spoken turns, assistant replies, trusted task outcomes and the same bounded Qwen context.
+
+### Scope
+- Eliminate or delegate LocalChatActivity's separate `native-gguf-chat-v1` SharedPreferences message store and direct-only `QwenChatPrompt.build` path; prefer reusing the Workbench turn manager and one resident model service, not a parallel chat authority.
+- Route user messages from either UI through the same `turn_submit` and durable assistant-response path, with stable turn IDs and proper cancellation/recovery.
+- Show verified task outcomes as read-only context in either screen; never parse assistant text as commands, approvals or executor receipts.
+- Preserve current conversation on upgrade through a bounded, explicit, idempotent legacy-chat migration or a truthful notice; never silently discard owner history.
+- Preserve on-device-only behavior (no implicit cloud fallback), model readiness gates, prompt byte/token limits, typed fallback, speech finality and private retention/redaction.
+- Keep TASK-075 physical acceptance and issue #52's Downloads storage/export follow-up separate.
+
+### Dependencies
+- PR #56 merged shared Workbench chat/task context.
+- PR #57 integrated first (resident preload, cloud/local chat, STT and native-tool repair); this task must not interfere with its review or tests.
+- Existing `ConversationTurnManager` and `AppController.complete_chat` as the sole authoritative transcript / execution boundary.
+
+### Plan
+- Write red regression tests showing LocalChatActivity currently has an independent history and can miss preceding Workbench task outcomes.
+- Reuse the canonical conversation protocol in both UI entry points, or remove the redundant secondary chat entry point while keeping a clear owner-visible route.
+- Include interleaved typed/speech, real trust-labeled tool status, task clarification, upgrade/migration, slow/failed Qwen, process death and session rebind cases.
+- Run focused tests, canonical Verify, Android API24/API35 and non-sensitive instrumentation checks.
+
+### Acceptance
+- A completed device task in Workbench is accessible in the next Local chat Qwen context; a Local chat exchange is present on return to Workbench, with stable turn identity.
+- There is one durable canonical transcript and one bounded inference context, without independent duplicate model chat memories.
+- No duplicated user turns on rotation/retry, and assistant model output cannot invoke a tool or approve an action.
+- Legacy saved chat is either explicitly migrated once safely or clearly retained with a recovery path; no silent loss.
+- Offline Qwen absent, slow, or unavailable returns truthful status; no hidden network fallback or executor authority widening.
+
+### Verification
+- Red/green test demonstrating cross-surface thread continuity, contextual task result inclusion, exact-once turn persistence, bounded prompts and fail-closed untrusted responses.
+- Android instrumented UI navigation tests, Python conversation tests and CI Verify/Android matrix.
+- Separate physical evidence for Qwen inference and speech, required for TASK-075; no CI-only claim of real-device performance.
+
+### Expected result
+LAIN behaves as one continuing assistant across chat and tools regardless of which UI is open, rather than two conversations sharing only the same model process.
+
+### Evidence basis
+- Live PR #57 head `dc817d1a01417aec01aca9eca79e8ec2bbc5f494` still has `LocalChatActivity` using SharedPreferences `native-gguf-chat-v1`, its own `messages` and `QwenChatPrompt.build`.
+- Workbench `WorkbenchViewModel` instead submits `turn_submit` to canonical Python `ConversationTurnManager`; PR #56 explicitly covers only Workbench CHAT turns.
+- Both PR #57 workflows passed, but that does not prove cross-surface context continuity.
+
+### Projection basis
+- Owner's stated product requirement is one conversation/context window for spoken/typed chat and authorized device operations.
+- A unified transcript is a prerequisite for trustworthy physical acceptance of contextual tool follow-ups and avoids confusing duplicate chat histories.
+
+### Risks / unknowns
+- Legacy history migration and resident-model service lifecycle must not block UI thread or accidentally resubmit a command.
+- Distinguish accepted task status from verified execution: plain model conversation text never becomes authoritative action evidence.
+
+---
+
 ## TASK-077: Provide verifiable installable Android debug APK handoff for device testing
 **Priority:** P0 | **Tags:** overseer-assigned, developer, android, apk, distribution, physical-testing
 **Updated:** 2026-10-12
