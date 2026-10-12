@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 70,
+  "nextId": 76,
   "states": [
     {
       "name": "Backlog",
@@ -421,10 +421,40 @@
         "title": "Build truthful Android durable-workflow inspection and control",
         "priority": "P1",
         "order": 63
+      },
+      {
+        "id": "TASK-071",
+        "title": "Implement clean-install bootstrap and permission broker",
+        "priority": "P0",
+        "order": 64
+      },
+      {
+        "id": "TASK-072",
+        "title": "Add in-app pinned recommended Qwen download",
+        "priority": "P0",
+        "order": 65
+      },
+      {
+        "id": "TASK-073",
+        "title": "Implement universal typed/voice command bridge",
+        "priority": "P0",
+        "order": 66
+      },
+      {
+        "id": "TASK-074",
+        "title": "Expand core Android on-device capabilities",
+        "priority": "P1",
+        "order": 67
+      },
+      {
+        "id": "TASK-075",
+        "title": "Close physical universal-command clean-device acceptance",
+        "priority": "P0",
+        "order": 68
       }
     ],
     "issue": 6,
     "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "Review PR #38 exact head for TASK-054; Android CI is pending. TASK-055 follows transcript integration. TASK-015 physical/OEM acceptance remains UNVERIFIED. TASK-069 follows TASK-016/017/018/020-023 and supplies the Android surface for TASK-024."
+    "next_action": "Finish and physically validate PR #41→#44 native GGUF stack, then TASK-071 clean-install bootstrap, TASK-072 in-app pinned Qwen download, TASK-073 universal command bridge, TASK-074 core Android capabilities, and TASK-075 physical clean-device universal-command acceptance. Durable workflow/media work follows this phone-control path."
   }
 }
