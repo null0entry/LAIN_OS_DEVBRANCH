@@ -184,4 +184,50 @@ class RecommendedModelDownloadUiAndroidTest {
         }
     }
 
+
+    @Test fun lateCancelCannotHideAlreadyPublishedVerifiedModel() {
+        val original = RecommendedModelDownloadViewModel.downloadActionFactory
+        val published = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val hash = "c".repeat(64)
+        RecommendedModelDownloadViewModel.downloadActionFactory = { _: Application ->
+            { model, _, _ ->
+                published.countDown()
+                while (release.count > 0L) {
+                    try {
+                        Thread.sleep(10)
+                    } catch (_: InterruptedException) {
+                        // Simulate a provider returning after the trusted publication boundary.
+                    }
+                }
+                ImportedGgufModel(hash, model.expectedBytes)
+            }
+        }
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                selectOnDevice(scenario)
+                scenario.onActivity {
+                    assertTrue(it.findViewById<Button>(R.id.planner_download_model).performClick())
+                }
+                assertTrue(published.await(5, TimeUnit.SECONDS))
+                scenario.onActivity {
+                    assertTrue(it.findViewById<Button>(R.id.planner_download_model).performClick())
+                }
+                release.countDown()
+                await(scenario) {
+                    it.findViewById<EditText>(R.id.planner_model).text.toString() == hash
+                }
+                scenario.onActivity {
+                    assertTrue(
+                        it.findViewById<TextView>(R.id.planner_download_status).text.toString()
+                            .contains("downloaded and verified"),
+                    )
+                }
+            }
+        } finally {
+            release.countDown()
+            RecommendedModelDownloadViewModel.downloadActionFactory = original
+        }
+    }
+
 }
