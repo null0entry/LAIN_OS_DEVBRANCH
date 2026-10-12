@@ -1,5 +1,59 @@
 # Next
 
+## TASK-077: Provide verifiable installable Android debug APK handoff for device testing
+**Priority:** P0 | **Tags:** overseer-assigned, developer, android, apk, distribution, physical-testing
+**Updated:** 2026-10-12
+
+### Goal
+Give the owner a reliable, verifiable, ready-to-install Android debug APK handoff for testing the native Qwen and universal command chain, without confusing an ephemeral CI artifact with a signed 1.0 release.
+
+### Scope
+- Reuse the existing Android CI APK build and artifact upload, not a second build system or signer.
+- Identify one exact green integration commit containing the native GGUF/bootstrap/download/TASK-073 command bridge stack and bind the APK output to its commit, workflow-run ID, APK SHA-256, variant, SDK and ABI metadata.
+- Produce a small repository-native test-build handoff record with verified GitHub Actions artifact URL, explicit unzip/install steps, expiry/retention limitations, and checksum verification.
+- Ensure the artifact is actually downloadable as an APK ZIP with the declared APK path, not a 404 or unactionable Actions run link; expose clear alternatives when GitHub artifact access expires.
+- Keep debug test artifacts separate from final 1.0 packaging/signing (TASK-049) and physical acceptance (TASK-075); never publish or deploy without owner action.
+
+### Dependencies
+- PR #41→#44 native GGUF stack; PR #46 TASK-071 and PR #47 TASK-072 integrated into it; PR #48 TASK-073 CI clean and integrated into a test-build branch.
+- Existing Android API24/API35 workflow and artifact upload; TASK-047/049 release evidence conventions are reusable but not release authorization.
+- TASK-075 owns actual physical install, inference, speech, policy and execution proof after download.
+
+### Plan
+- Inspect current workflow artifact conventions and target integration commit/branch.
+- Build one exact debug test artifact through existing CI and independently inspect artifact listing and APK metadata.
+- Record the run/commit/APK hash/ABI/SDK/retention and actionable installation handoff link in one bounded document or canonical issue update.
+- Add deterministic metadata/handoff checks where existing CI supports them without a duplicate release workflow.
+
+### Acceptance
+- The owner receives one working GitHub artifact download path and the exact APK entry to install, with checksum and provenance.
+- The recorded SHA identifies the APK binary (not merely the zipped artifact); SDK/ABI match the inspected package.
+- Handoff is explicit about debug build, artifact expiration, installation requirements, and unresolved physical verification.
+- A missing/expired/unauthorized artifact is reported as unavailable rather than substituted with an invented URL.
+- No silent dependency on Termux, root, ADB, or Shizuku for launching the APK; install may use Android package installer.
+
+### Verification
+- Exact-source CI Verify and API24/API35 Android matrix for the test-build commit.
+- Independently fetch artifact list, verify download resolves and ZIP contains APK, inspect APK SHA/package/SDK/ABIs, compare recorded values to artifact.
+- Negative checks for stale SHA, missing APK, expired URL and wrong build variant.
+- Physical installation and actual Qwen/STT execution remain separate TASK-075 UNVERIFIED gates.
+
+### Expected result
+A test-ready, checksum-bound APK handoff that the owner can download and install without chasing expired CI references or mistaking build green for real-device acceptance.
+
+### Evidence basis
+- PR #48 now has exact-head Verify and Android API24/API35 success, but remains stacked on draft PR #44 and has no verified standalone owner-facing APK handoff.
+- Android workflow uploads APK-and-reports ZIPs; past failed artifact links and stock-phone test goals require an independently validated download/handoff seam.
+- TASK-047/049 govern eventual release provenance/packaging; TASK-075 governs physical acceptance, not the immediate downloadable debug APK delivery.
+
+### Projection basis
+Physical verification of the universal assistant cannot begin reliably without a stable, verifiable installable candidate and clear instructions for acquiring it on the owner's phone.
+
+### Risks / unknowns
+GitHub artifact URLs may require authentication and expire. A successful automated build cannot establish the installability, inference latency, thermal behavior, or permissions on the owner's hardware; report those limits explicitly.
+
+---
+
 ## TASK-076: Deliver real non-executing model replies for Workbench CHAT turns
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, conversation, on-device, chat, trust-boundary
 **Updated:** 2026-10-12
