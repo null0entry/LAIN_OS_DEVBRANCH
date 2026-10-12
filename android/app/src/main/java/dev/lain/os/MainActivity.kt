@@ -675,6 +675,8 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             is RecommendedModelDownloadState.Downloaded -> {
+                // Download can outlive Activity recreation; restore the locked on-device editor mode.
+                ui.plannerMode.setSelection(2)
                 ui.plannerModel.setText(state.imported.sha256)
                 getString(R.string.planner_download_complete, state.imported.sha256.take(12))
             }
