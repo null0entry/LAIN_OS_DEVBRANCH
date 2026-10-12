@@ -11,11 +11,13 @@ class PermissionBrokerTest {
         runtimeGranted: Set<String> = emptySet(),
         settingsGranted: Set<SettingsGrant> = emptySet(),
         dependencies: Set<String> = emptySet(),
+        rules: List<CapabilityRequirement> = PermissionBroker.DEFAULT_RULES,
     ) = PermissionBroker(
         apiLevel = apiLevel,
         hasRuntimePermission = runtimeGranted::contains,
         hasSettingsGrant = settingsGranted::contains,
         hasOptionalDependency = dependencies::contains,
+        rules = rules,
     )
 
     @Test fun microphonePermissionDoesNotDisableUnrelatedCapabilities() {
@@ -40,27 +42,34 @@ class PermissionBrokerTest {
     }
 
     @Test fun specialGrantNeverMasqueradesAsRuntimePermission() {
-        val denied = broker().snapshot().associateBy { it.capability }
-        assertEquals(
-            AvailabilityState.NEEDS_SETTINGS_GRANT,
-            denied.getValue("integration.accessibility").state,
+        val rule = CapabilityRequirement(
+            capability = "integration.accessibility",
+            settingsGrant = SettingsGrant.ACCESSIBILITY,
         )
+        val denied = broker(rules = listOf(rule)).snapshot().single()
+        assertEquals(AvailabilityState.NEEDS_SETTINGS_GRANT, denied.state)
         assertEquals(
             SettingsGrant.ACCESSIBILITY,
-            broker().settingsGrantFor("integration.accessibility"),
+            broker(rules = listOf(rule)).settingsGrantFor("integration.accessibility"),
         )
-        assertNull(broker().runtimePermissionFor("integration.accessibility"))
+        assertNull(broker(rules = listOf(rule)).runtimePermissionFor("integration.accessibility"))
 
-        val granted = broker(settingsGranted = setOf(SettingsGrant.ACCESSIBILITY))
-            .snapshot().associateBy { it.capability }
-        assertEquals(
-            AvailabilityState.READY,
-            granted.getValue("integration.accessibility").state,
-        )
+        val granted = broker(
+            settingsGranted = setOf(SettingsGrant.ACCESSIBILITY),
+            rules = listOf(rule),
+        ).snapshot().single()
+        assertEquals(AvailabilityState.READY, granted.state)
     }
 
     @Test fun missingOptionalDependencyIsTruthfulAndIsolated() {
-        val missing = broker().snapshot().associateBy { it.capability }
+        val rules = listOf(
+            CapabilityRequirement(
+                capability = "integration.shizuku",
+                optionalDependency = "shizuku",
+            ),
+            CapabilityRequirement(capability = "android.battery_status"),
+        )
+        val missing = broker(rules = rules).snapshot().associateBy { it.capability }
 
         assertEquals(
             AvailabilityState.OPTIONAL_DEPENDENCY_MISSING,
@@ -68,8 +77,10 @@ class PermissionBrokerTest {
         )
         assertEquals(AvailabilityState.READY, missing.getValue("android.battery_status").state)
 
-        val available = broker(dependencies = setOf("shizuku"))
-            .snapshot().associateBy { it.capability }
+        val available = broker(
+            dependencies = setOf("shizuku"),
+            rules = rules,
+        ).snapshot().associateBy { it.capability }
         assertEquals(AvailabilityState.READY, available.getValue("integration.shizuku").state)
     }
 
@@ -78,7 +89,7 @@ class PermissionBrokerTest {
 
         assertEquals(
             AvailabilityState.UNSUPPORTED,
-            state.getValue("android.notification_runtime").state,
+            state.getValue("voice.on_device_stt").state,
         )
         assertEquals(AvailabilityState.READY, state.getValue("android.battery_status").state)
     }
