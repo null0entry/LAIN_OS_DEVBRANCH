@@ -25,6 +25,7 @@ import dev.lain.os.planner.OnDevicePlannerSaveState
 import dev.lain.os.planner.OnDevicePlannerSaveViewModel
 import dev.lain.os.planner.RecommendedModelDownloadState
 import dev.lain.os.planner.RecommendedModelDownloadViewModel
+import dev.lain.os.planner.RecommendedModelEditorSnapshot
 import dev.lain.os.ui.WorkbenchState
 import dev.lain.os.ui.WorkbenchViewModel
 import dev.lain.os.voice.MicrophoneFailure
@@ -499,7 +500,13 @@ class MainActivity : AppCompatActivity() {
             if (recommendedModelDownload.isDownloading) {
                 recommendedModelDownload.cancel()
             } else if (!onDevicePlannerSave.isSaving) {
-                recommendedModelDownload.start()
+                recommendedModelDownload.start(
+                    editor = RecommendedModelEditorSnapshot(
+                        profileId = editingPlannerId,
+                        name = ui.plannerName.text.toString(),
+                        model = ui.plannerModel.text.toString(),
+                    ),
+                )
             }
         }
         ui.plannerProfiles.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -658,6 +665,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderRecommendedModelDownload(state: RecommendedModelDownloadState) {
         val downloading = state is RecommendedModelDownloadState.Downloading
+        state.editor?.let { restoreRecommendedModelEditor(it, downloading) }
         ui.plannerDownloadModel.text = getString(
             if (downloading) R.string.planner_download_cancel else R.string.planner_download_model,
         )
@@ -675,8 +683,6 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             is RecommendedModelDownloadState.Downloaded -> {
-                // Download can outlive Activity recreation; restore the locked on-device editor mode.
-                ui.plannerMode.setSelection(2)
                 ui.plannerModel.setText(state.imported.sha256)
                 getString(R.string.planner_download_complete, state.imported.sha256.take(12))
             }
@@ -686,6 +692,31 @@ class MainActivity : AppCompatActivity() {
                 getString(R.string.planner_download_failed, state.message)
         }
         updatePlannerModeFields()
+    }
+
+    private fun restoreRecommendedModelEditor(
+        editor: RecommendedModelEditorSnapshot,
+        busy: Boolean,
+    ) {
+        editingPlannerId = editor.profileId
+        preservingPlannerDraft = true
+        val profileIndex = plannerProfiles.indexOfFirst { it.id == editor.profileId }
+        preservedDraftSelectionId = if (profileIndex >= 0) editor.profileId else selectedPlanner()?.id
+        if (profileIndex >= 0) ui.plannerProfiles.setSelection(profileIndex)
+        ui.plannerName.setText(editor.name)
+        ui.plannerMode.setSelection(2)
+        ui.plannerModel.setText(editor.model)
+        ui.plannerEndpoint.text.clear()
+        ui.plannerCredential.text.clear()
+        ui.plannerName.isEnabled = !busy
+        ui.plannerProfiles.isEnabled = !busy
+        ui.plannerNew.isEnabled = !busy
+        ui.plannerMode.isEnabled = !busy
+        val existing = editor.profileId != null
+        ui.plannerSelect.isEnabled = !busy && existing
+        ui.plannerDelete.isEnabled = !busy && existing
+        ui.plannerTest.isEnabled = !busy && existing
+        ui.plannerRemoveCredential.isEnabled = false
     }
 
     private fun selectedPlanner(): PlannerProfileSummary? =
