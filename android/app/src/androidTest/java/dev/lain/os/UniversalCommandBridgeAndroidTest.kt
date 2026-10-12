@@ -140,4 +140,35 @@ class UniversalCommandBridgeAndroidTest {
         }
         assertEquals(0, binding.snapshot().count { it.optString("command") == "start" })
     }
+    @Test fun replayedFinalSpeechAfterRecreateDoesNotSubmitTwice() {
+        val binding = RecordingBinding()
+        WorkbenchViewModel.runtimeClientFactory = { app -> RuntimeClient(app, binding) }
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) {
+                ViewModelProvider(it)[WorkbenchViewModel::class.java].state.value?.ready == true
+            }
+            scenario.onActivity {
+                assertTrue(ViewModelProvider(it)[WorkbenchViewModel::class.java]
+                    .submitSpeech("Show battery", finalId = 42L))
+            }
+            await(scenario) {
+                binding.snapshot().count { it.optString("command") == "turn_submit" } == 1 &&
+                    ViewModelProvider(it)[WorkbenchViewModel::class.java].state.value?.pending == false
+            }
+            scenario.recreate()
+            await(scenario) {
+                ViewModelProvider(it)[WorkbenchViewModel::class.java].state.value?.ready == true
+            }
+            scenario.onActivity {
+                val model = ViewModelProvider(it)[WorkbenchViewModel::class.java]
+                assertTrue(model.submitSpeech("Show battery", finalId = 42L))
+                assertTrue(model.submitSpeech("Show battery", finalId = 43L))
+            }
+            await(scenario) {
+                binding.snapshot().count { it.optString("command") == "turn_submit" } == 2
+            }
+        }
+        assertEquals(2, binding.snapshot().count { it.optString("command") == "turn_submit" })
+    }
+
 }
