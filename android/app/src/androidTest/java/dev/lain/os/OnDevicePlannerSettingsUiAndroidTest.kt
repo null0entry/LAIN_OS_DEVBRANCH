@@ -64,6 +64,10 @@ class OnDevicePlannerSettingsUiAndroidTest {
                 val importButton = activity.findViewById<Button>(R.id.planner_import_model)
                 assertEquals(View.VISIBLE, importButton.visibility)
                 assertTrue(importButton.isEnabled)
+                val downloadButton = activity.findViewById<Button>(R.id.planner_download_model)
+                assertEquals(View.VISIBLE, downloadButton.visibility)
+                assertTrue(downloadButton.isEnabled)
+                assertTrue(downloadButton.text.toString().contains("Download recommended Qwen"))
             }
         }
     }
