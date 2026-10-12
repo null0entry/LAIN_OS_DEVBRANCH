@@ -1,5 +1,60 @@
 # Next
 
+## TASK-076: Deliver real non-executing model replies for Workbench CHAT turns
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, conversation, on-device, chat, trust-boundary
+**Updated:** 2026-10-12
+
+### Goal
+When an accepted final typed or spoken Workbench turn routes to CHAT, return a useful bounded model answer in the same conversation instead of treating a router classification string as a substantive assistant reply.
+
+### Scope
+- Reuse the existing selected-profile inference or on-device Qwen GGUF chat transport and bounded turn/history context; do not create another inference engine, background daemon, or executor.
+- Keep CHAT and CLARIFY isolated from AgentController task creation, registry action proposals, approval/grant pathways, and native action dispatch.
+- Use one explicit non-executing response path for ordinary CHAT, separate from router decisions. Preserve classified task routing and existing Stop task authority.
+- Handle unavailable/offline/timeout/cancellation/malformed response by presenting a truthful retryable user-facing failure or clarification, not a fake answer or hidden network fallback.
+- Preserve source identity, turn ordering, bounded memory/latency/token budgets, and speech-vs-typed final-turn replay protection.
+- Do not expand the Android capability catalog, integrate provider media, or grant arbitrary prompt-as-shell rights.
+
+### Dependencies
+- PR #44 native local Qwen text chat and TASK-071/072 model setup.
+- TASK-073 trusted CHAT/TASK/CLARIFY routing and existing Workbench conversation model.
+- TASK-054 transcript surface; TASK-075 separately owns physical stock-device acceptance.
+
+### Plan
+- Define a narrow non-executing chat-reply result envelope and test that it cannot contain action/approval authority.
+- Bind CHAT to the existing selected model conversation service with bounded context and cancellation, reusing PR #44.
+- Render the returned model message in the canonical Workbench transcript; clarify is explicitly different from a generated answer.
+- Cover final typed/voice parity, session isolation, replay, cancellation, offline, and failure states.
+
+### Acceptance
+- After a Workbench user asks a non-command question with a working selected model, an actual bounded model reply is rendered without any task session or device action.
+- Subsequent replies use only explicitly bounded, trusted conversation history; rotations/rebinds neither duplicate requests nor invent replies.
+- An explicit supported command still enters existing AgentController/policy/approval/audit and cannot be run through the CHAT reply path.
+- Model failure/absence is visible and fail-closed; no silent online fallback from local Qwen.
+- CHAT generation cannot approve, authorize, or dispatch capabilities, and cannot interpret model text as a command.
+
+### Verification
+- Red/green tests proving current router-only CHAT text is not full conversation generation.
+- Deterministic fake model and controller tests for CHAT isolation, typed/voice parity, limits and cancellation; adversarial model-output authority tests.
+- Android API24/API35 instrumentation for response rendering, rotation/rebind, and unavailable provider.
+- Physical Qwen conversation output remains UNVERIFIED until TASK-075 or named device evidence.
+
+### Expected result
+LAIN_OS Workbench becomes a useful conversational partner while retaining one auditable trusted path for commands and no authority on ordinary model text.
+
+### Evidence basis
+- TASK-073 source `lain/app/control.py` currently returns router `response_text` directly for CHAT; this is intent classification, not a full bounded conversational inference response.
+- PR #44 implements native Qwen ordinary chat on a separate Android screen; the CHAT turn bridge and actual model reply are not yet integrated.
+- TASK-054 owns transcript UI, TASK-073 owns command classification, TASK-074 owns Android device capabilities; none owns real same-surface CHAT answer generation.
+
+### Projection basis
+A single text/voice command-and-conversation Workbench must answer ordinary questions without accidental execution, as required by the owner's universal assistant direction.
+
+### Risks / unknowns
+The Qwen chat screen and planner router currently use distinct model-context flows; reuse or extract only the minimum common non-authoritative inference seam. Retain model-lease/cancellation semantics on low-RAM phones and preserve all explicit user approvals.
+
+---
+
 ## TASK-071: Implement clean-install bootstrap and permission broker
 **Priority:** P0 | **Tags:** owner-approved, android, bootstrap, permissions, clean-install
 
