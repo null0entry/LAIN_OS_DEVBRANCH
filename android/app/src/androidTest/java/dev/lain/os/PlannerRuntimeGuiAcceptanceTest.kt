@@ -36,13 +36,28 @@ import org.junit.runner.RunWith
 class PlannerRuntimeGuiAcceptanceTest {
     private class FakePlannerBridge {
         val modes = mutableListOf<String>()
+        val routeModes = mutableListOf<String>()
         private var calls = 0
 
         fun execute(bindingJson: String, requestBody: String): String {
             val binding = JSONObject(bindingJson)
             val request = JSONObject(requestBody)
-            modes += binding.getString("mode")
             assertEquals("model-a", request.getString("model"))
+            val system = request.getJSONArray("messages").getJSONObject(0).getString("content")
+            if (system.startsWith("Classify the USER's final utterance")) {
+                routeModes += binding.getString("mode")
+                val classification = JSONObject()
+                    .put("disposition", "task")
+                    .put("response_text", "")
+                    .put("reason", "explicit device action")
+                return JSONObject().put("ok", true).put("body", JSONObject().put(
+                    "choices",
+                    JSONArray().put(JSONObject().put(
+                        "message", JSONObject().put("content", classification.toString()),
+                    )),
+                ).toString()).toString()
+            }
+            modes += binding.getString("mode")
             calls += 1
             val decision = if (calls % 2 == 1) {
                 JSONObject()
@@ -170,7 +185,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                             .contains(name)
                     }
                     scenario.onActivity {
-                        it.findViewById<EditText>(R.id.command_input).setText("Show battery")
+                        it.findViewById<EditText>(R.id.command_input).setText("Check my battery level")
                         assertTrue(it.findViewById<View>(R.id.run_button).performClick())
                     }
                     await(scenario) {
@@ -192,6 +207,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                             .contains("Offline Demo · offline_demo")
                     }
                 }
+                assertEquals(listOf(mode), bridge.routeModes)
                 assertEquals(listOf(mode, mode), bridge.modes)
             } finally {
                 WorkbenchViewModel.runtimeClientFactory = { application -> RuntimeClient(application) }
