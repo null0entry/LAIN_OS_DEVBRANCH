@@ -1,5 +1,19 @@
 # Done
 
+## TASK-080: Repair chat preload handoff and on-device speech transcription
+**Priority:** P2 | **Tags:** android, chat, voice, regression
+**Updated:** 2026-10-12
+
+User reports that model preload does not work in local chat and voice transcription still fails.
+
+### Plan / completion summary
+- Trace resident-service handoff and reproduce chat submission during model loading.
+- Make chat observe actual model status, support explicit preload in chat, and prevent loading/generation races.
+- Reproduce Android confidence/error handling failures and correct them without network recognition fallback.
+- Added confidence/diagnostic regressions and Android chat/service preload integration tests. 351 Python tests, 145 Android JVM tests, native residency lifecycle tests, both APK builds and lint pass locally. Emulator checks rerun in CI; physical speech-provider behavior remains unverified.
+
+---
+
 ## TASK-079: Show model startup progress in Workbench
 **Priority:** P2 | **Tags:** android, ui, model
 **Updated:** 2026-10-12

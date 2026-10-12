@@ -46,6 +46,7 @@ class ResidentModelService : Service() {
     private val models by lazy { OnDeviceModelStore(this) }
     private val profiles by lazy { PlannerProfileStore(this) }
     @Volatile private var state = "STOPPED"
+    @Volatile private var residentDigest: String? = null
 
     private fun failure(code: String) = JSONObject().put("ok", false).put("error", code).toString()
 
@@ -69,9 +70,13 @@ class ResidentModelService : Service() {
                         val selected = profiles.active()
                         require(selected?.mode == "on_device" &&
                             selected.protocol == "gguf_native_v1" && selected.model == digest)
-                        val call = OnDevicePlannerCall.chat(models, digest, prompt)
-                        if (!currentChat.compareAndSet(null, call)) failure("PLANNER_MODEL_BUSY")
-                        else try { call.execute() } finally { currentChat.compareAndSet(call, null) }
+                        if (state != "READY" || residentDigest != digest || stopRequested.get()) {
+                            failure("PLANNER_MODEL_NOT_READY")
+                        } else {
+                            val call = OnDevicePlannerCall.chat(models, digest, prompt)
+                            if (!currentChat.compareAndSet(null, call)) failure("PLANNER_MODEL_BUSY")
+                            else try { call.execute() } finally { currentChat.compareAndSet(call, null) }
+                        }
                     }
                     TRANSACTION_CANCEL -> {
                         require(data.dataAvail() == 0)
@@ -80,7 +85,8 @@ class ResidentModelService : Service() {
                     }
                     TRANSACTION_STATUS -> {
                         require(data.dataAvail() == 0)
-                        JSONObject().put("ok", true).put("state", state).toString()
+                        JSONObject().put("ok", true).put("state", state)
+                            .put("model", residentDigest ?: JSONObject.NULL).toString()
                     }
                     else -> return false
                 }
@@ -96,6 +102,9 @@ class ResidentModelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
+                if (state == "LOADING" || state == "STOPPING" || currentChat.get() != null) {
+                    return START_NOT_STICKY
+                }
                 stopRequested.set(false)
                 state = "LOADING"
                 // Foreground promotion precedes heavy I/O; started only by an explicit UI tap.
@@ -113,14 +122,22 @@ class ResidentModelService : Service() {
                         if (selected?.mode != "on_device" || selected?.protocol != "gguf_native_v1") {
                             "FAILED: select an on-device GGUF profile"
                         } else {
+                            if (residentDigest != null && residentDigest != selected.model) {
+                                GgufNativeProbe.unload()
+                                residentDigest = null
+                            }
                             val verifiedFile = models.resolve(selected.model) { stopRequested.get() }
                             if (stopRequested.get()) throw java.io.InterruptedIOException("preload cancelled")
                             when (val outcome = GgufNativeProbe.warm(verifiedFile.absolutePath)) {
-                                is GgufNativeProbeResult.Generated -> "READY"
+                                is GgufNativeProbeResult.Generated -> {
+                                    residentDigest = selected.model
+                                    "READY"
+                                }
                                 is GgufNativeProbeResult.Rejected -> "FAILED: " + outcome.reason.name
                             }
                         }
                     } catch (_: Exception) { "FAILED: GGUF unavailable or changed" }
+                    if (stopRequested.get()) return@execute
                     state = result
                     updateNotification(result)
                     if (result != "READY") {
@@ -136,9 +153,10 @@ class ResidentModelService : Service() {
                 currentChat.get()?.cancel()
                 worker.execute {
                     GgufNativeProbe.unload()
-                    state = "STOPPED"
+                    residentDigest = null
                     stopForegroundCompat()
-                    stopSelf()
+                    state = "STOPPED"
+                    stopSelf(startId)
                 }
             }
         }

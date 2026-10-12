@@ -18,10 +18,13 @@ Typed input works without microphone or notification permissions.
   model. Cloud credentials remain in Android Keystore. Local-server mode connects
   to a server; on-device mode runs the GGUF on the phone.
 
-Tap **Start model** to keep the selected offline GGUF in memory. An animated
+Tap **Start model** in Workbench or Local chat to keep the selected offline GGUF in memory. An animated
 progress bar appears while it loads; the status changes to **Offline model ready**
 when loading succeeds, or shows the failure. **Stop model** releases the model.
-The Workbench refreshes status when you return to it. Loading is indeterminate
+Workbench and Local chat refresh the actual service status when you return.
+Local chat enables **Send** only after the service confirms that the selected
+model is ready. It shows preload failures directly and lets you retry in chat;
+changing models requires loading the newly selected model. Loading is indeterminate
 because the native loader does not provide a reliable completion percentage.
 
 The Workbench accepts typed and final spoken turns. Ordinary conversation uses
@@ -41,6 +44,13 @@ A generating reply prevents another submission until it settles. App restart
 marks interrupted replies as failed and leaves them available to inspect; it does
 not replay model calls. Accepted turns and replies are durable; partial speech is
 provisional and raw microphone audio is not persisted.
+
+Offline voice transcription uses Android's on-device speech recognizer, independently
+of the Qwen text model. Captured-audio recognition requires Android 13 or newer
+and an installed offline speech language. Android's unavailable confidence score
+is accepted as unknown; actual low or malformed scores still reject the transcript.
+Recognizer failures show their Android error code and language/setup guidance.
+No network speech recognizer is selected as a fallback.
 
 ## Device tools
 

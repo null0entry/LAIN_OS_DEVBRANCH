@@ -1,5 +1,16 @@
 package dev.lain.os
 
+import android.content.Intent
+import android.os.Build
+import android.widget.ProgressBar
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import dev.lain.os.runtime.ResidentModelService
 import android.graphics.Color
 import android.text.InputFilter
 import android.os.Bundle
@@ -34,13 +45,16 @@ class LocalChatActivity : AppCompatActivity() {
     private val client: ResidentModelClient by lazy {
         ResidentModelClient(this) { connected ->
             if (!isDestroyed) {
-                setBusy(current != null)
-                if (!connected && current == null) status.text = "Local model process disconnected"
-                else if (connected && current == null && profile != null)
-                    status.text = "Connected · use Start Model in Workbench for warm Qwen"
+                if (!connected) updateResidency("DISCONNECTED", null)
+                else setBusy(current != null)
             }
         }
     }
+    private var modelState = "DISCONNECTED"
+    private var residentDigest: String? = null
+    private lateinit var startModel: Button
+    private lateinit var stopModel: Button
+    private lateinit var preloadProgress: ProgressBar
     private var current: ResidentModelClient.ChatCall? = null
     private var revision = 0L
     private lateinit var history: LinearLayout
@@ -69,6 +83,44 @@ class LocalChatActivity : AppCompatActivity() {
         root.addView(heading)
         modelLabel = TextView(this).apply { setTextColor(Color.LTGRAY); textSize = 12f }
         root.addView(modelLabel)
+        val residencyRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        startModel = Button(this).apply {
+            id = R.id.chat_start_model
+            text = "Start model"
+            isAllCaps = false
+            setOnClickListener {
+                if (profile == null || current != null) return@setOnClickListener
+                try {
+                    val request = Intent(this@LocalChatActivity, ResidentModelService::class.java)
+                        .setAction(ResidentModelService.ACTION_START)
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(request) else startService(request)
+                    updateResidency("LOADING", profile?.model)
+                } catch (_: Exception) { updateResidency("FAILED: could not start model service", null) }
+            }
+        }
+        stopModel = Button(this).apply {
+            id = R.id.chat_stop_model
+            text = "Stop model"
+            isAllCaps = false
+            setOnClickListener {
+                cancelCurrent()
+                try {
+                    startService(Intent(this@LocalChatActivity, ResidentModelService::class.java)
+                        .setAction(ResidentModelService.ACTION_STOP))
+                    updateResidency("STOPPING", residentDigest)
+                } catch (_: Exception) { updateResidency("FAILED: could not stop model service", residentDigest) }
+            }
+        }
+        residencyRow.addView(startModel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        residencyRow.addView(stopModel, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(residencyRow)
+        preloadProgress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            id = R.id.chat_model_progress
+            isIndeterminate = true
+            visibility = View.GONE
+            contentDescription = getString(R.string.model_start_progress)
+        }
+        root.addView(preloadProgress)
         val newChat = Button(this).apply {
             text = "New chat"
             isAllCaps = false
@@ -88,6 +140,8 @@ class LocalChatActivity : AppCompatActivity() {
         historyScroll.addView(history)
         root.addView(historyScroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         status = TextView(this).apply {
+            id = R.id.chat_model_status
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             textSize = 12f
             setTextColor(Color.LTGRAY)
             text = "Select On-device Model in Planner Settings."
@@ -108,6 +162,7 @@ class LocalChatActivity : AppCompatActivity() {
         root.addView(input)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         send = Button(this).apply {
+            id = R.id.chat_send
             text = "Send"
             isAllCaps = false
             setOnClickListener { submitMessage() }
@@ -125,6 +180,17 @@ class LocalChatActivity : AppCompatActivity() {
         row.addView(stop, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         root.addView(row)
         setContentView(root)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val response = withContext(Dispatchers.IO) { client.status() }
+                    val value = try { JSONObject(response) } catch (_: Exception) { JSONObject() }
+                    updateResidency(value.optString("state", "DISCONNECTED"),
+                        value.optString("model").takeIf { it.matches(Regex("[0-9a-f]{64}")) })
+                    delay(500)
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -150,7 +216,7 @@ class LocalChatActivity : AppCompatActivity() {
             "Model: " + ready.name + " · " + ready.model.take(12) + "… · local only"
         }
         if (ready == null) status.text = "Chat unavailable: select an On-device Model profile."
-        else if (current == null) status.text = "Ready · no internet required"
+        else if (current == null) renderResidency()
         setBusy(current != null)
     }
 
@@ -192,7 +258,7 @@ class LocalChatActivity : AppCompatActivity() {
 
     private fun submitMessage() {
         val selected = profile ?: return
-        if (current != null) return
+        if (current != null || !modelReady()) return
         val text = input.text.toString().trim()
         if (text.isEmpty()) return
         if (text.toByteArray(Charsets.UTF_8).size > 4096) {
@@ -217,7 +283,7 @@ class LocalChatActivity : AppCompatActivity() {
         val generation = ++revision
         current = call
         setBusy(true)
-        status.text = "Generating locally… (Start Model once in Workbench to preload Qwen)"
+        status.text = "Generating with the preloaded offline model…"
         executor.execute {
             val response = try { JSONObject(call.execute()) } catch (_: Exception) {
                 JSONObject().put("ok", false).put("error", "PLANNER_MODEL_LOAD_FAILED")
@@ -242,6 +308,7 @@ class LocalChatActivity : AppCompatActivity() {
                         "PLANNER_CANCELLED" -> "Response cancelled"
                         "PLANNER_MODEL_BUSY" -> "Model busy; wait for the previous generation to finish"
                         "PLANNER_MODEL_NOT_FOUND" -> "Imported GGUF missing or changed; reimport in Planner Settings"
+                        "PLANNER_MODEL_NOT_READY" -> "Model is not ready · tap Start model and wait for preload"
                         "PLANNER_MODEL_LOAD_FAILED" -> "Model could not load on this device"
                         "PLANNER_TIMEOUT" -> "Local model timed out"
                         "PLANNER_REQUEST_INVALID" -> "Prompt rejected by local model limits"
@@ -260,10 +327,38 @@ class LocalChatActivity : AppCompatActivity() {
         setBusy(false)
     }
 
+    private fun modelReady(): Boolean = modelState == "READY" && residentDigest == profile?.model &&
+        profile != null && client.isConnected
+
+    internal fun updateResidency(state: String, digest: String?) {
+        if (modelState == state && residentDigest == digest) return
+        modelState = state
+        residentDigest = digest
+        renderResidency()
+        setBusy(current != null)
+    }
+
+    private fun renderResidency() {
+        preloadProgress.visibility = if (modelState == "LOADING" || modelState == "STOPPING") View.VISIBLE else View.GONE
+        if (current != null || profile == null) return
+        status.text = when (modelState) {
+            "LOADING" -> "Loading offline model into memory…"
+            "STOPPING" -> "Stopping offline model…"
+            "READY" -> if (modelReady()) "Preloaded model ready · no internet required"
+                else "Selected model changed · tap Start model to load it"
+            "STOPPED" -> "Model stopped · tap Start model before sending"
+            "DISCONNECTED" -> "Connecting to offline model service…"
+            else -> if (modelState.startsWith("FAILED:")) modelState else "Model status unavailable"
+        }
+    }
+
     private fun setBusy(busy: Boolean) {
-        send.isEnabled = !busy && profile != null && client.isConnected
+        startModel.isEnabled = !busy && profile != null && client.isConnected &&
+            modelState != "LOADING" && modelState != "STOPPING" && !modelReady()
+        stopModel.isEnabled = client.isConnected && modelState != "STOPPED" && modelState != "DISCONNECTED"
+        send.isEnabled = !busy && modelReady()
         stop.isEnabled = busy
-        input.isEnabled = !busy && profile != null && client.isConnected
+        input.isEnabled = !busy && profile != null
     }
 
     private fun renderMessages() {
@@ -294,6 +389,7 @@ class LocalChatActivity : AppCompatActivity() {
             status.text = "Generation interrupted when chat was backgrounded"
         }
         client.disconnect()
+        updateResidency("DISCONNECTED", null)
         super.onStop()
     }
 

@@ -485,7 +485,7 @@ class MainActivity : AppCompatActivity() {
                         R.string.voice_transcription_low_confidence
                     else -> R.string.voice_transcription_failed
                 }
-            )
+            ) + (state.result?.diagnostic?.let { "\n$it" } ?: "")
             SpeechInputStatus.READY -> getString(R.string.voice_transcription_ready)
         }
         updateVoiceRecordEnabled()

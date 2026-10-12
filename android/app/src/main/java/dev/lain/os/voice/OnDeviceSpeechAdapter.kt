@@ -21,6 +21,7 @@ data class BackendTranscriptionResult(
     val isFinal: Boolean = true,
     val confidence: Float? = null,
     val failure: SpeechAdapterFailure? = null,
+    val diagnostic: String? = null,
 )
 
 data class BackendSynthesisResult(
@@ -36,6 +37,7 @@ data class SpeechTranscriptionResult(
     val model: String? = null,
     val confidence: Float? = null,
     val failure: SpeechAdapterFailure? = null,
+    val diagnostic: String? = null,
 ) {
     val ok: Boolean get() = failure == null && !text.isNullOrBlank()
 }
@@ -200,7 +202,7 @@ class OnDeviceSpeechAdapter(
 
         val failure = result.failure
         if (failure != null) {
-            callback?.invoke(SpeechTranscriptionResult(failure = failure))
+            callback?.invoke(SpeechTranscriptionResult(failure = failure, diagnostic = result.diagnostic))
             return
         }
 
