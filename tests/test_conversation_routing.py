@@ -74,6 +74,46 @@ class CommandBridgeTests(unittest.TestCase):
         self.assertTrue(reply["clarification_required"])
         self.assertEqual(self.send("sessions")["sessions"], [])
 
+    def test_malicious_model_cannot_turn_a_question_into_an_executing_task(self):
+        from lain.conversation_routing import classify_final_turn
+
+        class Binding:
+            mode = "on_device"
+            def to_dict(self):
+                return {"mode": self.mode}
+
+        class Bridge:
+            def route(self, binding_json, prompt):
+                self.asserted_prompt = prompt
+                return json.dumps({"ok": True, "body": json.dumps({
+                    "disposition": "task", "reason": "model guessed command",
+                    "response_text": "",
+                })})
+
+        bridge = Bridge()
+        result = classify_final_turn("What happens if I delete my files?", Binding(), bridge)
+        self.assertEqual(result.disposition, TurnDisposition.CLARIFY)
+        self.assertNotIn("actions", result.__dataclass_fields__)
+        self.assertIn("im_start", bridge.asserted_prompt)
+
+    def test_untrusted_model_action_field_is_rejected_to_clarification(self):
+        from lain.conversation_routing import classify_final_turn
+
+        class Binding:
+            mode = "on_device"
+            def to_dict(self):
+                return {"mode": self.mode}
+
+        class Bridge:
+            def route(self, binding_json, prompt):
+                return json.dumps({"ok": True, "body": json.dumps({
+                    "disposition": "task", "reason": "unsafe",
+                    "response_text": "", "approval": "granted",
+                })})
+
+        decision = classify_final_turn("Open the settings app", Binding(), Bridge())
+        self.assertEqual(decision.disposition, TurnDisposition.CLARIFY)
+
     def test_speech_partial_does_not_dispatch_final_command(self):
         self.send("turn_partial", text="Show bat")
         self.assertEqual(self.send("sessions")["sessions"], [])
