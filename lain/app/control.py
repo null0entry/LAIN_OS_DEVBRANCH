@@ -221,13 +221,13 @@ class AppController:
             legacy_start=True,
         )
 
-    def _start_session(self, goal):
+    def _start_session(self, goal, *, trusted_demo=False):
         if not isinstance(goal, str) or not goal.strip() or len(goal.encode("utf-8")) > 4096:
             raise ValueError("invalid goal")
         with self._lock:
             if self._active or self._unfinished():
                 raise ValueError("another session needs attention")
-            session = self.controller.create(goal.strip())
+            session = self.controller.create(goal.strip(), use_offline_demo=trusted_demo)
             self._active = session.session_id
             self._stopped.clear()
             self._confirmed = frozenset()
@@ -284,7 +284,12 @@ class AppController:
         record = decision.record
 
         if record.route is TurnRoute.START_TASK:
-            session = self._start_session(record.text)
+            # Only the host's exact built-in command catalog qualifies. Never
+            # let untrusted classifier reason/response text choose the executor.
+            trusted_demo = (route_decision is not None and
+                            route_decision.disposition is TurnDisposition.TASK and
+                            record.text.strip().casefold() in {cmd.casefold() for cmd in COMMANDS})
+            session = self._start_session(record.text, trusted_demo=trusted_demo)
             result = {"session": self._snapshot(session)}
             if not legacy_start:
                 result["turn"] = record.to_dict()

@@ -61,6 +61,64 @@ class CommandBridgeTests(unittest.TestCase):
         self.assertEqual(spoken["turn"]["route"], "start_task")
         self.assertNotEqual(typed["session"]["session_id"], spoken["session"]["session_id"])
 
+    def test_exact_demo_commands_do_not_depend_on_selected_local_qwen(self):
+        """A configured GGUF remains selected for free-form commands and chat,
+        but the six exact built-in commands have trusted deterministic plans.
+        This is the real-device regression: tasks stayed PLANNING after chat worked.
+        """
+        class LocalProfile:
+            def activeBindingJson(self):
+                return json.dumps({
+                    "profile_id": "qwen", "mode": "on_device",
+                    "protocol": "gguf_native_v1", "base_url": "",
+                    "model": "a" * 64, "credential_ref": None,
+                    "timeout_seconds": 90.0, "max_response_bytes": 4096,
+                    "response_mode": "none", "allow_insecure_lan_http": False,
+                })
+
+        class BrokenTaskPlanner:
+            calls = 0
+            def route(self, *_):
+                self.calls += 1
+                raise AssertionError("exact command must not call router")
+            def execute(self, *_):
+                self.calls += 1
+                raise AssertionError("exact command must not invoke Qwen")
+
+        bridge = BrokenTaskPlanner()
+        self.app = AppController(Path(self.tmp.name), planner_profiles=LocalProfile(),
+                                 planner_bridge=bridge)
+        first = self.final("Create demo file")
+        self.assertTrue(first["ok"], first)
+        self.assertEqual(first["session"]["planner"]["mode"], "demo")
+        for _ in range(5):
+            if not self.app.advance():
+                break
+        self.assertEqual(
+            self.send("inspect", session_id=first["session"]["session_id"])["session"]["status"],
+            "complete",
+        )
+        self.assertTrue((Path(self.tmp.name) / "workspace" / "demo.txt").exists())
+
+        # Real-device failures from the video: toast/vibrate/clipboard must
+        # reach the normal trusted capability dispatch without GGUF inference.
+        for goal, capability in (
+            ("Show demo toast", "android.toast"),
+            ("Vibrate briefly", "android.vibrate"),
+            ("Copy demo text", "android.clipboard_set"),
+        ):
+            with self.subTest(goal=goal):
+                reply = self.final(goal, "speech")
+                self.assertTrue(reply["ok"], reply)
+                self.assertEqual(reply["session"]["planner"]["mode"], "demo")
+                self.app.advance()
+                session = self.send("inspect", session_id=reply["session"]["session_id"])["session"]
+                self.assertNotEqual(session["status"], "planning")
+                self.assertEqual(session["actions"][0]["type"], capability)
+                self.app.stop_active()
+                self.app.advance()
+        self.assertEqual(bridge.calls, 0)
+
     def test_chat_question_cannot_start_a_task(self):
         reply = self.final("What can you do?")
         self.assertTrue(reply["ok"], reply)
