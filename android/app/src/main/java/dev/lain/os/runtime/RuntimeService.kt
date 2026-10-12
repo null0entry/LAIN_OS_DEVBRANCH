@@ -99,6 +99,20 @@ class RuntimeService : Service() {
         return try {
             val result = pending.get(RuntimeTimeoutPolicy.seconds(command, turnKind), TimeUnit.SECONDS)
             if (RuntimeProtocol.shouldAdvance(command, result)) kick()
+            // Routing is bounded, but a full on-device reply can take much longer.
+            // Schedule it after the accepted turn is durable so Binder returns
+            // promptly and the Workbench can keep inspecting its conversation.
+            if (command == "turn_submit") {
+                val accepted = JSONObject(result)
+                if (accepted.optBoolean("ok") && accepted.optBoolean("chat_pending")) {
+                    val turnId = accepted.optJSONObject("turn")?.optInt("turn_id", 0) ?: 0
+                    if (turnId > 0) worker.execute {
+                        try { python.callAttr("complete_chat", turnId) } catch (_: Exception) {
+                            // State remains inspectable; never reinterpret chat as work.
+                        }
+                    }
+                }
+            }
             result
         } catch (_: Exception) {
             pending.cancel(false)
