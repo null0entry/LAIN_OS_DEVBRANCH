@@ -62,9 +62,10 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                     (RecommendedModel, (Long, Long) -> Unit, () -> Boolean) -> ImportedGgufModel =
                     { model, progress, cancelled ->
                         val imported = downloader.download(model, progress, cancelled)
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                            publisher.publish(model, store.resolve(imported.sha256, cancelled), cancelled)
+                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                            throw IllegalStateException("Android 9 and earlier require a user-selected download location")
                         }
+                        publisher.publish(model, store.resolve(imported.sha256, cancelled), cancelled)
                         imported
                     }
                 action
