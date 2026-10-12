@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 77,
+  "nextId": 78,
   "states": [
     {
       "name": "Backlog",
@@ -457,10 +457,16 @@
         "title": "Deliver real non-executing model replies for Workbench CHAT turns",
         "priority": "P1",
         "order": 69
+      },
+      {
+        "id": "TASK-077",
+        "title": "Provide verifiable installable Android debug APK handoff for device testing",
+        "priority": "P0",
+        "order": 70
       }
     ],
     "issue": 6,
     "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "Close TASK-073 Android API35 emulator gate and reconcile its stack; then TASK-074 Android capabilities and TASK-076 non-executing Workbench model replies before TASK-075 physical universal-command acceptance. Preserve separate device-vs-CI evidence."
+    "next_action": "TASK-073 exact-head Verify/Android green; review and integrate stack, then TASK-077 verifiable Android debug APK handoff for owner testing, TASK-074 capability expansion, TASK-076 real non-executing chat, and TASK-075 physical clean-device proof. CI != device acceptance."
   }
 }
