@@ -32,6 +32,7 @@ from lain.app.planner_bridge import AndroidPlannerFactory
 from lain.app.native import NativeAndroidAdapter
 from lain.audit.logger import redact, redact_android_narratives
 from lain.config import RuntimeConfig
+from lain.conversation.chat_context import build_chat_prompt
 from lain.conversation import (
     ConversationTurnManager,
     TurnKind,
@@ -290,6 +291,7 @@ class AppController:
                             route_decision.disposition is TurnDisposition.TASK and
                             record.text.strip().casefold() in {cmd.casefold() for cmd in COMMANDS})
             session = self._start_session(record.text, trusted_demo=trusted_demo)
+            self.turns.link_task(record.turn_id, session.session_id)
             result = {"session": self._snapshot(session)}
             if not legacy_start:
                 result["turn"] = record.to_dict()
@@ -331,13 +333,21 @@ class AppController:
                     "session": self._snapshot(revised),
                 }
         if record.route is TurnRoute.CHAT:
-            return {
-                "turn": record.to_dict(),
-                "conversation_response": (
-                    route_decision.response_text if route_decision is not None
-                    else "Use the chat screen to ask questions."
-                ),
-            }
+            binding = self._binding_provider()
+            if binding.mode == "on_device" and self._planner_bridge is not None:
+                # Return to Binder promptly after routing; heavy response generation
+                # runs separately and updates the same durable conversation.
+                self.turns.begin_reply(record.turn_id)
+                return {"turn": record.to_dict(), "chat_pending": True}
+            fallback = (
+                route_decision.response_text if route_decision is not None
+                else "Select an on-device GGUF to enable conversational replies."
+            )
+            if not fallback.strip():
+                fallback = "The selected conversation model is unavailable."
+            self.turns.begin_reply(record.turn_id)
+            self.turns.finish_reply(record.turn_id, fallback)
+            return {"turn": record.to_dict(), "conversation_response": fallback}
         return {
             "turn": record.to_dict(),
             "clarification_required": True,
@@ -346,6 +356,72 @@ class AppController:
                 else "Which active task should I revise?"
             ),
         }
+
+    def _verified_task_observation(self, turn_id: int) -> str | None:
+        sid = self.turns.task_session_id(turn_id)
+        if sid is None:
+            return None
+        try:
+            safe = self._snapshot(self.store.load(sid))
+        except Exception:
+            return "Previously requested device task: result unavailable."
+        label = safe.get("label", "Device task")
+        status = safe.get("status", "unknown")
+        summaries = []
+        for action in safe.get("actions", [])[-4:]:
+            name = action.get("type", "device action")
+            result = action.get("status", "unknown")
+            verification = action.get("verification", "not_applicable")
+            line = f"{name}: {result}, verification: {verification}"
+            # Include an actual reading only when verification passed.
+            if name == "android.battery_status" and result == "success" and verification == "passed":
+                battery = action.get("details", {}).get("battery", {})
+                if isinstance(battery, dict):
+                    percentage = battery.get("percentage")
+                    if type(percentage) in {int, float} and 0 <= percentage <= 100:
+                        line += f", battery percentage: {percentage}"
+            summaries.append(line)
+        observation = f"Verified task outcome for {label}: status {status}"
+        if summaries:
+            observation += "; " + "; ".join(summaries)
+        return observation[:1024]
+
+    def complete_chat(self, turn_id: int) -> bool:
+        """Private runtime-worker hook; never accessible through app commands."""
+        if type(turn_id) is not int or self.turns.reply_state(turn_id) != "pending":
+            return False
+        try:
+            snapshot = self.turns.snapshot()
+            record = next(turn for turn in snapshot.turns if turn.turn_id == turn_id)
+            if record.route is not TurnRoute.CHAT or snapshot.turns[-1].turn_id != turn_id:
+                raise ValueError("chat turn is not current")
+            binding = self._binding_provider()
+            if binding.mode != "on_device" or self._planner_bridge is None:
+                raise ValueError("selected offline model unavailable")
+            prompt = build_chat_prompt(snapshot, self._verified_task_observation)
+            response = json.loads(str(self._planner_bridge.route(
+                json.dumps(binding.to_dict(), separators=(",", ":")), prompt,
+            )), object_pairs_hook=_unique_object)
+            if not isinstance(response, dict) or set(response) != {"ok", "body"} or response["ok"] is not True:
+                raise ValueError("model did not return a valid reply")
+            body = response["body"]
+            if not isinstance(body, str):
+                raise ValueError("invalid model response")
+            reply = body.split("<|im_end|>", 1)[0].strip()
+            if not reply or len(reply.encode("utf-8")) > 4096:
+                raise ValueError("empty or oversized model response")
+            self.turns.finish_reply(turn_id, reply, "complete")
+            return True
+        except Exception:
+            try:
+                self.turns.finish_reply(
+                    turn_id,
+                    "Local chat could not generate a reply. Check that Qwen is ready and retry.",
+                    "failed",
+                )
+            except ValueError:
+                pass
+            return False
 
     def _resume(self, sid):
         with self._lock:
