@@ -46,7 +46,8 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
         // text selection. Real connection, approval, and result changes publish.
         if (before.connected == after.connected && before.ready == after.ready &&
             before.startupFailed == after.startupFailed && before.pending == after.pending &&
-            before.message == after.message && before.session?.toString() == after.session?.toString() &&
+            before.message == after.message && before.conversationResponse == after.conversationResponse &&
+            before.session?.toString() == after.session?.toString() &&
             before.history.toString() == after.history.toString() &&
             before.conversation?.toString() == after.conversation?.toString()) return
         mutable.value = after
@@ -158,11 +159,14 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
 
     private fun mutate(command: String, arguments: JSONObject) {
         if (current().pending || !current().ready) return
-        change { it.copy(pending = true, message = "Submitting owner request…") }
+        change { it.copy(pending = true, conversationResponse = null, message = "Submitting owner request…") }
         client.request(command, arguments) { reply ->
             val session = reply.optJSONObject("session")
             if (session != null) saved["session_id"] = session.getString("session_id")
             change { it.copy(pending = false, session = session ?: it.session,
+                conversationResponse = if (reply.optBoolean("ok"))
+                    reply.optString("conversation_response").takeIf { value -> value.isNotBlank() }
+                    else null,
                 message = if (reply.optBoolean("ok")) {
                     reply.optString("conversation_response").takeIf { it.isNotBlank() }
                         ?: if (reply.optBoolean("clarification_required")) "Please clarify the command."
