@@ -26,6 +26,7 @@ internal class RecommendedModelDownloader(
             "recommended model download requires HTTPS"
         }
         checkCancellation(isCancelled)
+        modelStore.requireStagingCapacity(model.expectedBytes)
 
         val connection = connectionFactory(url)
         try {
