@@ -1,11 +1,19 @@
 package dev.lain.os
 
 import android.content.Context
+import android.content.Intent
 import android.widget.Button
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withId
 import dev.lain.os.bootstrap.AvailabilityState
 import dev.lain.os.bootstrap.BootstrapStateStore
 import dev.lain.os.bootstrap.BootstrapViewModel
@@ -27,6 +35,10 @@ class BootstrapActivityAndroidTest {
     private val store = BootstrapStateStore(prefs)
 
     @After fun resetFactories() {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync {
+            ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                .filterIsInstance<MainActivity>().forEach { it.finish() }
+        }
         BootstrapViewModel.permissionBrokerFactory = PermissionBroker::android
         BootstrapViewModel.stateStoreFactory = { BootstrapStateStore(it) }
         prefs.edit().clear().commit()
@@ -78,6 +90,7 @@ class BootstrapActivityAndroidTest {
         }
 
         assertTrue(store.isComplete())
+        onView(withId(R.id.command_input)).check(matches(isDisplayed()))
     }
 
     @Test fun recreationBeforeFinishKeepsBootstrapIncomplete() {
@@ -94,5 +107,90 @@ class BootstrapActivityAndroidTest {
         }
 
         assertTrue(!store.isComplete())
+    }
+
+    @Test fun launcherShowsBootstrapUntilExplicitCompletion() {
+        BootstrapViewModel.stateStoreFactory = { store }
+        val launch = requireNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
+        assertEquals(BootstrapActivity::class.java.name, launch.component?.className)
+        ActivityScenario.launch<BootstrapActivity>(launch).use { scenario ->
+            scenario.onActivity { activity ->
+                assertEquals("Set up LAIN_OS", activity.findViewById<TextView>(R.id.bootstrap_heading).text)
+            }
+        }
+        assertTrue(!store.isComplete())
+    }
+
+    @Test fun completedLauncherSkipsSetupWithoutChangingPlanner() {
+        BootstrapViewModel.stateStoreFactory = { store }
+        store.complete()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val monitor = instrumentation.addMonitor(MainActivity::class.java.name, null, false)
+        try {
+            context.startActivity(requireNotNull(context.packageManager.getLaunchIntentForPackage(context.packageName))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            assertTrue(instrumentation.waitForMonitorWithTimeout(monitor, 15000) is MainActivity)
+            onView(withId(R.id.command_input)).check(matches(isDisplayed()))
+        } finally {
+            instrumentation.removeMonitor(monitor)
+        }
+    }
+
+    @Test fun setupCompletionPersistsAcrossStoreInstances() {
+        assertTrue(!store.isComplete())
+        store.complete()
+        assertTrue(BootstrapStateStore(prefs).isComplete())
+        assertEquals(setOf("setup_version"), prefs.all.keys)
+        prefs.edit().clear().commit()
+        assertTrue(!BootstrapStateStore(prefs).isComplete())
+    }
+
+    @Test fun permissionGrantAndRevocationAreRescannedWithoutCompletingSetup() {
+        BootstrapViewModel.stateStoreFactory = { store }
+        var granted = false
+        BootstrapViewModel.permissionBrokerFactory = {
+            PermissionBroker(35, { granted }, { false }, { false })
+        }
+        ActivityScenario.launch(BootstrapActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<TextView>(R.id.bootstrap_capabilities).text
+                    .contains("voice.input: NEEDS_PERMISSION"))
+                assertTrue(activity.findViewById<Button>(R.id.bootstrap_microphone).isEnabled)
+            }
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+            granted = true
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<TextView>(R.id.bootstrap_capabilities).text
+                    .contains("voice.input: READY"))
+                assertTrue(!activity.findViewById<Button>(R.id.bootstrap_microphone).isEnabled)
+            }
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+            granted = false
+            scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<TextView>(R.id.bootstrap_capabilities).text
+                    .contains("voice.input: NEEDS_PERMISSION"))
+                assertTrue(activity.findViewById<Button>(R.id.bootstrap_demo).isEnabled)
+                assertTrue(activity.findViewById<Button>(R.id.bootstrap_finish).isEnabled)
+            }
+        }
+        assertTrue(!store.isComplete())
+    }
+
+    @Test fun configurePlannerOpensExistingSettingsWithoutCompletingSetup() {
+        BootstrapViewModel.stateStoreFactory = { store }
+        ActivityScenario.launch(BootstrapActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<Button>(R.id.bootstrap_configure_planner).performClick())
+            }
+            onView(withId(R.id.planner_profiles)).check(matches(isDisplayed()))
+            assertTrue(!store.isComplete())
+            androidx.test.espresso.Espresso.pressBack()
+            scenario.onActivity { activity ->
+                assertTrue(activity.findViewById<Button>(R.id.bootstrap_finish).performClick())
+            }
+        }
+        assertTrue(store.isComplete())
     }
 }
