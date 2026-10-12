@@ -30,6 +30,26 @@ class OnDeviceModelStoreTest {
         assertArrayEquals(data, store.resolve(imported.sha256).readBytes())
     }
 
+    @Test fun verificationCacheAvoidsFullRehashButStillHonorsStopAndMutation() {
+        val store = OnDeviceModelStore(root)
+        val imported = store.importModel(ByteArrayInputStream(candidate()), maxBytes = 1024 * 1024)
+        val model = store.resolve(imported.sha256)
+        var checkpoints = 0
+        assertTrue(store.resolve(imported.sha256) { ++checkpoints >= 3 }.isFile)
+        assertEquals(2, checkpoints)
+        assertThrows(InterruptedIOException::class.java) {
+            store.resolve(imported.sha256) { true }
+        }
+        java.io.RandomAccessFile(model, "rw").use {
+            it.seek(model.length() - 1)
+            it.write(42)
+        }
+        assertTrue(model.setLastModified(model.lastModified() + 3000))
+        assertThrows(IllegalArgumentException::class.java) {
+            store.resolve(imported.sha256)
+        }
+    }
+
     @Test fun interruptedWorkerRejectsVerificationAndRetainsInterrupt() {
         val store = OnDeviceModelStore(root)
         val imported = store.importModel(ByteArrayInputStream(candidate()), maxBytes = 1024 * 1024)
