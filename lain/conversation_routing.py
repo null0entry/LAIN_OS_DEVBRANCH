@@ -157,7 +157,15 @@ def classify_final_turn(text, binding, native_bridge=None):
             output = upstream["choices"][0]["message"]["content"]
         else:
             return _clarify()
-        return parse_routing_output(output)
+        decision = parse_routing_output(output)
+        # The classifier is untrusted. An interrogative about an action
+        # is NOT itself authority to begin a task, even if a model says TASK.
+        if decision.disposition is TurnDisposition.TASK and re.match(
+            r"^(what|why|how|when|where|who|is|are|does|should i|do i|explain|describe|tell me about)\\b",
+            normalized,
+        ):
+            return _clarify("Are you asking a question or requesting a specific device action?")
+        return decision
     except (AttributeError, KeyError, IndexError, ValueError, TypeError, UnicodeError):
         return _clarify("I couldn't safely classify that request. Try a more specific command.")
     except Exception:
