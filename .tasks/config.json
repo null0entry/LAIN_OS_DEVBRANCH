@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 73,
+  "nextId": 78,
   "states": [
     {
       "name": "Backlog",
@@ -423,14 +423,50 @@
         "order": 63
       },
       {
-        "id": "TASK-070",
-        "title": "Establish bounded GGUF header-preflight and native feasibility gate",
-        "priority": "P1",
+        "id": "TASK-071",
+        "title": "Implement clean-install bootstrap and permission broker",
+        "priority": "P0",
         "order": 64
+      },
+      {
+        "id": "TASK-072",
+        "title": "Add in-app pinned recommended Qwen download",
+        "priority": "P0",
+        "order": 65
+      },
+      {
+        "id": "TASK-073",
+        "title": "Implement universal typed/voice command bridge",
+        "priority": "P0",
+        "order": 66
+      },
+      {
+        "id": "TASK-074",
+        "title": "Expand core Android on-device capabilities",
+        "priority": "P1",
+        "order": 67
+      },
+      {
+        "id": "TASK-075",
+        "title": "Close physical universal-command clean-device acceptance",
+        "priority": "P0",
+        "order": 68
+      },
+      {
+        "id": "TASK-076",
+        "title": "Deliver real non-executing model replies for Workbench CHAT turns",
+        "priority": "P1",
+        "order": 69
+      },
+      {
+        "id": "TASK-077",
+        "title": "Provide verifiable installable Android debug APK handoff for device testing",
+        "priority": "P0",
+        "order": 70
       }
     ],
     "issue": 6,
     "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "Owner approved design PR #40 and native implementation plan on 2026-10-08. TASK-070 starts as a separate on-device GGUF feasibility/preflight slice; actual JNI model generation and Galaxy airplane-mode acceptance remain UNVERIFIED. TASK-069 and existing in-flight work are not cancelled or merged."
+    "next_action": "TASK-073 exact-head Verify/Android green; review and integrate stack, then TASK-077 verifiable Android debug APK handoff for owner testing, TASK-074 capability expansion, TASK-076 real non-executing chat, and TASK-075 physical clean-device proof. CI != device acceptance."
   }
 }
