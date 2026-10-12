@@ -54,6 +54,10 @@ class OnDevicePlannerSettingsUiAndroidTest {
             // are dispatched on a later loop. Assert only after Android becomes idle.
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             scenario.onActivity { activity ->
+                assertEquals(
+                    View.GONE,
+                    activity.findViewById<Button>(R.id.planner_download_model).visibility,
+                )
                 val modes = activity.findViewById<Spinner>(R.id.planner_mode)
                 assertTrue((0 until modes.adapter.count).any {
                     modes.adapter.getItem(it).toString().contains("On-device")
