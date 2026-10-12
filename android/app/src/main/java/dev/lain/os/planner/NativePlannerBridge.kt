@@ -62,24 +62,10 @@ internal class NativePlannerBridge(
     private fun executeOnDevice(bindingJson: String, requestBody: String): String {
         val store = modelStore ?: return failure("PLANNER_MODEL_NOT_FOUND")
         val call = try {
-            val tokener = JSONTokener(bindingJson)
-            val raw = tokener.nextValue() as? JSONObject
-                ?: throw IllegalArgumentException("bad native binding")
-            require(tokener.nextClean() == '\u0000' && raw.keys().asSequence().toSet() == BINDING_FIELDS)
-            require(strictString(raw, "mode") == "on_device")
-            require(strictString(raw, "protocol") == "gguf_native_v1")
-            require(strictString(raw, "profile_id").isNotBlank())
-            val digest = strictString(raw, "model")
-            require(Regex("^[0-9a-f]{64}$").matches(digest))
-            require(strictString(raw, "base_url").isEmpty())
-            require(raw.get("credential_ref") === JSONObject.NULL)
-            require(strictString(raw, "response_mode") == "none")
-            require(raw.get("allow_insecure_lan_http") === false)
-            val timeout = strictNumber(raw, "timeout_seconds").toDouble()
-            require(timeout.isFinite() && timeout in 1.0..180.0)
-            val maxResponse = strictInt(raw, "max_response_bytes")
-            require(maxResponse in 128..65536)
-            OnDevicePlannerCall(store, digest, requestBody, timeout, maxResponse)
+            val binding = parseOnDeviceBinding(bindingJson)
+            OnDevicePlannerCall(
+                store, binding.digest, requestBody, binding.timeoutSeconds, binding.maxResponseBytes,
+            )
         } catch (_: Exception) {
             return failure(NativePlannerTransport.ERROR_TRANSPORT_FAILED)
         }
@@ -102,13 +88,8 @@ internal class NativePlannerBridge(
         }
         val store = modelStore ?: return failure("PLANNER_MODEL_NOT_FOUND")
         val call = try {
-            val binding = parseBinding(bindingJson)
-            require(binding.mode == "on_device" && binding.protocol == "gguf_native_v1")
-            require(binding.baseUrl.isEmpty() && binding.credentialRef == null)
-            require(binding.responseMode == "none" && !binding.allowInsecureLanHttp)
-            require(Regex("^[0-9a-f]{64}$").matches(binding.model))
-            require(binding.timeoutSeconds.isFinite() && binding.timeoutSeconds in 1.0..180.0)
-            OnDevicePlannerCall.chat(store, binding.model, prompt, binding.timeoutSeconds)
+            val binding = parseOnDeviceBinding(bindingJson)
+            OnDevicePlannerCall.chat(store, binding.digest, prompt, binding.timeoutSeconds)
         } catch (_: Exception) {
             return failure("PLANNER_REQUEST_INVALID")
         }
@@ -117,6 +98,34 @@ internal class NativePlannerBridge(
         }
         return try { call.execute() }
         finally { activeNativeCall.compareAndSet(call, null) }
+    }
+
+    internal data class OnDeviceModelBinding(
+        val digest: String,
+        val timeoutSeconds: Double,
+        val maxResponseBytes: Int,
+    )
+
+    /** Shared strict native schema, distinct from the HTTP-only PlannerBinding type. */
+    internal fun parseOnDeviceBinding(bindingJson: String): OnDeviceModelBinding {
+        val tokener = JSONTokener(bindingJson)
+        val raw = tokener.nextValue() as? JSONObject
+            ?: throw IllegalArgumentException("invalid native binding")
+        require(tokener.nextClean() == '\u0000' && raw.keys().asSequence().toSet() == BINDING_FIELDS)
+        require(strictString(raw, "mode") == "on_device")
+        require(strictString(raw, "protocol") == "gguf_native_v1")
+        require(strictString(raw, "profile_id").isNotBlank())
+        val digest = strictString(raw, "model")
+        require(Regex("^[0-9a-f]{64}$").matches(digest))
+        require(strictString(raw, "base_url").isEmpty())
+        require(raw.get("credential_ref") === JSONObject.NULL)
+        require(strictString(raw, "response_mode") == "none")
+        require(raw.get("allow_insecure_lan_http") === false)
+        val timeout = strictNumber(raw, "timeout_seconds").toDouble()
+        require(timeout.isFinite() && timeout in 1.0..180.0)
+        val maxResponse = strictInt(raw, "max_response_bytes")
+        require(maxResponse in 128..65536)
+        return OnDeviceModelBinding(digest, timeout, maxResponse)
     }
 
     fun cancel() {
