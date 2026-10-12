@@ -18,6 +18,12 @@ Typed input works without microphone or notification permissions.
   model. Cloud credentials remain in Android Keystore. Local-server mode connects
   to a server; on-device mode runs the GGUF on the phone.
 
+Tap **Start model** to keep the selected offline GGUF in memory. An animated
+progress bar appears while it loads; the status changes to **Offline model ready**
+when loading succeeds, or shows the failure. **Stop model** releases the model.
+The Workbench refreshes status when you return to it. Loading is indeterminate
+because the native loader does not provide a reliable completion percentage.
+
 The Workbench accepts typed and final spoken turns. Ordinary conversation uses
 bounded prior turns, assistant replies, and trusted task observations. Cloud,
 local-server, and on-device profiles generate their replies through the selected

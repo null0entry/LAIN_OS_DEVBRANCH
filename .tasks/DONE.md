@@ -1,5 +1,19 @@
 # Done
 
+## TASK-079: Show model startup progress in Workbench
+**Priority:** P2 | **Tags:** android, ui, model
+**Updated:** 2026-10-12
+
+User requested a progress bar for model start.
+
+### Plan / completion summary
+- Show indeterminate progress immediately on Start Model.
+- Read actual resident-service status off the UI thread while Workbench is visible.
+- Hide progress on readiness, failure, stop or disconnect and restore status after returning.
+- Added Android instrumentation for state transitions and actual service status after activity recreation. Portable verification (351 Python tests), 143 Android JVM tests, both APK builds and lint pass; device matrix reruns in CI.
+
+---
+
 ## TASK-078: Repair integrated runtime, Android app and build verification
 **Priority:** P2 | **Tags:** runtime, android, functionality, regression
 **Updated:** 2026-10-12 17:29

@@ -15,6 +15,14 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -62,13 +70,10 @@ class MainActivity : AppCompatActivity() {
     private val permissionBroker by lazy { PermissionBroker.android(this) }
     private val residentClient: ResidentModelClient by lazy {
         ResidentModelClient(this) { connected ->
-            if (!isDestroyed) {
-                ui.modelResidencyStatus.text = if (connected)
-                    "Model process connected · status shown in service notification"
-                else "Offline model stopped or process disconnected"
-            }
+            if (!connected && !isDestroyed) renderModelStatus("DISCONNECTED")
         }
     }
+
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
@@ -144,9 +149,9 @@ class MainActivity : AppCompatActivity() {
                         .setAction(ResidentModelService.ACTION_START)
                     if (Build.VERSION.SDK_INT >= 26) startForegroundService(request)
                     else startService(request)
-                    ui.modelResidencyStatus.text = "Loading selected GGUF · notification will show Ready"
+                    renderModelStatus("LOADING")
                 } catch (_: Exception) {
-                    ui.modelResidencyStatus.text = "Could not start the model service"
+                    renderModelStatus("FAILED: could not start the model service")
                 }
             }
         }
@@ -154,9 +159,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 startService(Intent(this, ResidentModelService::class.java)
                     .setAction(ResidentModelService.ACTION_STOP))
-                ui.modelResidencyStatus.text = "Stopping model and releasing memory…"
+                renderModelStatus("STOPPING")
             } catch (_: Exception) {
-                ui.modelResidencyStatus.text = "Model stop failed; check the active service"
+                renderModelStatus("FAILED: model stop failed; check the active service")
             }
         }
         ui.notificationPermissionButton.setOnClickListener {
@@ -212,6 +217,18 @@ class MainActivity : AppCompatActivity() {
             }
             ui.demoCommands.addView(button)
         }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val response = withContext(Dispatchers.IO) { residentClient.status() }
+                    val state = try {
+                        JSONObject(response).optString("state").takeIf { it.isNotEmpty() }
+                    } catch (_: Exception) { null }
+                    renderModelStatus(state ?: "DISCONNECTED")
+                    delay(500)
+                }
+            }
+        }
         model.state.observe(this) { render(it) }
         voice.state.observe(this) { renderVoice(it) }
         voice.speechState.observe(this) { renderSpeechInput(it) }
@@ -228,6 +245,20 @@ class MainActivity : AppCompatActivity() {
         residentClient.disconnect()
         model.detach(isChangingConfigurations)
         super.onStop()
+    }
+
+    internal fun renderModelStatus(state: String) {
+        val busy = state == "LOADING" || state == "STOPPING"
+        ui.modelStartProgress.visibility = if (busy) View.VISIBLE else View.GONE
+        ui.startModelButton.isEnabled = !busy && state != "READY"
+        ui.modelResidencyStatus.text = when (state) {
+            "LOADING" -> "Loading selected GGUF into memory…"
+            "READY" -> "Offline model ready"
+            "STOPPING" -> "Stopping model and releasing memory…"
+            "STOPPED" -> "Offline model stopped"
+            "DISCONNECTED" -> "Offline model process disconnected"
+            else -> if (state.startsWith("FAILED:")) state else "Model status unavailable"
+        }
     }
 
     private fun refreshNotificationPermission() {

@@ -30,8 +30,15 @@
                 android:layout_weight="1" android:layout_height="wrap_content"
                 android:text="Stop model" android:textAllCaps="false" />
         </LinearLayout>
+        <ProgressBar android:id="@+id/model_start_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" android:indeterminate="true"
+            android:indeterminateTint="@color/accent" android:visibility="gone"
+            android:contentDescription="@string/model_start_progress" />
         <TextView android:id="@+id/model_residency_status"
             android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:accessibilityLiveRegion="polite"
             android:text="Start the selected offline GGUF once to keep it in memory for voice, tasks and chat."
             android:textColor="@color/text_secondary" android:textSize="12sp" />
         <Button android:id="@+id/notification_permission_button"
