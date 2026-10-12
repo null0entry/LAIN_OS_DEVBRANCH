@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         internal const val EXTRA_CONFIGURE_PLANNER = "dev.lain.os.CONFIGURE_PLANNER"
     }
     private lateinit var ui: ActivityMainBinding
+    private var renderedModelState: String? = null
     private val model: WorkbenchViewModel by viewModels()
     private val voice: VoiceCaptureViewModel by viewModels()
     private val speechOutput: SpeechOutputViewModel by viewModels()
@@ -248,6 +249,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     internal fun renderModelStatus(state: String) {
+        if (state == renderedModelState) return
+        renderedModelState = state
         val busy = state == "LOADING" || state == "STOPPING"
         ui.modelStartProgress.visibility = if (busy) View.VISIBLE else View.GONE
         ui.startModelButton.isEnabled = !busy && state != "READY"

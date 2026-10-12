@@ -8,7 +8,7 @@ User requested a progress bar for model start.
 
 ### Plan / completion summary
 - Show indeterminate progress immediately on Start Model.
-- Read actual resident-service status off the UI thread while Workbench is visible.
+- Read actual resident-service status off the UI thread while Workbench is visible; render only state changes so accessibility and UI automation can become idle.
 - Hide progress on readiness, failure, stop or disconnect and restore status after returning.
 - Added Android instrumentation for state transitions and actual service status after activity recreation. Portable verification (351 Python tests), 143 Android JVM tests, both APK builds and lint pass; device matrix reruns in CI.
 
