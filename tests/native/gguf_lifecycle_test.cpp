@@ -16,6 +16,9 @@
 
 extern "C" {
 jboolean Java_dev_lain_os_planner_GgufNativeProbe_nativeRegisterGeneration(JNIEnv *, jobject, jlong);
+jbyteArray Java_dev_lain_os_planner_GgufNativeProbe_nativeWarmModelBytes(JNIEnv *, jobject, jstring);
+void Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelWarmModel(JNIEnv *, jobject);
+void Java_dev_lain_os_planner_GgufNativeProbe_nativeUnloadModel(JNIEnv *, jobject);
 void Java_dev_lain_os_planner_GgufNativeProbe_nativeReleaseGeneration(JNIEnv *, jobject, jlong);
 void Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelGeneration(JNIEnv *, jobject, jlong);
 jbyteArray Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
@@ -132,6 +135,57 @@ std::string generate(const std::string & model_path, jlong id, int context_token
     std::string result(bytes->begin(), bytes->end());
     delete bytes;
     return result;
+}
+
+std::string warm(const std::string & model_path) {
+    JNIEnv env;
+    std::string path = model_path;
+    jbyteArray bytes = Java_dev_lain_os_planner_GgufNativeProbe_nativeWarmModelBytes(
+            &env, nullptr, &path);
+    require(bytes != nullptr && !env.ExceptionCheck(), "JNI warm produced bytes");
+    std::string result(bytes->begin(), bytes->end());
+    delete bytes;
+    return result;
+}
+
+void unload() {
+    JNIEnv env;
+    Java_dev_lain_os_planner_GgufNativeProbe_nativeUnloadModel(&env, nullptr);
+}
+
+void test_resident_model(const std::string & model_path) {
+    reset_engine();
+    require(warm(model_path) == "OK:READY", "user-started prewarm succeeds");
+    require(engine.models_loaded == 1 && engine.models_freed == 0,
+            "model retained after prewarm");
+    require(warm(model_path) == "OK:READY" && engine.models_loaded == 1,
+            "repeated prewarm is idempotent");
+    for (jlong id : {101L, 102L}) {
+        require(register_generation(id), "resident generation registered");
+        require(generate(model_path, id) == "OK:OKOK", "resident generation succeeds");
+        release_generation(id);
+        require(engine.models_loaded == 1 && engine.models_freed == 0,
+                "generation reuses resident weights");
+    }
+    require(engine.contexts_created == 2 && engine.contexts_freed == 2,
+            "each request frees its own context");
+    unload();
+    require_released_resources();
+    std::cout << "PASS: one native model load, multiple turns, explicit unload\n";
+}
+
+void test_cancel_resident_load(const std::string & model_path) {
+    reset_engine(PauseAt::Load);
+    auto pending = std::async(std::launch::async, [&] { return warm(model_path); });
+    require(gate.await_entry(), "prewarm entered model loading");
+    JNIEnv env;
+    Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelWarmModel(&env, nullptr);
+    gate.resume();
+    require(pending.wait_for(3s) == std::future_status::ready,
+            "cancelled prewarm completed promptly");
+    require(pending.get() == "ERR:CANCELLED", "cancelled prewarm reports cancellation");
+    require_released_resources();
+    std::cout << "PASS: cancelled prewarm releases model and backend\n";
 }
 
 void require_fresh_success(const std::string & model_path, jlong id) {
@@ -378,6 +432,8 @@ int main() {
     test_stop_isolation(model_path);
     test_prompt_memory_bound(model_path);
     test_failure_cleanup(model_path);
+    test_cancel_resident_load(model_path);
+    test_resident_model(model_path);
     unlink(model_path);
     std::cout << "All native GGUF lifecycle tests passed.\n";
 }
