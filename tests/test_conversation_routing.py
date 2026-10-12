@@ -74,6 +74,28 @@ class CommandBridgeTests(unittest.TestCase):
         self.assertTrue(reply["clarification_required"])
         self.assertEqual(self.send("sessions")["sessions"], [])
 
+    def test_on_device_explicit_action_routing_yields_task_without_action_payload(self):
+        from lain.conversation_routing import classify_final_turn
+
+        class Binding:
+            mode = "on_device"
+            def to_dict(self):
+                return {"mode": self.mode}
+
+        class Bridge:
+            def route(self, binding_json, prompt):
+                self.prompt = prompt
+                return json.dumps({"ok": True, "body": json.dumps({
+                    "disposition": "task", "reason": "direct device request",
+                    "response_text": "",
+                })})
+
+        bridge = Bridge()
+        decision = classify_final_turn("Open the settings app", Binding(), bridge)
+        self.assertEqual(decision.disposition, TurnDisposition.TASK)
+        self.assertNotIn("actions", decision.__dataclass_fields__)
+        self.assertIn("Classify", bridge.prompt)
+
     def test_malicious_model_cannot_turn_a_question_into_an_executing_task(self):
         from lain.conversation_routing import classify_final_turn
 
