@@ -21,6 +21,7 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     private val pending = mutableListOf<(List<LocalSpeechVoice>) -> Unit>()
 
     override val providerId: String = "android-on-device-tts"
+    override val supportsProgressiveSpeech: Boolean = true
 
     override val implementation: String
         get() = engine?.defaultEngine?.takeIf { it.isNotBlank() }
@@ -63,6 +64,48 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
             TextToSpeech.ERROR
         }
         return queued == TextToSpeech.SUCCESS
+    }
+
+    override fun speakSegments(segments: List<String>, voice: LocalSpeechVoice): Boolean {
+        if (closed || Looper.myLooper() != Looper.getMainLooper() || !ready) return false
+        if (segments.isEmpty() || segments.size > MAX_PROGRESSIVE_SEGMENTS ||
+            segments.any { it.isBlank() || it.toByteArray(Charsets.UTF_8).size > MAX_PROGRESSIVE_SEGMENT_BYTES }
+        ) return false
+        val tts = engine ?: return false
+        if (tts.defaultEngine != voice.engineId) return false
+        val actual = try {
+            tts.voices.orEmpty().firstOrNull {
+                it.name == voice.id &&
+                    !it.isNetworkConnectionRequired &&
+                    !it.features.orEmpty().contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED)
+            }
+        } catch (_: Exception) {
+            null
+        } ?: return false
+        if (try { tts.setVoice(actual) } catch (_: Exception) { TextToSpeech.ERROR } != TextToSpeech.SUCCESS) {
+            return false
+        }
+
+        // Android TTS owns the queue: the first utterance replaces superseded
+        // speech, subsequent utterances append in the original source order.
+        // No PCM handoff, provider change, or executor/task callback exists.
+        for ((index, segment) in segments.withIndex()) {
+            if (closed) {
+                try { tts.stop() } catch (_: Exception) { }
+                return false
+            }
+            val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            val queued = try {
+                tts.speak(segment, mode, null, UUID.randomUUID().toString())
+            } catch (_: Exception) {
+                TextToSpeech.ERROR
+            }
+            if (queued != TextToSpeech.SUCCESS) {
+                try { tts.stop() } catch (_: Exception) { }
+                return false
+            }
+        }
+        return true
     }
 
     override fun stop() {
