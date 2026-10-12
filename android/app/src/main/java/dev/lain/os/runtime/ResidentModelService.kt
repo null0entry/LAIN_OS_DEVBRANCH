@@ -49,7 +49,7 @@ class ResidentModelService : Service() {
 
     private val binder = object : Binder() {
         override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean {
-            if (code == INTERFACE_TRANSACTION) {
+            if (code == IBinder.INTERFACE_TRANSACTION) {
                 reply?.writeString(DESCRIPTOR)
                 return true
             }
@@ -150,6 +150,7 @@ class ResidentModelService : Service() {
         }
     }
 
+    @Suppress("DEPRECATION")
     private fun notice(message: String): Notification {
         val launch = Intent(this, MainActivity::class.java)
         val pending = PendingIntent.getActivity(
@@ -157,7 +158,7 @@ class ResidentModelService : Service() {
                 (if (Build.VERSION.SDK_INT >= 23) PendingIntent.FLAG_IMMUTABLE else 0)
         )
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL_ID)
-            else @Suppress("DEPRECATION") Notification.Builder(this)
+            else Notification.Builder(this)
         return builder.setSmallIcon(R.drawable.ic_lain).setContentTitle("LAIN · resident local model")
             .setContentText(message).setOngoing(true).setContentIntent(pending).build()
     }
@@ -167,9 +168,10 @@ class ResidentModelService : Service() {
         manager.notify(NOTIFICATION_ID, notice(message))
     }
 
+    @Suppress("DEPRECATION")
     private fun stopForegroundCompat() {
         if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE)
-        else @Suppress("DEPRECATION") stopForeground(true)
+        else stopForeground(true)
     }
 
     override fun onDestroy() {
