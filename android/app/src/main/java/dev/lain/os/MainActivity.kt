@@ -278,6 +278,15 @@ class MainActivity : AppCompatActivity() {
     private fun renderTranscript(state: WorkbenchState, session: org.json.JSONObject?) {
         val conversation = state.conversation
         val turns = conversation?.optJSONArray("turns")
+        val replyArray = conversation?.optJSONArray("assistant_replies")
+        val replies = mutableMapOf<Int, Pair<String, String>>()
+        if (replyArray != null) {
+            for (index in 0 until replyArray.length()) {
+                val reply = replyArray.optJSONObject(index) ?: continue
+                val id = reply.optInt("turn_id", 0)
+                if (id > 0) replies[id] = reply.optString("state") to reply.optString("text")
+            }
+        }
         val assistant = if (session == null || session.isNull("speech_text")) {
             ""
         } else {
@@ -326,6 +335,17 @@ class MainActivity : AppCompatActivity() {
                 }
                 ui.conversationTranscript.addView(resultText("$label\n$text"))
                 rendered += 1
+                val reply = replies[turnId]
+                if (reply != null) {
+                    val (replyState, replyText) = reply
+                    val display = if (replyState == "pending") "Generating local reply…" else replyText
+                    if (display.isNotBlank()) {
+                        ui.conversationTranscript.addView(
+                            resultText("LAIN · " + replyState + "\n" + display)
+                        )
+                        rendered += 1
+                    }
+                }
             }
         }
         if (partial.isNotEmpty()) {
@@ -342,7 +362,8 @@ class MainActivity : AppCompatActivity() {
             )
             rendered += 1
         }
-        state.conversationResponse?.takeIf { it.isNotBlank() }?.let { response ->
+        state.conversationResponse?.takeIf { it.isNotBlank() &&
+            replies.values.none { reply -> reply.second == it } }?.let { response ->
             ui.conversationTranscript.addView(
                 resultText(getString(R.string.transcript_assistant, response))
             )
