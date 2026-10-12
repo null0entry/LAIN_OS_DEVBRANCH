@@ -20,6 +20,7 @@ class TurnSource(str, Enum):
 class TurnKind(str, Enum):
     TASK = "task"
     REVISION = "revision"
+    CHAT = "chat"
 
 
 class TurnFinality(str, Enum):
@@ -35,6 +36,7 @@ class TurnReference(str, Enum):
 
 class TurnRoute(str, Enum):
     START_TASK = "start_task"
+    CHAT = "chat"
     REVISION = "revision"
     CLARIFICATION_REQUIRED = "clarification_required"
 
@@ -192,6 +194,15 @@ class ConversationTurnManager:
                 if reference is not TurnReference.NONE or target_session_id is not None:
                     raise ValueError("new task turn cannot carry a reference")
                 route = TurnRoute.START_TASK
+            elif kind is TurnKind.CHAT:
+                if target_session_id is not None:
+                    raise ValueError("chat cannot carry a task reference")
+                if reference is TurnReference.NONE:
+                    route = TurnRoute.CHAT
+                elif reference is TurnReference.AMBIGUOUS:
+                    route = TurnRoute.CLARIFICATION_REQUIRED
+                else:
+                    raise ValueError("chat cannot revise an active task")
             else:
                 if reference is TurnReference.AMBIGUOUS:
                     if target_session_id is not None:
