@@ -97,7 +97,6 @@ internal class OnDeviceModelStore(
             } else {
                 require(stage.renameTo(destination)) { "atomic GGUF import failed" }
             }
-            lastVerified = Verified(destination.canonicalPath, destination.length(), destination.lastModified())
             return ImportedGgufModel(hash, bytes)
         } finally {
             stage.delete()
