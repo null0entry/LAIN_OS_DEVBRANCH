@@ -31,17 +31,17 @@ class LocalChatActivity : AppCompatActivity() {
     private val profiles by lazy { PlannerProfileStore(this) }
     private var profile: PlannerProfile? = null
     private var messages = mutableListOf<QwenChatTurn>()
-    private val client by lazy { ResidentModelClient(this) { connected ->
-        if (!isDestroyed) {
-            setBusy(current != null)
-            if (!connected && current == null) status.text = "Local model process disconnected"
-            else if (connected && current == null && profile != null) {
-                val state = try { JSONObject(client.status()).optString("state", "") } catch (_: Exception) { "" }
-                status.text = if (state == "READY") "Resident model ready · offline" else
-                    "Connected · use Start Model on Workbench to keep Qwen in memory"
+    private val client: ResidentModelClient by lazy {
+        ResidentModelClient(this) { connected ->
+            if (!isDestroyed) {
+                setBusy(current != null)
+                if (!connected && current == null) status.text = "Local model process disconnected"
+                else if (connected && current == null && profile != null)
+                    status.text = "Connected · use Start Model in Workbench for warm Qwen"
             }
         }
-    } }
+    }
+}
     private var current: ResidentModelClient.ChatCall? = null
     private var revision = 0L
     private lateinit var history: LinearLayout
