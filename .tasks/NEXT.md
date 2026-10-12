@@ -1,5 +1,200 @@
 # Next
 
+## TASK-077: Provide verifiable installable Android debug APK handoff for device testing
+**Priority:** P0 | **Tags:** overseer-assigned, developer, android, apk, distribution, physical-testing
+**Updated:** 2026-10-12
+
+### Goal
+Give the owner a reliable, verifiable, ready-to-install Android debug APK handoff for testing the native Qwen and universal command chain, without confusing an ephemeral CI artifact with a signed 1.0 release.
+
+### Scope
+- Reuse the existing Android CI APK build and artifact upload, not a second build system or signer.
+- Identify one exact green integration commit containing the native GGUF/bootstrap/download/TASK-073 command bridge stack and bind the APK output to its commit, workflow-run ID, APK SHA-256, variant, SDK and ABI metadata.
+- Produce a small repository-native test-build handoff record with verified GitHub Actions artifact URL, explicit unzip/install steps, expiry/retention limitations, and checksum verification.
+- Ensure the artifact is actually downloadable as an APK ZIP with the declared APK path, not a 404 or unactionable Actions run link; expose clear alternatives when GitHub artifact access expires.
+- Keep debug test artifacts separate from final 1.0 packaging/signing (TASK-049) and physical acceptance (TASK-075); never publish or deploy without owner action.
+
+### Dependencies
+- PR #41→#44 native GGUF stack; PR #46 TASK-071 and PR #47 TASK-072 integrated into it; PR #48 TASK-073 CI clean and integrated into a test-build branch.
+- Existing Android API24/API35 workflow and artifact upload; TASK-047/049 release evidence conventions are reusable but not release authorization.
+- TASK-075 owns actual physical install, inference, speech, policy and execution proof after download.
+
+### Plan
+- Inspect current workflow artifact conventions and target integration commit/branch.
+- Build one exact debug test artifact through existing CI and independently inspect artifact listing and APK metadata.
+- Record the run/commit/APK hash/ABI/SDK/retention and actionable installation handoff link in one bounded document or canonical issue update.
+- Add deterministic metadata/handoff checks where existing CI supports them without a duplicate release workflow.
+
+### Acceptance
+- The owner receives one working GitHub artifact download path and the exact APK entry to install, with checksum and provenance.
+- The recorded SHA identifies the APK binary (not merely the zipped artifact); SDK/ABI match the inspected package.
+- Handoff is explicit about debug build, artifact expiration, installation requirements, and unresolved physical verification.
+- A missing/expired/unauthorized artifact is reported as unavailable rather than substituted with an invented URL.
+- No silent dependency on Termux, root, ADB, or Shizuku for launching the APK; install may use Android package installer.
+
+### Verification
+- Exact-source CI Verify and API24/API35 Android matrix for the test-build commit.
+- Independently fetch artifact list, verify download resolves and ZIP contains APK, inspect APK SHA/package/SDK/ABIs, compare recorded values to artifact.
+- Negative checks for stale SHA, missing APK, expired URL and wrong build variant.
+- Physical installation and actual Qwen/STT execution remain separate TASK-075 UNVERIFIED gates.
+
+### Expected result
+A test-ready, checksum-bound APK handoff that the owner can download and install without chasing expired CI references or mistaking build green for real-device acceptance.
+
+### Evidence basis
+- PR #48 now has exact-head Verify and Android API24/API35 success, but remains stacked on draft PR #44 and has no verified standalone owner-facing APK handoff.
+- Android workflow uploads APK-and-reports ZIPs; past failed artifact links and stock-phone test goals require an independently validated download/handoff seam.
+- TASK-047/049 govern eventual release provenance/packaging; TASK-075 governs physical acceptance, not the immediate downloadable debug APK delivery.
+
+### Projection basis
+Physical verification of the universal assistant cannot begin reliably without a stable, verifiable installable candidate and clear instructions for acquiring it on the owner's phone.
+
+### Risks / unknowns
+GitHub artifact URLs may require authentication and expire. A successful automated build cannot establish the installability, inference latency, thermal behavior, or permissions on the owner's hardware; report those limits explicitly.
+
+---
+
+## TASK-076: Deliver real non-executing model replies for Workbench CHAT turns
+**Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, conversation, on-device, chat, trust-boundary
+**Updated:** 2026-10-12
+
+### Goal
+When an accepted final typed or spoken Workbench turn routes to CHAT, return a useful bounded model answer in the same conversation instead of treating a router classification string as a substantive assistant reply.
+
+### Scope
+- Reuse the existing selected-profile inference or on-device Qwen GGUF chat transport and bounded turn/history context; do not create another inference engine, background daemon, or executor.
+- Keep CHAT and CLARIFY isolated from AgentController task creation, registry action proposals, approval/grant pathways, and native action dispatch.
+- Use one explicit non-executing response path for ordinary CHAT, separate from router decisions. Preserve classified task routing and existing Stop task authority.
+- Handle unavailable/offline/timeout/cancellation/malformed response by presenting a truthful retryable user-facing failure or clarification, not a fake answer or hidden network fallback.
+- Preserve source identity, turn ordering, bounded memory/latency/token budgets, and speech-vs-typed final-turn replay protection.
+- Do not expand the Android capability catalog, integrate provider media, or grant arbitrary prompt-as-shell rights.
+
+### Dependencies
+- PR #44 native local Qwen text chat and TASK-071/072 model setup.
+- TASK-073 trusted CHAT/TASK/CLARIFY routing and existing Workbench conversation model.
+- TASK-054 transcript surface; TASK-075 separately owns physical stock-device acceptance.
+
+### Plan
+- Define a narrow non-executing chat-reply result envelope and test that it cannot contain action/approval authority.
+- Bind CHAT to the existing selected model conversation service with bounded context and cancellation, reusing PR #44.
+- Render the returned model message in the canonical Workbench transcript; clarify is explicitly different from a generated answer.
+- Cover final typed/voice parity, session isolation, replay, cancellation, offline, and failure states.
+
+### Acceptance
+- After a Workbench user asks a non-command question with a working selected model, an actual bounded model reply is rendered without any task session or device action.
+- Subsequent replies use only explicitly bounded, trusted conversation history; rotations/rebinds neither duplicate requests nor invent replies.
+- An explicit supported command still enters existing AgentController/policy/approval/audit and cannot be run through the CHAT reply path.
+- Model failure/absence is visible and fail-closed; no silent online fallback from local Qwen.
+- CHAT generation cannot approve, authorize, or dispatch capabilities, and cannot interpret model text as a command.
+
+### Verification
+- Red/green tests proving current router-only CHAT text is not full conversation generation.
+- Deterministic fake model and controller tests for CHAT isolation, typed/voice parity, limits and cancellation; adversarial model-output authority tests.
+- Android API24/API35 instrumentation for response rendering, rotation/rebind, and unavailable provider.
+- Physical Qwen conversation output remains UNVERIFIED until TASK-075 or named device evidence.
+
+### Expected result
+LAIN_OS Workbench becomes a useful conversational partner while retaining one auditable trusted path for commands and no authority on ordinary model text.
+
+### Evidence basis
+- TASK-073 source `lain/app/control.py` currently returns router `response_text` directly for CHAT; this is intent classification, not a full bounded conversational inference response.
+- PR #44 implements native Qwen ordinary chat on a separate Android screen; the CHAT turn bridge and actual model reply are not yet integrated.
+- TASK-054 owns transcript UI, TASK-073 owns command classification, TASK-074 owns Android device capabilities; none owns real same-surface CHAT answer generation.
+
+### Projection basis
+A single text/voice command-and-conversation Workbench must answer ordinary questions without accidental execution, as required by the owner's universal assistant direction.
+
+### Risks / unknowns
+The Qwen chat screen and planner router currently use distinct model-context flows; reuse or extract only the minimum common non-authoritative inference seam. Retain model-lease/cancellation semantics on low-RAM phones and preserve all explicit user approvals.
+
+---
+
+## TASK-071: Implement clean-install bootstrap and permission broker
+**Priority:** P0 | **Tags:** owner-approved, android, bootstrap, permissions, clean-install
+
+### Goal
+Make one LAIN_OS APK boot into a truthful usable state on stock/factory-equivalent Android with no Termux, Tasker/Automate, Shizuku, root, ADB, external Python, or developer setup.
+
+### Depends on
+- Current native GGUF stack PR #41 -> #44 reaching a stable integration point.
+- Existing PlannerProfileStore/PlannerSettingsManager, voice permission flow, and Android runtime.
+
+### Acceptance
+- Clean app data launches into a skippable first-run setup and can continue immediately with Demo.
+- Capability state is reported as READY / NEEDS_PERMISSION / NEEDS_SETTINGS_GRANT / OPTIONAL_DEPENDENCY_MISSING / UNSUPPORTED.
+- Runtime permission denial or special-grant refusal disables only affected capabilities.
+- Returning from Android Settings revalidates state rather than trusting stale grants.
+- Reinstall/clear-data reproduces the same setup path.
+
+### Plan
+`docs/superpowers/plans/2026-10-11-clean-install-bootstrap-and-qwen-download.md`
+
+---
+
+## TASK-072: Add in-app pinned recommended Qwen download
+**Priority:** P0 | **Tags:** owner-approved, android, gguf, qwen, bootstrap, download
+
+### Goal
+Expose **Download recommended Qwen** beside **Import GGUF** so a fresh phone can acquire the recommended local model without leaving LAIN_OS.
+
+### Pinned target
+- File: `Qwen3-1.7B-Q4_K_M.gguf`
+- Source: `https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf`
+- Approximate size: 1.28 GB
+- SHA-256: `d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5`
+
+### Acceptance
+- HTTPS-only bounded download to private staging with progress and cancellation.
+- Expected SHA-256 and GGUF preflight pass before publication.
+- Partial, cancelled, low-storage, HTTP-failed, or hash-mismatched downloads never become selectable.
+- Manual Import GGUF remains available.
+
+### Plan
+`docs/superpowers/plans/2026-10-11-clean-install-bootstrap-and-qwen-download.md`
+
+---
+
+## TASK-073: Implement universal typed/voice command bridge
+**Priority:** P0 | **Tags:** owner-approved, voice, commands, agent-controller, trust-boundary
+
+### Goal
+Route ordinary final typed/spoken commands through the existing trusted AgentController while preserving non-executing conversation.
+
+### Acceptance
+- Typed and accepted final speech “Show battery” reach the same trusted task path.
+- Chat cannot call a capability or grant approval.
+- Ambiguous side-effecting turns clarify rather than run.
+- Partial/low-confidence speech cannot start a task.
+- Active-task revision, approvals, verification, audit, and Stop semantics remain authoritative.
+
+### Plan
+`docs/superpowers/plans/2026-10-11-universal-command-bridge.md`
+
+---
+
+## TASK-074: Expand core Android on-device capabilities
+**Priority:** P1 | **Tags:** owner-approved, android, capabilities, native, intents
+
+### Goal
+Add high-value bounded capabilities such as app launch, flashlight, volume, media control where supported, brightness/settings surfaces, notifications, URI/deep links, and existing file/device actions using native APIs/Intents first.
+
+### Constraints
+No generic shell. Shizuku/Accessibility remain optional scoped backends, never base-install requirements.
+
+---
+
+## TASK-075: Close physical universal-command clean-device acceptance
+**Priority:** P0 | **Tags:** owner-approved, android, physical, acceptance, clean-install
+
+### Goal
+Prove the full path on a clean/factory-equivalent reference Android device: install APK -> first run -> permissions -> model import/download -> typed/voice commands -> policy/approval -> execution -> verification -> audit -> restart/Stop.
+
+### Evidence
+Record exact APK/model hashes, device/API, permission paths, resource observations, and distinguish physical proof from CI/emulator evidence.
+
+---
+
+
 ## TASK-069: Build truthful Android durable-workflow inspection and control
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, workflow, android-ui, recovery
 **Updated:** 2026-10-08
