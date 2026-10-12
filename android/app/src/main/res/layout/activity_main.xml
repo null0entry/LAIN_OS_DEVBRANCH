@@ -152,6 +152,16 @@
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="@string/planner_import_model" android:textAllCaps="false"
                 android:visibility="gone" />
+            <Button android:id="@+id/planner_download_model"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/planner_download_model" android:textAllCaps="false"
+                android:visibility="gone" />
+            <TextView android:id="@+id/planner_download_status"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/planner_download_metadata"
+                android:textColor="@color/text_secondary" android:textSize="12sp"
+                android:autoLink="web" android:linksClickable="true"
+                android:accessibilityLiveRegion="polite" android:visibility="gone" />
             <EditText android:id="@+id/planner_timeout" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:hint="@string/planner_timeout"
                 android:inputType="numberDecimal" android:maxLength="8" android:importantForAutofill="no"
