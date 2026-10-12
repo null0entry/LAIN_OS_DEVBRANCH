@@ -75,6 +75,12 @@ class OnDevicePlannerSettingsUiAndroidTest {
                 assertEquals(View.VISIBLE, downloadButton.visibility)
                 assertTrue(downloadButton.isEnabled)
                 assertTrue(downloadButton.text.toString().contains("Download recommended Qwen"))
+                val metadata = activity.findViewById<TextView>(R.id.planner_download_status).text.toString()
+                assertTrue(metadata.contains("Qwen3 1.7B"))
+                assertTrue(metadata.contains("Q4_K_M"))
+                assertTrue(metadata.contains("1.28 GB"))
+                assertTrue(metadata.contains("huggingface.co"))
+                assertTrue(metadata.contains("d2387ca2dbfe"))
             }
         }
     }
