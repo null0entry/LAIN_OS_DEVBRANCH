@@ -125,7 +125,7 @@ class RuntimeFlowTest {
                 assertFalse(text.contains("Hello from LAIN_OS."))
                 assertTrue(activity.findViewById<android.view.View>(R.id.approve_button).isEnabled)
             }
-            onView(withId(R.id.stop_button)).perform(click())
+            onView(withId(R.id.stop_button)).perform(scrollTo(), click())
             await(scenario) { it.findViewById<TextView>(R.id.task_status).text.toString() == "CANCELLED" }
         }
     }

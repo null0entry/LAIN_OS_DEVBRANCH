@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
 import dev.lain.os.bootstrap.PermissionBroker
 import dev.lain.os.databinding.ActivityMainBinding
 import dev.lain.os.planner.PlannerConnectionStatus
@@ -131,11 +132,13 @@ class MainActivity : AppCompatActivity() {
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
         if (intent.getBooleanExtra(EXTRA_CONFIGURE_PLANNER, false)) {
-            ui.plannerProfiles.post {
-                ui.plannerProfiles.requestRectangleOnScreen(
-                    android.graphics.Rect(0, 0, ui.plannerProfiles.width, ui.plannerProfiles.height),
-                    true,
-                )
+            ui.plannerProfiles.doOnLayout {
+                ui.plannerProfiles.post {
+                    ui.plannerProfiles.requestRectangleOnScreen(
+                        android.graphics.Rect(0, 0, ui.plannerProfiles.width, ui.plannerProfiles.height),
+                        true,
+                    )
+                }
             }
         }
         onDevicePlannerSave.state.observe(this, ::renderOnDevicePlannerSave)
