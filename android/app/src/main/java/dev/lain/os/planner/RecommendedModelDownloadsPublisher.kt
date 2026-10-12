@@ -2,6 +2,7 @@ package dev.lain.os.planner
 
 import android.content.ContentValues
 import android.content.Context
+import android.annotation.TargetApi
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -16,6 +17,7 @@ import java.security.MessageDigest
  * Older Android versions require a user-selected SAF destination (handled by the caller).
  */
 internal class RecommendedModelDownloadsPublisher(private val context: Context) {
+    @TargetApi(Build.VERSION_CODES.Q)
     fun publish(
         model: RecommendedModel,
         privateFile: File,
