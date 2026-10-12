@@ -33,6 +33,7 @@ internal sealed interface RecommendedModelDownloadState {
     data class Downloaded(
         val model: RecommendedModel,
         val imported: ImportedGgufModel,
+        val publicDownloadUri: String? = null,
         override val editor: RecommendedModelEditorSnapshot? = null,
     ) : RecommendedModelDownloadState
 
@@ -55,11 +56,17 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
         internal var downloadActionFactory:
             (Application) -> (RecommendedModel, (Long, Long) -> Unit, () -> Boolean) -> ImportedGgufModel =
             { app ->
-                val downloader = RecommendedModelDownloader(OnDeviceModelStore(app))
+                val store = OnDeviceModelStore(app)
+                val downloader = RecommendedModelDownloader(store)
+                val publisher = RecommendedModelDownloadsPublisher(app)
                 val action:
                     (RecommendedModel, (Long, Long) -> Unit, () -> Boolean) -> ImportedGgufModel =
                     { model, progress, cancelled ->
-                        downloader.download(model, progress, cancelled)
+                        val imported = downloader.download(model, progress, cancelled)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            publisher.publish(model, store.resolve(imported.sha256, cancelled), cancelled)
+                        }
+                        imported
                     }
                 action
             }
