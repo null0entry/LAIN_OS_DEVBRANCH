@@ -18,6 +18,8 @@ namespace {
 constexpr size_t MAX_OUTPUT_BYTES = 65'536;
 constexpr size_t MAX_PROMPT_BYTES = 16'384;
 std::mutex model_lease;
+// The runtime process retains GGUF weights when the owner starts the model.
+std::atomic<bool> warm_cancel_requested{false};
 // Registration outlives the JNI call and starts before the worker enters native
 // generation. A bounded registry remembers early Stop without retaining history.
 constexpr size_t MAX_REGISTERED_GENERATIONS = 8;
@@ -41,6 +43,7 @@ bool abort_decode(void * data) {
 
 struct NativeResources {
     bool backend_initialized = false;
+    bool owns_model = true;
     llama_model * model = nullptr;
     llama_context * context = nullptr;
     llama_batch_ext * batch = nullptr;
@@ -50,10 +53,12 @@ struct NativeResources {
         if (sampler) llama_sampler_free(sampler);
         if (batch) llama_batch_ext_free(batch);
         if (context) llama_free(context);
-        if (model) llama_model_free(model);
+        if (model && owns_model) llama_model_free(model);
         if (backend_initialized) llama_backend_free();
     }
 };
+std::unique_ptr<NativeResources> resident_model;
+std::string resident_model_path;
 constexpr int MIN_CONTEXT_TOKENS = 64;
 constexpr int MAX_CONTEXT_TOKENS = 4096;
 constexpr int MIN_NEW_TOKENS = 1;
@@ -61,6 +66,35 @@ constexpr int MAX_NEW_TOKENS = 256;
 
 std::string error(const char * code) {
     return std::string("ERR:") + code;
+}
+
+bool warm_progress(float, void *) { return !warm_cancel_requested.load(); }
+
+std::string warm_model(const char * path) {
+    std::unique_lock<std::mutex> lease(model_lease, std::try_to_lock);
+    if (!lease.owns_lock()) return error("MODEL_BUSY");
+    if (path == nullptr || path[0] == '\0') return error("INVALID_BOUNDS");
+    if (access(path, R_OK) != 0) return error("MODEL_NOT_FOUND");
+    if (resident_model) {
+        return resident_model_path == path ? "OK:READY" : error("MODEL_BUSY");
+    }
+    warm_cancel_requested.store(false);
+    auto candidate = std::make_unique<NativeResources>();
+    llama_backend_init();
+    candidate->backend_initialized = true;
+    llama_model_params params = llama_model_default_params();
+    params.n_gpu_layers = 0;
+    params.check_tensors = true;
+    params.progress_callback = warm_progress;
+    params.progress_callback_user_data = nullptr;
+    candidate->model = llama_model_load_from_file(path, params);
+    if (warm_cancel_requested.load()) return error("CANCELLED");
+    if (!candidate->model || llama_model_has_encoder(candidate->model)) {
+        return error("MODEL_LOAD_FAILED");
+    }
+    resident_model_path = path;
+    resident_model = std::move(candidate);
+    return "OK:READY";
 }
 
 void batch_set_tokens(
@@ -128,18 +162,23 @@ std::string run_probe(
     }
 
     NativeResources resources;
-    llama_backend_init();
-    resources.backend_initialized = true;
-
-    llama_model_params model_params = llama_model_default_params();
-    model_params.n_gpu_layers = 0;
-    model_params.check_tensors = true;
-    model_params.progress_callback = load_progress;
-    model_params.progress_callback_user_data = cancellation.get();
-
-    llama_model * model = resources.model = llama_model_load_from_file(model_path, model_params);
-    if (model == nullptr) {
-        return error(cancelled() ? "CANCELLED" : "MODEL_LOAD_FAILED");
+    llama_model * model = nullptr;
+    if (resident_model) {
+        if (resident_model_path != model_path) return error("MODEL_BUSY");
+        model = resources.model = resident_model->model;
+        resources.owns_model = false;
+    } else {
+        llama_backend_init();
+        resources.backend_initialized = true;
+        llama_model_params model_params = llama_model_default_params();
+        model_params.n_gpu_layers = 0;
+        model_params.check_tensors = true;
+        model_params.progress_callback = load_progress;
+        model_params.progress_callback_user_data = cancellation.get();
+        model = resources.model = llama_model_load_from_file(model_path, model_params);
+        if (model == nullptr) {
+            return error(cancelled() ? "CANCELLED" : "MODEL_LOAD_FAILED");
+        }
     }
 
     if (cancelled()) {
@@ -248,6 +287,11 @@ std::string run_probe(
     return std::string("OK:") + output;
 }
 
+std::string safe_warm_model(const char * path) {
+    try { return warm_model(path); }
+    catch (const std::exception &) { return error("MODEL_LOAD_FAILED"); }
+}
+
 std::string safe_run_probe(
         const char * model_path, const std::string & prompt,
         int context_tokens, int max_new_tokens, uint64_t generation_id) {
@@ -350,4 +394,32 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeReleaseGeneration(
     if (generation_id <= 0) return;
     std::lock_guard<std::mutex> lock(generation_registry_mutex);
     generation_registry.erase(static_cast<uint64_t>(generation_id));
+}
+
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeWarmModelBytes(
+        JNIEnv * env, jobject, jstring model_path) {
+    if (model_path == nullptr) return result_bytes(env, error("INVALID_BOUNDS"));
+    const char * path = env->GetStringUTFChars(model_path, nullptr);
+    if (path == nullptr) return result_bytes(env, error("MODEL_NOT_FOUND"));
+    const std::string result = safe_warm_model(path);
+    env->ReleaseStringUTFChars(model_path, path);
+    return result_bytes(env, result);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelWarmModel(JNIEnv *, jobject) {
+    warm_cancel_requested.store(true);
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeUnloadModel(JNIEnv *, jobject) {
+    warm_cancel_requested.store(true);
+    // Waits for active inference; invoke from a service worker, never UI.
+    std::lock_guard<std::mutex> lease(model_lease);
+    resident_model.reset();
+    resident_model_path.clear();
 }
