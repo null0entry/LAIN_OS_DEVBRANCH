@@ -31,6 +31,15 @@ internal class OnDeviceModelStore(
 
     init { require(root.isDirectory || root.mkdirs()) { "private model storage unavailable" } }
 
+    fun requireStagingCapacity(expectedBytes: Long) {
+        require(expectedBytes > 24 && expectedBytes <= DEFAULT_MAX_BYTES) {
+            "invalid GGUF staging budget"
+        }
+        require(usableSpace() >= expectedBytes + FREE_SPACE_FLOOR_BYTES) {
+            "insufficient private model storage"
+        }
+    }
+
     @Synchronized
     fun importModel(
         source: InputStream,
