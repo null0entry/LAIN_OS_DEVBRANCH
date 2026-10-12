@@ -21,6 +21,7 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     private val mutable = MutableLiveData(WorkbenchState())
     val state: LiveData<WorkbenchState> = mutable
     private var visible = false
+    private var lastAcceptedFinalSpeechId = 0L
     private var refreshing = false
     private val terminal = setOf("complete", "cancelled", "failed", "blocked", "budget_exhausted")
     private val tick = object : Runnable {
@@ -82,7 +83,14 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     }
 
     /** Only accepted, FINAL local transcripts arrive here; partials never dispatch. */
-    fun submitSpeech(text: String): Boolean = submitFinalTurn(text, "speech")
+    fun submitSpeech(text: String, finalId: Long = 0L): Boolean {
+        // A sticky LiveData READY event must never submit the same capture again
+        // when Android recreates/rebinds the Activity. A NEW capture gets a new ID.
+        if (finalId > 0L && finalId <= lastAcceptedFinalSpeechId) return true
+        val accepted = submitFinalTurn(text, "speech")
+        if (accepted && finalId > 0L) lastAcceptedFinalSpeechId = finalId
+        return accepted
+    }
 
     private fun submitFinalTurn(text: String, source: String): Boolean {
         val snapshot = current()
