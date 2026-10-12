@@ -9,12 +9,14 @@ import android.os.Looper
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import java.util.concurrent.atomic.AtomicLong
 
 enum class SpeechInputStatus { IDLE, TRANSCRIBING, READY, FAILED }
 
 data class SpeechInputState(
     val status: SpeechInputStatus = SpeechInputStatus.IDLE,
     val result: SpeechTranscriptionResult? = null,
+    val finalId: Long = 0L,
 )
 
 class VoiceCaptureViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,6 +39,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
     private val mutable = MutableLiveData(MicrophoneState())
     val state: LiveData<MicrophoneState> = mutable
     private val speechMutable = MutableLiveData(SpeechInputState())
+    private val nextFinalId = AtomicLong(0L)
     val speechState: LiveData<SpeechInputState> = speechMutable
     private var lastPermissionGranted = permissionChecker(application)
     private val speech = OnDeviceSpeechAdapter(
@@ -54,6 +57,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
                     SpeechInputState(
                         status = if (result.ok) SpeechInputStatus.READY else SpeechInputStatus.FAILED,
                         result = result,
+                        finalId = if (result.ok) nextFinalId.incrementAndGet() else 0L,
                     )
                 )
             }
