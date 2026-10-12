@@ -53,6 +53,41 @@ As of this design:
 
 The architectural gap is therefore not a missing planner or executor. It is the bridge between natural conversation/voice input and the existing trusted command runtime, followed by capability breadth.
 
+### 2.1 Clean-install / factory-device requirement
+
+A clean stock Android device is a first-class acceptance environment, not an edge case.
+
+The baseline installation contract is:
+
+```text
+factory/stock Android device
+  -> install one LAIN_OS APK
+  -> launch
+  -> first-run capability scan
+  -> choose planner path
+  -> request only the permissions needed for selected capabilities
+  -> become usable without Termux, Tasker, Shizuku, root, or developer setup
+```
+
+Core LAIN_OS must not require Termux, Tasker/Automate, Shizuku, root, ADB, Android Studio, a separately installed Python runtime, or a preconfigured shell environment.
+
+Those systems may extend LAIN_OS later, but their absence must never prevent first launch, typed conversation, planner configuration, model import, ordinary native Android capabilities, or truthful capability discovery.
+
+First-run setup must be app-owned and recoverable. It should include:
+
+- planner choice: Demo, configured Cloud/Local endpoint, or On-device GGUF;
+- On-device setup that can import a GGUF through Android's document picker into app-private storage without Termux;
+- a future app-managed recommended-model acquisition path, so manual browser/Termux model staging is not a permanent product requirement;
+- a capability scan showing which capabilities are READY, NEEDS_PERMISSION, NEEDS_SETTINGS_GRANT, OPTIONAL_DEPENDENCY_MISSING, or UNSUPPORTED;
+- runtime permission requests only when the user enables or first invokes a capability that needs them;
+- deep links into the correct Android Settings panel for special grants that Android does not expose as ordinary runtime permission dialogs;
+- re-check on return from Settings and after permission revocation;
+- continued use of all unaffected capabilities when one permission or optional dependency is denied.
+
+LAIN_OS must never claim that it can silently grant Android special permissions. AccessibilityService enablement, Shizuku authorization, notification-listener access, overlay/write-settings style grants, battery-optimization exemptions, and similar platform-controlled privileges require explicit user action in Android-owned UI when used.
+
+The bootstrap UI must explain why a requested permission is needed, which named capabilities it unlocks, and whether denial merely limits that capability or blocks a selected workflow. Denial must fail closed without trapping the user in an unusable setup loop.
+
 ## 3. Non-negotiable trust boundary
 
 The canonical rule remains:
@@ -199,6 +234,25 @@ Exit evidence:
 - PR #44 text chat works across first message, follow-up, Stop, New Chat, and relaunch;
 - emulator instrumentation failures are understood or fixed rather than ignored.
 
+### Stage 0.5 — Clean-install bootstrap and permission broker
+
+Goal: prove that a new stock Android device can reach a usable LAIN_OS state from one APK with no preinstalled helper stack.
+
+Required behavior:
+
+- first launch succeeds with no existing LAIN_OS state;
+- app-private directories and durable stores initialize themselves;
+- planner setup offers a usable path without external tooling;
+- on-device GGUF import uses the Android document picker and app-private model storage;
+- capability availability is derived from device/API/permission state rather than hardcoded assumptions;
+- ordinary runtime permissions are requested through Android's permission APIs when needed;
+- special grants open the correct Android-owned Settings surface and are revalidated on return;
+- denied permissions or missing optional integrations disable only the affected capabilities;
+- no helper app is required for core Stage-1/Stage-2 native capabilities;
+- reinstall/clear-data returns to the same truthful first-run state.
+
+Factory-device acceptance must be run on an actual clean or app-data-cleared device state, not inferred from upgrade testing.
+
 ### Stage 1 — Universal command bridge
 
 Goal: connect final typed and spoken commands to the existing AgentController without weakening PR #44's ordinary-chat boundary.
@@ -298,6 +352,9 @@ Goal: prove the integrated experience on the reference Android device.
 
 Acceptance matrix includes:
 
+- clean install / cleared-app-data bootstrap from one APK;
+- first-run planner/model setup without Termux, Tasker, Shizuku, root, or ADB;
+- permission grant, denial, revocation, and Settings-return revalidation;
 - typed and voice equivalence;
 - permission denied/granted transitions;
 - exact approvals;
@@ -330,7 +387,8 @@ voice acceptance
 to:
 
 ```text
-native Qwen acceptance
+clean-install bootstrap
+-> native Qwen acceptance
 -> universal command bridge
 -> core Android capability expansion
 -> privileged/extensible capability layer
@@ -344,6 +402,8 @@ native Qwen acceptance
 This does not delete the existing workflow/media/provider roadmap. It changes the critical path so LAIN_OS becomes a broadly useful on-device operating layer before later media-production scope dominates development.
 
 ## 9. Product success definition
+
+Before the command examples below count as product success, a second untouched or factory-reset-equivalent Android device must be able to install the APK, complete first-run setup, grant or deny permissions through Android-owned flows, configure or import a planner/model, and reach the same command surface without developer tooling.
 
 The first meaningful product threshold is reached when a user can naturally say or type commands such as:
 
@@ -390,8 +450,8 @@ This design does not authorize:
 
 Once this design is reviewed and accepted:
 
-1. update `docs/ROADMAP_1.0.md` so active embedded GGUF work and universal command control are on the critical path;
-2. update the canonical task sequencer with the command-bridge and capability-expansion slices;
+1. update `docs/ROADMAP_1.0.md` so clean-install bootstrap, active embedded GGUF work, and universal command control are on the critical path;
+2. update the canonical task sequencer with a clean-install bootstrap/permission broker slice before the command-bridge and capability-expansion slices;
 3. write a task-level implementation plan for Stage 1;
 4. implement Stage 1 against the exact post-PR-#44 stack using TDD;
 5. expand Stage 2 capabilities in small independently reviewable slices;
