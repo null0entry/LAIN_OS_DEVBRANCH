@@ -23,6 +23,8 @@ import dev.lain.os.planner.PlannerProfileSummary
 import dev.lain.os.planner.PlannerSettingsManager
 import dev.lain.os.planner.OnDevicePlannerSaveState
 import dev.lain.os.planner.OnDevicePlannerSaveViewModel
+import dev.lain.os.planner.RecommendedModelDownloadState
+import dev.lain.os.planner.RecommendedModelDownloadViewModel
 import dev.lain.os.ui.WorkbenchState
 import dev.lain.os.ui.WorkbenchViewModel
 import dev.lain.os.voice.MicrophoneFailure
@@ -47,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private val voice: VoiceCaptureViewModel by viewModels()
     private val speechOutput: SpeechOutputViewModel by viewModels()
     private val onDevicePlannerSave: OnDevicePlannerSaveViewModel by viewModels()
+    private val recommendedModelDownload: RecommendedModelDownloadViewModel by viewModels()
     private val permissionBroker by lazy { PermissionBroker.android(this) }
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -142,6 +145,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         onDevicePlannerSave.state.observe(this, ::renderOnDevicePlannerSave)
+        recommendedModelDownload.state.observe(this, ::renderRecommendedModelDownload)
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
         demos.forEach { command ->
             val button = Button(this).apply {
@@ -487,8 +491,15 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
         ui.plannerImportModel.setOnClickListener {
-            if (!onDevicePlannerSave.isSaving) {
+            if (!onDevicePlannerSave.isSaving && !recommendedModelDownload.isDownloading) {
                 ggufPicker.launch(arrayOf("application/octet-stream", "application/x-gguf", "*/*"))
+            }
+        }
+        ui.plannerDownloadModel.setOnClickListener {
+            if (recommendedModelDownload.isDownloading) {
+                recommendedModelDownload.cancel()
+            } else if (!onDevicePlannerSave.isSaving) {
+                recommendedModelDownload.start()
             }
         }
         ui.plannerProfiles.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -645,6 +656,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun renderRecommendedModelDownload(state: RecommendedModelDownloadState) {
+        val downloading = state is RecommendedModelDownloadState.Downloading
+        ui.plannerDownloadModel.text = getString(
+            if (downloading) R.string.planner_download_cancel else R.string.planner_download_model,
+        )
+        ui.plannerDownloadStatus.text = when (state) {
+            RecommendedModelDownloadState.Idle -> getString(R.string.planner_download_metadata)
+            is RecommendedModelDownloadState.Downloading -> {
+                val percent = if (state.expectedBytes > 0L) {
+                    ((state.downloadedBytes * 100L) / state.expectedBytes).coerceIn(0L, 100L).toInt()
+                } else 0
+                getString(
+                    R.string.planner_download_progress,
+                    percent,
+                    state.downloadedBytes / (1024L * 1024L),
+                    state.expectedBytes / (1024L * 1024L),
+                )
+            }
+            is RecommendedModelDownloadState.Downloaded -> {
+                ui.plannerMode.setSelection(2)
+                ui.plannerModel.setText(state.imported.sha256)
+                getString(R.string.planner_download_complete, state.imported.sha256.take(12))
+            }
+            is RecommendedModelDownloadState.Cancelled ->
+                getString(R.string.planner_download_cancelled)
+            is RecommendedModelDownloadState.Failed ->
+                getString(R.string.planner_download_failed, state.message)
+        }
+        updatePlannerModeFields()
+    }
+
     private fun selectedPlanner(): PlannerProfileSummary? =
         plannerProfiles.getOrNull(ui.plannerProfiles.selectedItemPosition)
 
@@ -764,8 +806,14 @@ class MainActivity : AppCompatActivity() {
         ui.plannerResponseMode.visibility = visibility
         ui.plannerCredential.visibility = visibility
         ui.plannerRemoveCredential.visibility = visibility
-        ui.plannerImportModel.visibility = if (offline) View.VISIBLE else View.GONE
-        ui.plannerImportModel.isEnabled = offline && ui.plannerName.isEnabled
+        val downloadVisibility = if (offline) View.VISIBLE else View.GONE
+        val downloading = recommendedModelDownload.isDownloading
+        ui.plannerImportModel.visibility = downloadVisibility
+        ui.plannerDownloadModel.visibility = downloadVisibility
+        ui.plannerDownloadStatus.visibility = downloadVisibility
+        ui.plannerImportModel.isEnabled = offline && ui.plannerName.isEnabled && !downloading
+        ui.plannerDownloadModel.isEnabled = offline && (downloading || ui.plannerName.isEnabled)
+        ui.plannerSave.isEnabled = ui.plannerName.isEnabled && !downloading
         ui.plannerModel.isEnabled = !offline && ui.plannerName.isEnabled
         if (offline) ui.plannerCredentialState.text = getString(R.string.planner_offline_credential)
     }
