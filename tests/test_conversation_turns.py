@@ -119,6 +119,41 @@ class ConversationTurnManagerTests(unittest.TestCase):
         self.assertLessEqual(len(snapshot.turns), 128)
         self.assertEqual(snapshot.turns[-1].turn_id, 140)
 
+    def test_assistant_replies_are_durable_and_bounded_without_execution_authority(self):
+        turn = self.manager.accept(
+            "What did the battery check show?",
+            source=TurnSource.TYPED,
+            kind=TurnKind.CHAT,
+            reference=TurnReference.NONE,
+        ).record
+        self.manager.begin_reply(turn.turn_id)
+        pending = self.manager.snapshot().to_dict()["assistant_replies"]
+        self.assertEqual(pending, [{"turn_id": turn.turn_id, "state": "pending", "text": ""}])
+        self.manager.finish_reply(turn.turn_id, "The check reported 50 percent.", "complete")
+        restarted = ConversationTurnManager(self.root)
+        self.assertEqual(
+            restarted.snapshot().to_dict()["assistant_replies"],
+            [{"turn_id": turn.turn_id, "state": "complete", "text": "The check reported 50 percent."}],
+        )
+        with self.assertRaises(ValueError):
+            restarted.finish_reply(turn.turn_id, "x" * 4097, "complete")
+        with self.assertRaises(ValueError):
+            restarted.finish_reply(turn.turn_id, "approved", "pending")
+
+    def test_task_link_survives_restart_but_cannot_be_confused_with_chat_reply(self):
+        task = self.manager.accept(
+            "Show battery", source=TurnSource.SPEECH,
+            kind=TurnKind.TASK, reference=TurnReference.NONE,
+        ).record
+        sid = str(uuid4())
+        self.manager.link_task(task.turn_id, sid)
+        reopened = ConversationTurnManager(self.root)
+        self.assertEqual(reopened.task_session_id(task.turn_id), sid)
+        with self.assertRaises(ValueError):
+            reopened.begin_reply(task.turn_id)
+        with self.assertRaises(ValueError):
+            reopened.link_task(task.turn_id, str(uuid4()))
+
     def test_state_file_is_private_and_schema_has_no_authority_or_credentials(self):
         self.manager.accept(
             "Create demo file",
