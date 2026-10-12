@@ -59,6 +59,7 @@ int32_t llama_process(llama_context *, llama_process_type, llama_batch_ext *);
 llama_sampler_chain_params llama_sampler_chain_default_params();
 llama_sampler * llama_sampler_chain_init(llama_sampler_chain_params);
 llama_sampler * llama_sampler_init_greedy();
+llama_sampler * llama_sampler_init_grammar(const llama_vocab *, const char *, const char *);
 void llama_sampler_chain_add(llama_sampler *, llama_sampler *);
 void llama_sampler_free(llama_sampler *);
 llama_token llama_sampler_sample(llama_sampler *, llama_context *, int32_t);

@@ -29,7 +29,7 @@ internal interface OnDevicePlannerEngine {
     fun releaseGeneration(generationId: Long)
     fun generate(
         modelPath: String, prompt: String, contextTokens: Int,
-        maxNewTokens: Int, generationId: Long,
+        maxNewTokens: Int, generationId: Long, grammar: String? = null,
     ): GgufNativeProbeResult
     fun cancel(generationId: Long)
 }
@@ -65,6 +65,11 @@ internal object GgufNativeProbe : OnDevicePlannerEngine {
     private external fun nativeGenerateBytes(
         modelPath: String, promptUtf8: ByteArray,
         contextTokens: Int, maxNewTokens: Int, generationId: Long,
+    ): ByteArray
+
+    private external fun nativeGenerateConstrainedBytes(
+        modelPath: String, promptUtf8: ByteArray,
+        contextTokens: Int, maxNewTokens: Int, generationId: Long, grammarUtf8: ByteArray,
     ): ByteArray
 
     private external fun nativeWarmModelBytes(modelPath: String): ByteArray
@@ -113,9 +118,14 @@ internal object GgufNativeProbe : OnDevicePlannerEngine {
     /** Caller registers generationId before entry and releases it after native cleanup. */
     override fun generate(
         modelPath: String, prompt: String, contextTokens: Int,
-        maxNewTokens: Int, generationId: Long,
+        maxNewTokens: Int, generationId: Long, grammar: String?,
     ): GgufNativeProbeResult {
         val bytes = prompt.toByteArray(Charsets.UTF_8)
+        val grammarBytes = grammar?.toByteArray(Charsets.UTF_8)
+        if (grammarBytes != null && (grammarBytes.isEmpty() || grammarBytes.size > 16_384 ||
+                grammarBytes.any { it == 0.toByte() })) {
+            return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS)
+        }
         if (
             generationId <= 0 || modelPath.isBlank() || bytes.isEmpty() ||
             bytes.size > 16_384 || bytes.any { it == 0.toByte() } ||
@@ -127,7 +137,9 @@ internal object GgufNativeProbe : OnDevicePlannerEngine {
         }
         if (!libraryLoaded) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
         return try {
-            decodeNativePayload(nativeGenerateBytes(modelPath, bytes, contextTokens, maxNewTokens, generationId))
+            decodeNativePayload(if (grammarBytes == null)
+                nativeGenerateBytes(modelPath, bytes, contextTokens, maxNewTokens, generationId)
+                else nativeGenerateConstrainedBytes(modelPath, bytes, contextTokens, maxNewTokens, generationId, grammarBytes))
         } catch (_: UnsatisfiedLinkError) {
             GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
         } catch (_: RuntimeException) {

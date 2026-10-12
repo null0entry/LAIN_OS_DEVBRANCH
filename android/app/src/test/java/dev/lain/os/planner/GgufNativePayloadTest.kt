@@ -7,6 +7,13 @@ class GgufNativePayloadTest {
     private fun parsed(text: String) = GgufNativeProbe.decodeNativePayload(text.toByteArray(Charsets.UTF_8))
     private val invalid = GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.OUTPUT_INVALID)
 
+    @Test fun invalidGrammarBytesAreRejectedBeforeJni() {
+        for (grammar in listOf("", "bad\u0000grammar", "x".repeat(16_385))) {
+            val result = GgufNativeProbe.generate("/missing.gguf", "prompt", 4096, 256, 1, grammar)
+            assertEquals(GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS), result)
+        }
+    }
+
     @Test fun preservesCompleteUtf8MultibytePayload() {
         assertEquals(GgufNativeProbeResult.Generated("Grüße 🌙"), parsed("OK:Grüße 🌙"))
     }

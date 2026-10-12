@@ -17,6 +17,7 @@ namespace {
 
 constexpr size_t MAX_OUTPUT_BYTES = 65'536;
 constexpr size_t MAX_PROMPT_BYTES = 16'384;
+constexpr size_t MAX_GRAMMAR_BYTES = 16'384;
 std::mutex model_lease;
 // The runtime process retains GGUF weights when the owner starts the model.
 std::atomic<bool> warm_cancel_requested{false};
@@ -136,7 +137,8 @@ std::string token_piece(const llama_vocab * vocab, llama_token token) {
 
 std::string run_probe(
         const char * model_path, const std::string & prompt,
-        int context_tokens, int max_new_tokens, uint64_t generation_id) {
+        int context_tokens, int max_new_tokens, uint64_t generation_id,
+        const std::string & grammar = {}) {
     std::unique_lock<std::mutex> lease(model_lease, std::try_to_lock);
     if (!lease.owns_lock()) return error("MODEL_BUSY");
     const auto cancellation = generation_id == 0
@@ -149,6 +151,9 @@ std::string run_probe(
     if (prompt.empty() || prompt.size() > MAX_PROMPT_BYTES ||
             prompt.find('\0') != std::string::npos) return error("INVALID_BOUNDS");
 
+    if (grammar.size() > MAX_GRAMMAR_BYTES || grammar.find('\0') != std::string::npos) {
+        return error("INVALID_BOUNDS");
+    }
     if (
         model_path == nullptr || model_path[0] == '\0' ||
         context_tokens < MIN_CONTEXT_TOKENS || context_tokens > MAX_CONTEXT_TOKENS ||
@@ -243,6 +248,11 @@ std::string run_probe(
     if (sampler == nullptr) {
         return error("CONTEXT_FAILED");
     }
+    if (!grammar.empty()) {
+        llama_sampler * constraint = llama_sampler_init_grammar(vocab, grammar.c_str(), "root");
+        if (constraint == nullptr) return error("OUTPUT_INVALID");
+        llama_sampler_chain_add(sampler, constraint);
+    }
     llama_sampler * greedy = llama_sampler_init_greedy();
     if (greedy == nullptr) return error("CONTEXT_FAILED");
     llama_sampler_chain_add(sampler, greedy);
@@ -294,9 +304,10 @@ std::string safe_warm_model(const char * path) {
 
 std::string safe_run_probe(
         const char * model_path, const std::string & prompt,
-        int context_tokens, int max_new_tokens, uint64_t generation_id) {
+        int context_tokens, int max_new_tokens, uint64_t generation_id,
+        const std::string & grammar = {}) {
     try {
-        return run_probe(model_path, prompt, context_tokens, max_new_tokens, generation_id);
+        return run_probe(model_path, prompt, context_tokens, max_new_tokens, generation_id, grammar);
     } catch (const std::exception &) {
         // RAII releases model/context/sampler and the model lease on allocation failure.
         return error("CONTEXT_FAILED");
@@ -339,11 +350,9 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeProbeBytes(
 }
 
 
-extern "C"
-JNIEXPORT jbyteArray JNICALL
-Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
-        JNIEnv * env, jobject, jstring model_path, jbyteArray prompt_bytes,
-        jint context_tokens, jint max_new_tokens, jlong generation_id) {
+static jbyteArray generate_bytes(
+        JNIEnv * env, jstring model_path, jbyteArray prompt_bytes,
+        jint context_tokens, jint max_new_tokens, jlong generation_id, jbyteArray grammar_bytes) {
     if (model_path == nullptr || prompt_bytes == nullptr || generation_id <= 0) {
         return result_bytes(env, error("INVALID_BOUNDS"));
     }
@@ -355,12 +364,39 @@ Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
     env->GetByteArrayRegion(prompt_bytes, 0, prompt_size, reinterpret_cast<jbyte *>(&prompt[0]));
     if (env->ExceptionCheck()) return nullptr;
 
+    std::string grammar;
+    if (grammar_bytes != nullptr) {
+        const jsize size = env->GetArrayLength(grammar_bytes);
+        if (size <= 0 || static_cast<size_t>(size) > MAX_GRAMMAR_BYTES) {
+            return result_bytes(env, error("INVALID_BOUNDS"));
+        }
+        grammar.resize(static_cast<size_t>(size));
+        env->GetByteArrayRegion(grammar_bytes, 0, size, reinterpret_cast<jbyte *>(&grammar[0]));
+        if (env->ExceptionCheck()) return nullptr;
+    }
     const char * path = env->GetStringUTFChars(model_path, nullptr);
     if (path == nullptr) return result_bytes(env, error("MODEL_NOT_FOUND"));
     const std::string result = safe_run_probe(path, prompt, context_tokens,
-            max_new_tokens, static_cast<uint64_t>(generation_id));
+            max_new_tokens, static_cast<uint64_t>(generation_id), grammar);
     env->ReleaseStringUTFChars(model_path, path);
     return result_bytes(env, result);
+}
+
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
+        JNIEnv * env, jobject, jstring model_path, jbyteArray prompt_bytes,
+        jint context_tokens, jint max_new_tokens, jlong generation_id) {
+    return generate_bytes(env, model_path, prompt_bytes, context_tokens, max_new_tokens, generation_id, nullptr);
+}
+
+extern "C"
+JNIEXPORT jbyteArray JNICALL
+Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateConstrainedBytes(
+        JNIEnv * env, jobject, jstring model_path, jbyteArray prompt_bytes,
+        jint context_tokens, jint max_new_tokens, jlong generation_id, jbyteArray grammar_bytes) {
+    if (grammar_bytes == nullptr) return result_bytes(env, error("INVALID_BOUNDS"));
+    return generate_bytes(env, model_path, prompt_bytes, context_tokens, max_new_tokens, generation_id, grammar_bytes);
 }
 
 extern "C"

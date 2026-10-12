@@ -72,6 +72,10 @@ def parse_routing_output(raw: str) -> TurnRoutingDecision:
 
 _ROUTER_SYSTEM = (
     "Classify the USER's final utterance ONLY, never perform it. "
+    "The device is an Android phone. Requests to read battery status, vibrate, "
+    "show a toast or notification, open a URI, write clipboard text, share text, "
+    "or change workspace files are device action requests. "
+    "For example, 'Show a toast saying Hello' is task; 'What is an Android toast?' is chat. "
     "Respond with exactly one JSON object containing ONLY "
     '"disposition":"chat|task|clarify", "response_text":"...", "reason":"...". '
     "task means an unambiguous direct device action request (including requests to show "
@@ -133,7 +137,8 @@ def classify_final_turn(text, binding, native_bridge=None):
     try:
         binding_json = json.dumps(binding.to_dict(), separators=(",", ":"))
         if binding.mode == "on_device":
-            raw = str(native_bridge.route(binding_json, qwen_router_prompt(phrase)))
+            classify = getattr(native_bridge, "classify", None) or native_bridge.route
+            raw = str(classify(binding_json, qwen_router_prompt(phrase)))
             envelope = json.loads(raw, object_pairs_hook=_unique_pairs)
             if not isinstance(envelope, dict) or set(envelope) != {"ok", "body"} or envelope["ok"] is not True:
                 return _clarify("The on-device model could not classify this command.")

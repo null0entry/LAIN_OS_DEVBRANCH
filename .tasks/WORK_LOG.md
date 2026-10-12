@@ -1,6 +1,6 @@
 # Work Log
 
-2026-10-12: TASK-078 repaired integrated chat, Qwen prompts, native tools, permissions, recovery and APK artifact provenance; device-only acceptance remains unverified.
+2026-10-12: TASK-078 repaired integrated chat, Qwen prompts/decoder constraints, native tools, permissions, recovery and APK artifact provenance; 351 Python/143 Android JVM tests and real Qwen/controller smoke pass; device-only acceptance remains unverified.
 
 ## 2026-10-09 — TASK-071
 Draft PR #43 implementation `a49281d` passed Verify and Android API 24/API 35 build, JVM tests, lint and instrumentation. Offline GGUF cancellation/save lifecycle and cross-process Python startup are hardened; physical Qwen/airplane-mode acceptance remains UNVERIFIED and TASK-070 stays open.

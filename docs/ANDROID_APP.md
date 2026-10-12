@@ -25,8 +25,10 @@ transport. No cloud fallback occurs from on-device mode. Chat responses cannot
 execute capabilities or approve actions.
 
 Qwen3 prompts disable thinking using its non-thinking chat template so the bounded
-router and planner can request JSON without a reasoning preamble. Only strict
-validated proposals enter the controller. Exact built-in commands bypass model
+router and planner can request JSON without a reasoning preamble. Native decoding
+constrains routing fields and task JSON, including the supplied capability names;
+follow-up plans cannot copy historical IDs or add trailing non-JSON text. Successful
+history stays read-only. Only strict validated proposals enter the controller. Exact built-in commands bypass model
 routing and planning even when a model is selected.
 
 A generating reply prevents another submission until it settles. App restart

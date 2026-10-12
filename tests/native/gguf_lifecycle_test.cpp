@@ -23,6 +23,8 @@ void Java_dev_lain_os_planner_GgufNativeProbe_nativeReleaseGeneration(JNIEnv *, 
 void Java_dev_lain_os_planner_GgufNativeProbe_nativeCancelGeneration(JNIEnv *, jobject, jlong);
 jbyteArray Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateBytes(
         JNIEnv *, jobject, jstring, jbyteArray, jint, jint, jlong);
+jbyteArray Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateConstrainedBytes(
+        JNIEnv *, jobject, jstring, jbyteArray, jint, jint, jlong, jbyteArray);
 }
 
 namespace {
@@ -41,6 +43,9 @@ struct EngineStats {
     int batches_freed = 0;
     int samplers_created = 0;
     int samplers_freed = 0;
+    int grammar_calls = 0;
+    std::string grammar;
+    bool fail_grammar = false;
     int progress_calls = 0;
     int load_aborts = 0;
     int decode_calls = 0;
@@ -137,6 +142,44 @@ std::string generate(const std::string & model_path, jlong id, int context_token
     return result;
 }
 
+std::string generate_constrained(const std::string & model_path, jlong id, const std::string & grammar) {
+    JNIEnv env;
+    std::string path = model_path;
+    std::vector<jbyte> prompt{'T', 'e', 's', 't'};
+    std::vector<jbyte> constraint(grammar.begin(), grammar.end());
+    jbyteArray bytes = Java_dev_lain_os_planner_GgufNativeProbe_nativeGenerateConstrainedBytes(
+            &env, nullptr, &path, &prompt, 64, 2, id, &constraint);
+    require(bytes != nullptr && !env.ExceptionCheck(), "constrained JNI produced bytes");
+    std::string result(bytes->begin(), bytes->end());
+    delete bytes;
+    return result;
+}
+
+void test_grammar_cleanup(const std::string & model_path) {
+    const std::string grammar = "root ::= \"OK\"";
+    reset_engine();
+    require(register_generation(90), "constrained generation registered");
+    require(generate_constrained(model_path, 90, grammar) == "OK:OKOK", "constrained generation runs");
+    release_generation(90);
+    require(engine.grammar_calls == 1 && engine.grammar == grammar, "exact grammar reaches the sampler");
+    require(engine.samplers_created == 3, "chain owns grammar and greedy samplers");
+    require_released_resources();
+    reset_engine();
+    engine.fail_grammar = true;
+    require(register_generation(91), "invalid grammar generation registered");
+    require(generate_constrained(model_path, 91, grammar) == "ERR:OUTPUT_INVALID", "invalid grammar fails closed");
+    release_generation(91);
+    require(engine.decode_calls == 0, "invalid grammar never decodes unbounded output");
+    require_released_resources();
+    reset_engine();
+    require(register_generation(92), "oversized grammar generation registered");
+    require(generate_constrained(model_path, 92, std::string(16385, 'x')) == "ERR:INVALID_BOUNDS", "grammar bytes are bounded");
+    release_generation(92);
+    require(engine.models_loaded == 0, "oversized grammar never loads a model");
+    require_released_resources();
+    std::cout << "PASS: constrained decoder ownership, invalid grammar rejection and JNI byte bound\n";
+}
+
 std::string warm(const std::string & model_path) {
     JNIEnv env;
     std::string path = model_path;
@@ -223,10 +266,12 @@ void test_stop_before_worker(const std::string & model_path) {
     std::cout << "PASS: pre-start Stop, no model load, clean ID reuse\n";
 }
 
-void test_stop_in_engine(const std::string & model_path, PauseAt phase, jlong id) {
+void test_stop_in_engine(const std::string & model_path, PauseAt phase, jlong id, bool constrained = false) {
     reset_engine(phase);
     require(register_generation(id), "in-flight generation registered");
-    auto result = std::async(std::launch::async, [&] { return generate(model_path, id); });
+    auto result = std::async(std::launch::async, [&] {
+        return constrained ? generate_constrained(model_path, id, "root ::= \"OK\"") : generate(model_path, id);
+    });
     require(gate.await_entry(), "generation entered engine call");
 
     if (phase == PauseAt::Load) {
@@ -409,6 +454,13 @@ llama_sampler * llama_sampler_chain_init(llama_sampler_chain_params) {
     return new llama_sampler;
 }
 llama_sampler * llama_sampler_init_greedy() { return llama_sampler_chain_init({}); }
+llama_sampler * llama_sampler_init_grammar(const llama_vocab *, const char * grammar, const char * root) {
+    require(std::string(root) == "root", "owner-selected grammar root");
+    ++engine.grammar_calls;
+    engine.grammar = grammar;
+    if (engine.fail_grammar) return nullptr;
+    return llama_sampler_chain_init({});
+}
 void llama_sampler_chain_add(llama_sampler * chain, llama_sampler * child) {
     chain->children.push_back(child);
 }
@@ -432,6 +484,8 @@ int main() {
     test_stop_isolation(model_path);
     test_prompt_memory_bound(model_path);
     test_failure_cleanup(model_path);
+    test_grammar_cleanup(model_path);
+    test_stop_in_engine(model_path, PauseAt::TokenDecode, 95, true);
     test_cancel_resident_load(model_path);
     test_resident_model(model_path);
     unlink(model_path);

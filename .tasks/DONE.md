@@ -2,7 +2,7 @@
 
 ## TASK-078: Repair integrated runtime, Android app and build verification
 **Priority:** P2 | **Tags:** runtime, android, functionality, regression
-**Updated:** 2026-10-12 16:17
+**Updated:** 2026-10-12 17:29
 
 User requested a functionality audit and fixes for the repository and included app.
 
@@ -10,8 +10,9 @@ User requested a functionality audit and fixes for the repository and included a
 - Reproduced and repaired Qwen3 prompt contracts, role delimiter escaping, and completion after successful limited-verification effects.
 - Added genuine cloud/local-server chat replies with bounded shared history and truthful interrupted-reply recovery.
 - Wired native notification and URI capabilities, explicit notification-permission UI, speech service visibility, and pending-reply submission gating.
+- Added decoder constraints for valid task/routing JSON and exact catalog names after real Qwen exposed placeholder types, copied historical IDs and malformed follow-up output.
 - Added regression coverage and checksum/source metadata to the existing Android CI APK artifacts.
-- Canonical portable checks, native lifecycle regressions, and Android unit/build/lint checks verified; physical-device acceptance remains separate.
+- Canonical portable checks, native lifecycle regressions, and Android unit/build/lint checks verified; 143 Android JVM tests and a real Qwen/controller smoke pass; physical-device acceptance remains separate.
 
 ---
 
