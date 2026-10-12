@@ -21,6 +21,19 @@
             <TextView android:id="@+id/active_planner" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:textColor="@color/accent"
                 android:textSize="13sp" android:layout_marginTop="8dp" />
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:layout_marginTop="12dp">
+            <Button android:id="@+id/start_model_button" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Start model" android:textAllCaps="false" />
+            <Button android:id="@+id/stop_model_button" android:layout_width="0dp"
+                android:layout_weight="1" android:layout_height="wrap_content"
+                android:text="Stop model" android:textAllCaps="false" />
+        </LinearLayout>
+        <TextView android:id="@+id/model_residency_status"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Start the selected offline GGUF once to keep it in memory for voice, tasks and chat."
+            android:textColor="@color/text_secondary" android:textSize="12sp" />
         <Button android:id="@+id/open_chat_button"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="12dp" android:text="@string/chat_open"

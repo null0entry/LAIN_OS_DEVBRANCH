@@ -12,28 +12,36 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import dev.lain.os.planner.OnDeviceModelStore
-import dev.lain.os.planner.OnDevicePlannerCall
 import dev.lain.os.planner.PlannerProfile
 import dev.lain.os.planner.PlannerProfileStore
 import dev.lain.os.planner.QwenChatPrompt
 import dev.lain.os.planner.QwenChatTurn
+import dev.lain.os.runtime.ResidentModelClient
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
 
 /**
- * Foreground-only, private on-device conversation. No session/task/approval RPC is reachable.
+ * Private on-device conversation. Calls the same :runtime model process as task planning.
  * The selected GGUF must have been imported in LAIN's Planner Settings (Termux storage is isolated).
  */
 class LocalChatActivity : AppCompatActivity() {
     private val executor = Executors.newSingleThreadExecutor()
     private val preferences by lazy { getSharedPreferences("native-gguf-chat-v1", MODE_PRIVATE) }
     private val profiles by lazy { PlannerProfileStore(this) }
-    private val models by lazy { OnDeviceModelStore(this) }
     private var profile: PlannerProfile? = null
     private var messages = mutableListOf<QwenChatTurn>()
-    private var current: OnDevicePlannerCall? = null
+    private val client: ResidentModelClient by lazy {
+        ResidentModelClient(this) { connected ->
+            if (!isDestroyed) {
+                setBusy(current != null)
+                if (!connected && current == null) status.text = "Local model process disconnected"
+                else if (connected && current == null && profile != null)
+                    status.text = "Connected · use Start Model in Workbench for warm Qwen"
+            }
+        }
+    }
+    private var current: ResidentModelClient.ChatCall? = null
     private var revision = 0L
     private lateinit var history: LinearLayout
     private lateinit var historyScroll: ScrollView
@@ -146,6 +154,11 @@ class LocalChatActivity : AppCompatActivity() {
         setBusy(current != null)
     }
 
+    override fun onStart() {
+        super.onStart()
+        client.connect()
+    }
+
     private fun loadMessages() {
         messages.clear()
         try {
@@ -200,11 +213,11 @@ class LocalChatActivity : AppCompatActivity() {
         }
         input.text.clear()
         renderMessages()
-        val call = OnDevicePlannerCall.chat(models, selected.model, prompt)
+        val call = client.call(selected.model, prompt)
         val generation = ++revision
         current = call
         setBusy(true)
-        status.text = "Generating locally… (first model load may take a while)"
+        status.text = "Generating locally… (Start Model once in Workbench to preload Qwen)"
         executor.execute {
             val response = try { JSONObject(call.execute()) } catch (_: Exception) {
                 JSONObject().put("ok", false).put("error", "PLANNER_MODEL_LOAD_FAILED")
@@ -248,9 +261,9 @@ class LocalChatActivity : AppCompatActivity() {
     }
 
     private fun setBusy(busy: Boolean) {
-        send.isEnabled = !busy && profile != null
+        send.isEnabled = !busy && profile != null && client.isConnected
         stop.isEnabled = busy
-        input.isEnabled = !busy && profile != null
+        input.isEnabled = !busy && profile != null && client.isConnected
     }
 
     private fun renderMessages() {
@@ -280,6 +293,7 @@ class LocalChatActivity : AppCompatActivity() {
             cancelCurrent()
             status.text = "Generation interrupted when chat was backgrounded"
         }
+        client.disconnect()
         super.onStop()
     }
 

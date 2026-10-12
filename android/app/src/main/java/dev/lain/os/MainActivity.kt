@@ -3,6 +3,7 @@ package dev.lain.os
 import android.Manifest
 import android.content.Intent
 import android.os.Bundle
+import android.os.Build
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -19,6 +20,7 @@ import dev.lain.os.databinding.ActivityMainBinding
 import dev.lain.os.planner.PlannerConnectionStatus
 import dev.lain.os.planner.PlannerProfile
 import dev.lain.os.planner.PlannerProfileDraft
+import dev.lain.os.planner.PlannerProfileStore
 import dev.lain.os.planner.PlannerProfileSummary
 import dev.lain.os.planner.PlannerSettingsManager
 import dev.lain.os.planner.OnDevicePlannerSaveState
@@ -26,6 +28,8 @@ import dev.lain.os.planner.OnDevicePlannerSaveViewModel
 import dev.lain.os.planner.RecommendedModelDownloadState
 import dev.lain.os.planner.RecommendedModelDownloadViewModel
 import dev.lain.os.planner.RecommendedModelEditorSnapshot
+import dev.lain.os.runtime.ResidentModelClient
+import dev.lain.os.runtime.ResidentModelService
 import dev.lain.os.ui.WorkbenchState
 import dev.lain.os.ui.WorkbenchViewModel
 import dev.lain.os.voice.MicrophoneFailure
@@ -52,6 +56,15 @@ class MainActivity : AppCompatActivity() {
     private val onDevicePlannerSave: OnDevicePlannerSaveViewModel by viewModels()
     private val recommendedModelDownload: RecommendedModelDownloadViewModel by viewModels()
     private val permissionBroker by lazy { PermissionBroker.android(this) }
+    private val residentClient: ResidentModelClient by lazy {
+        ResidentModelClient(this) { connected ->
+            if (!isDestroyed) {
+                ui.modelResidencyStatus.text = if (connected)
+                    "Model process connected · status shown in service notification"
+                else "Offline model stopped or process disconnected"
+            }
+        }
+    }
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
@@ -111,9 +124,33 @@ class MainActivity : AppCompatActivity() {
         ui.approveButton.setOnClickListener { model.approve() }
         ui.resumeButton.setOnClickListener { model.resume() }
         ui.reconnectButton.setOnClickListener { model.reconnect() }
+        ui.startModelButton.setOnClickListener {
+            val selected = try { PlannerProfileStore(this).active() } catch (_: Exception) { null }
+            if (selected?.mode != "on_device" || selected.protocol != "gguf_native_v1") {
+                ui.modelResidencyStatus.text = "Select and save an on-device GGUF model first."
+            } else {
+                try {
+                    val request = Intent(this, ResidentModelService::class.java)
+                        .setAction(ResidentModelService.ACTION_START)
+                    if (Build.VERSION.SDK_INT >= 26) startForegroundService(request)
+                    else startService(request)
+                    ui.modelResidencyStatus.text = "Loading selected GGUF · notification will show Ready"
+                } catch (_: Exception) {
+                    ui.modelResidencyStatus.text = "Could not start the model service"
+                }
+            }
+        }
+        ui.stopModelButton.setOnClickListener {
+            try {
+                startService(Intent(this, ResidentModelService::class.java)
+                    .setAction(ResidentModelService.ACTION_STOP))
+                ui.modelResidencyStatus.text = "Stopping model and releasing memory…"
+            } catch (_: Exception) {
+                ui.modelResidencyStatus.text = "Model stop failed; check the active service"
+            }
+        }
         ui.openChatButton.setOnClickListener {
-            // The task runtime uses a separate Android process. Do not overlap
-            // native model loads on a memory-constrained phone.
+            // Both chat and task planning now share the :runtime model process.
             if (model.state.value?.session?.optBoolean("active") == true) {
                 ui.message.text = "Stop or finish the active task before starting local chat."
             } else {
@@ -161,13 +198,14 @@ class MainActivity : AppCompatActivity() {
         voice.speechState.observe(this) { renderSpeechInput(it) }
     }
 
-    override fun onStart() { super.onStart(); model.attach() }
+    override fun onStart() { super.onStart(); model.attach(); residentClient.connect() }
     override fun onResume() {
         super.onResume()
         voice.reconcilePermission()
     }
     override fun onStop() {
         voice.onActivityStop(isChangingConfigurations)
+        residentClient.disconnect()
         model.detach(isChangingConfigurations)
         super.onStop()
     }

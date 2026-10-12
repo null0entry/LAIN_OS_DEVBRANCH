@@ -67,6 +67,27 @@ internal object GgufNativeProbe : OnDevicePlannerEngine {
         contextTokens: Int, maxNewTokens: Int, generationId: Long,
     ): ByteArray
 
+    private external fun nativeWarmModelBytes(modelPath: String): ByteArray
+    private external fun nativeCancelWarmModel()
+    private external fun nativeUnloadModel()
+
+    /** Resolve and checksum-verify app-private GGUF before calling this off the UI thread. */
+    fun warm(modelPath: String): GgufNativeProbeResult {
+        if (modelPath.isBlank()) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.INVALID_BOUNDS)
+        if (!libraryLoaded) return GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE)
+        return try { decodeNativePayload(nativeWarmModelBytes(modelPath)) }
+        catch (_: UnsatisfiedLinkError) { GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.NATIVE_LIBRARY_UNAVAILABLE) }
+        catch (_: RuntimeException) { GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.MODEL_LOAD_FAILED) }
+    }
+
+    fun cancelWarm() {
+        if (libraryLoaded) try { nativeCancelWarmModel() } catch (_: UnsatisfiedLinkError) { }
+    }
+
+    fun unload() {
+        if (libraryLoaded) try { nativeUnloadModel() } catch (_: UnsatisfiedLinkError) { }
+    }
+
     private external fun nativeCancelGeneration(generationId: Long)
     private external fun nativeRegisterGeneration(generationId: Long): Boolean
     private external fun nativeReleaseGeneration(generationId: Long)
