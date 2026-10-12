@@ -41,7 +41,6 @@ class LocalChatActivity : AppCompatActivity() {
             }
         }
     }
-}
     private var current: ResidentModelClient.ChatCall? = null
     private var revision = 0L
     private lateinit var history: LinearLayout
