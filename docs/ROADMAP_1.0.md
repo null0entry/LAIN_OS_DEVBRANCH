@@ -4,9 +4,9 @@
 
 LAIN_OS is the concrete open-source platform described by this roadmap. It implements the broader **LAIN — Loyal Autonomous Intelligence Network** philosophy through a local-first operating layer for autonomous intelligence.
 
-Version: 1.0-roadmap-r5
+Version: 1.0-roadmap-r6
 Status: Active product roadmap
-Date: 2026-10-03
+Date: 2026-10-11
 
 ## 1. North-star release outcome
 
@@ -30,6 +30,28 @@ The flagship 1.0 proof is:
     "Turn this idea into a YouTube video and post it."
 
 A successful demonstration means LAIN_OS creates a real script, narration, visual assets, rendered video, preview evidence, private upload, processing evidence, exact publication approval, publication, and an independently retrieved final result. A generated plan, simulated upload, mocked renderer, or planner assertion is not completion.
+
+### 2026-10-11 critical-path amendment — Clean install, native Qwen, universal device commands
+
+Owner-approved product direction now makes a stock-device bootstrap and broad natural-language on-device control part of the near-term critical path.
+
+The immediate order is:
+
+```text
+current PR #41 -> #44 native GGUF stack
+  -> TASK-071 clean-install bootstrap + permission broker
+  -> TASK-072 in-app pinned recommended Qwen download
+  -> TASK-073 universal command bridge
+  -> TASK-074 core Android capability expansion
+  -> TASK-075 physical universal-command acceptance
+  -> durable workflows / media / providers / publishing
+```
+
+Acceptance is no longer limited to an already-configured development phone. A factory-equivalent Android device must be able to install one APK, launch, choose Demo/Cloud/On-device planning, request ordinary runtime permissions, route special grants through Android-owned Settings surfaces, import or directly download the recommended GGUF, and keep unrelated capabilities usable when optional permissions/integrations are denied.
+
+The model remains an untrusted planner. All execution still passes through typed capabilities, trusted policy/approval, deterministic executors, verification, audit, and durable state. Termux, Tasker/Automate, Shizuku, root, ADB, external Python, and developer setup are not prerequisites for core operation; they may only extend later capability coverage.
+
+The initial pinned recommended on-device model is `Qwen3-1.7B-Q4_K_M.gguf` from `ggml-org/Qwen3-1.7B-GGUF`, downloaded through the app only after the user chooses it. The app must verify the expected SHA-256 before model publication and keep manual **Import GGUF** as a fallback.
 
 ### Near-term product milestone — Voice-First LAIN Preview
 
@@ -134,24 +156,26 @@ No later phase should bypass this planner/trusted-runtime boundary. Phase 2 voic
 
 ### Required
 
-1. Real selectable model intelligence in the Android app.
-2. Demo, hosted cloud, and user-provided local endpoint modes.
-3. Secure provider credentials.
-4. Voice input and spoken output.
-5. Conversational interruption and revision while work continues.
-6. Durable multi-stage workflows above the existing action-batch controller.
-7. Versioned artifact workspace with hashes and provenance.
-8. Real offline video rendering and inspection.
-9. Replaceable speech/media provider adapters with bounded cost and retry behavior.
-10. YouTube OAuth, private upload, processing verification, exact publication gate, and final lookup.
-11. Crash/restart recovery without duplicate side effects.
-12. Installed-device end-to-end acceptance.
-13. Release signing, migration, packaging, documentation, and a reproducible release-readiness report.
+1. Real selectable model intelligence in the Android app, including embedded on-device GGUF inference.
+2. Clean-install first-run bootstrap from one APK on stock Android, with truthful capability/permission discovery.
+3. Demo, hosted cloud, user-provided local endpoint, and on-device GGUF modes.
+4. Secure provider credentials.
+5. In-app recommended GGUF acquisition plus manual GGUF import, both verified before use.
+6. Voice input and spoken output.
+7. Natural-language typed/spoken command routing into the trusted capability runtime.
+8. Core Android capability breadth with optional privileged extensions that never become prerequisites.
+9. Conversational interruption and revision while work continues.
+10. Durable multi-stage workflows above the existing action-batch controller.
+11. Versioned artifact workspace with hashes and provenance.
+12. Real offline video rendering and inspection.
+13. Replaceable speech/media provider adapters with bounded cost and retry behavior.
+14. YouTube OAuth, private upload, processing verification, exact publication gate, and final lookup.
+15. Crash/restart recovery without duplicate side effects.
+16. Installed-device end-to-end acceptance, including factory-equivalent clean install.
+17. Release signing, migration, packaging, documentation, and a reproducible release-readiness report.
 
 ### Explicitly deferred beyond 1.0
 
-- Embedded GGUF/on-device LLM inference.
-- Model download/management UI.
 - Arbitrary cinematic video generation.
 - Voice cloning.
 - Always-listening microphone or wake word.
@@ -170,8 +194,12 @@ These are post-1.0 expansion targets, not hidden release blockers.
 The critical path is intentionally sequential at trust-boundary transitions:
 
     Foundation
-      -> P1 Pluggable Planner Runtime
-      -> P2 Voice Conversation
+      -> Native GGUF acceptance
+      -> Clean-install bootstrap + permission broker
+      -> In-app recommended model acquisition
+      -> Universal command bridge
+      -> Core Android capability expansion
+      -> Physical universal-command acceptance
       -> P3 Durable Workflow Graph
       -> P4 Offline Media Pipeline
       -> P5 External Provider Adapters
@@ -193,13 +221,15 @@ Do not parallelize across an unstable public interface merely to increase throug
 
 The immediate ordered product path is:
 
-1. Close **TASK-008 / Phase 1 planner acceptance** by fixing the observed Groq schema/diagnostic defects, preserving Cloud/Local automated acceptance, proving in-flight Stop, and requiring the full applicable installed Workbench preset suite to reach terminal **COMPLETE** on the Galaxy through the real selected planner.
-2. Complete **TASK-009 through TASK-015 / Phase 2 voice conversation**.
-3. Run current-build **physical Galaxy acceptance**, including planner happy paths, approval transitions, rotation/rebind/background behavior, interruption, and measured Stop behavior.
-4. Cut the **Voice-First LAIN Preview** only from evidence that passes those gates.
-5. Continue Phases 3–7 toward the complete 1.0 flagship release.
+1. Stabilize and physically validate the stacked native GGUF work in PR #41 through PR #44, including real on-device generation, Stop behavior, and native offline chat.
+2. Complete **TASK-071 — Clean-install bootstrap and permission broker** so a stock/factory-equivalent phone can launch from one APK, use Demo immediately, request permissions truthfully, and degrade gracefully.
+3. Complete **TASK-072 — In-app pinned recommended Qwen download** so On-device setup exposes **Download recommended Qwen** beside **Import GGUF**, with private staging, cancellation, storage bounds, GGUF preflight, and exact SHA-256 verification.
+4. Complete **TASK-073 — Universal command bridge** so typed and final spoken commands enter the same existing trusted AgentController path while ordinary chat remains non-executing and ambiguous side-effecting turns clarify instead of running.
+5. Complete **TASK-074 — Core Android capability expansion** using native APIs/Intents first and optional privileged adapters only when needed.
+6. Complete **TASK-075 — Physical universal-command acceptance** on a clean/factory-equivalent reference device, including permissions, model acquisition, voice/text equivalence, approvals, verification, Stop, restart, and audit.
+7. Continue durable workflow/media/provider/publishing phases only after this phone-control release path is usable and evidenced.
 
-Media production and YouTube publication must not block the Voice-First LAIN Preview, but the preview must not be relabeled as the complete 1.0 release.
+Media production and YouTube publication must not block the near-term phone-control release, and that release must not be mislabeled as the complete roadmap-defined 1.0 flagship.
 
 ## 6. Phase 0 — Foundation consolidation
 
