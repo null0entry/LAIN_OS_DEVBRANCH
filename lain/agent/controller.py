@@ -56,11 +56,15 @@ class AgentController:
         self.planner_binding_provider = planner_binding_provider or (lambda: OFFLINE_DEMO_BINDING)
         self.planner_factory = planner_factory
 
-    def create(self, goal: str) -> AgentSession:
+    def create(self, goal: str, *, use_offline_demo: bool = False) -> AgentSession:
         if not isinstance(goal, str) or not goal.strip():
             raise LainError(ErrorCode.ARGUMENT_INVALID, "goal must be a non-empty string")
+        if type(use_offline_demo) is not bool:
+            raise LainError(ErrorCode.ARGUMENT_INVALID, "demo selection must be trusted boolean")
         timestamp = self.now()
-        planner_binding = self.planner_binding_provider()
+        # A trusted owner-selected built-in operation must never wait for a
+        # model to restate its known plan. Pin the choice in the durable session.
+        planner_binding = OFFLINE_DEMO_BINDING if use_offline_demo else self.planner_binding_provider()
         if not isinstance(planner_binding, PlannerBinding):
             raise LainError(ErrorCode.PLANNER_UNAVAILABLE, "planner binding is unavailable")
         budget = replace(
