@@ -170,7 +170,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                             .contains(name)
                     }
                     scenario.onActivity {
-                        it.findViewById<EditText>(R.id.command_input).setText("Read battery")
+                        it.findViewById<EditText>(R.id.command_input).setText("Show battery")
                         assertTrue(it.findViewById<View>(R.id.run_button).performClick())
                     }
                     await(scenario) {
