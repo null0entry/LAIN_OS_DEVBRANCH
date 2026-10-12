@@ -13,6 +13,7 @@ __pycache__/
 venv/
 
 # Kotlin/Gradle/Android
+.cxx/
 .gradle/
 .kotlin/
 build/

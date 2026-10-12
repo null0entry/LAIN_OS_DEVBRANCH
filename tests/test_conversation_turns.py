@@ -140,6 +140,13 @@ class ConversationTurnManagerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             restarted.finish_reply(turn.turn_id, "approved", "pending")
 
+    def test_chat_prompt_closes_qwen_thinking_before_plain_response(self):
+        from lain.conversation.chat_context import build_chat_prompt
+        self.manager.accept("Hello", source=TurnSource.TYPED, kind=TurnKind.CHAT,
+                            reference=TurnReference.NONE)
+        prompt = build_chat_prompt(self.manager.snapshot(), lambda _: None)
+        self.assertTrue(prompt.endswith("<|im_start|>assistant\n<think>\n\n</think>\n\n"))
+
     def test_task_link_survives_restart_but_cannot_be_confused_with_chat_reply(self):
         task = self.manager.accept(
             "Show battery", source=TurnSource.SPEECH,

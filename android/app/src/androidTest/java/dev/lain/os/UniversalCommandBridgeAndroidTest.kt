@@ -33,6 +33,7 @@ class UniversalCommandBridgeAndroidTest {
     private class RecordingBinding : RuntimeBinding {
         val requests = Collections.synchronizedList(mutableListOf<JSONObject>())
         fun snapshot(): List<JSONObject> = synchronized(requests) { requests.toList() }
+        @Volatile var chatPending = false
         private val id = UUID.randomUUID().toString()
         private fun session() = JSONObject()
             .put("session_id", id)
@@ -65,7 +66,10 @@ class UniversalCommandBridgeAndroidTest {
                             .put("next_turn_id", 1)
                             .put("active_task_id", JSONObject.NULL)
                             .put("turns", JSONArray())
-                            .put("partial_text", JSONObject.NULL))
+                            .put("partial_text", JSONObject.NULL)
+                            .put("assistant_replies", if (chatPending) JSONArray().put(
+                                JSONObject().put("turn_id", 1).put("state", "pending").put("text", ""))
+                                else JSONArray()))
                     "inspect" -> JSONObject().put("version", 1).put("ok", true)
                         .put("session", session())
                     "turn_submit" -> JSONObject().put("version", 1).put("ok", true)
@@ -102,6 +106,36 @@ class UniversalCommandBridgeAndroidTest {
             SystemClock.sleep(50)
         }
         throw AssertionError("timed out waiting for command bridge")
+    }
+
+    @Test fun pendingChatBlocksAnotherSubmissionUntilItsReplySettles() {
+        val binding = RecordingBinding().apply { chatPending = true }
+        WorkbenchViewModel.runtimeClientFactory = { app -> RuntimeClient(app, binding) }
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            await(scenario) {
+                val state = ViewModelProvider(it)[WorkbenchViewModel::class.java].state.value
+                state?.ready == true && state.replyPending
+            }
+            scenario.onActivity {
+                assertTrue(!it.findViewById<android.widget.Button>(R.id.run_button).isEnabled)
+                assertTrue(!ViewModelProvider(it)[WorkbenchViewModel::class.java]
+                    .submitSpeech("Show battery", finalId = 77L))
+            }
+            assertEquals(0, binding.snapshot().count { it.optString("command") == "turn_submit" })
+            binding.chatPending = false
+            await(scenario) {
+                val state = ViewModelProvider(it)[WorkbenchViewModel::class.java].state.value
+                state?.ready == true && !state.replyPending
+            }
+            scenario.onActivity {
+                assertTrue(it.findViewById<android.widget.Button>(R.id.run_button).isEnabled)
+                assertTrue(ViewModelProvider(it)[WorkbenchViewModel::class.java]
+                    .submitSpeech("Show battery", finalId = 77L))
+            }
+            await(scenario) {
+                binding.snapshot().count { it.optString("command") == "turn_submit" } == 1
+            }
+        }
     }
 
     @Test fun typedAndAcceptedFinalSpeechShareTheSameAutoRoute() {

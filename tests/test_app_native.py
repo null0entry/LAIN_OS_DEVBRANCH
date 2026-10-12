@@ -41,9 +41,27 @@ class NativeAdapterTests(unittest.TestCase):
         action = Action("a1", "android.toast", {"content": "test"})
         self.assertEqual(adapter.verify(action, adapter.execute(action)).status, VerificationStatus.LIMITED)
 
-    def test_unsupported_native_operation_fails_closed(self):
-        adapter = NativeAndroidAdapter(NativeStub({}))
-        result = adapter.execute(Action("a1", "android.open_uri", {"uri": "https://example.com"}))
+    def test_registered_native_uri_and_notification_reach_callback_with_limited_verification(self):
+        for name, args in (("android.open_uri", {"uri": "https://example.com"}),
+                           ("android.notify", {"title": "LAIN", "content": "Ready"})):
+            with self.subTest(name=name):
+                adapter = NativeAndroidAdapter(NativeStub({}))
+                action = Action("a1", name, args)
+                result = adapter.execute(action)
+                self.assertEqual(result.status, ActionStatus.SUCCESS)
+                self.assertEqual(adapter.verify(action, result).status, VerificationStatus.LIMITED)
+
+    def test_native_uri_rejects_unapproved_schemes_before_callback(self):
+        class NeverCalled:
+            def execute(self, *_):
+                raise AssertionError("invalid URI crossed native boundary")
+        for uri in ("intent://settings", "file:///private", "javascript:alert(1)"):
+            result = NativeAndroidAdapter(NeverCalled()).execute(
+                Action("a1", "android.open_uri", {"uri": uri}))
+            self.assertEqual(result.error_code, "ARGUMENT_INVALID")
+
+    def test_unknown_native_operation_fails_closed(self):
+        result = NativeAndroidAdapter(NativeStub({})).execute(Action("a1", "android.shell", {}))
         self.assertEqual(result.status, ActionStatus.UNSUPPORTED)
 
     def test_cli_keeps_default_dispatch(self):

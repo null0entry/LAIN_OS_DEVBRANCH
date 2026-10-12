@@ -35,6 +35,6 @@ class OnDeviceChatCallTest {
         assertEquals("Hello, human!", result.getString("body"))
         assertEquals(prompt, actualPrompt)
         assertEquals(0, actions)
-        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n<think>\n\n</think>\n\n"))
     }
 }

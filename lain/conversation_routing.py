@@ -12,6 +12,7 @@ import json
 import re
 
 from lain.app.demo import COMMANDS
+from lain.app.planner_bridge import _use_low_reasoning
 
 MAX_ROUTER_BYTES = 4096
 MAX_ROUTE_TEXT_BYTES = 1024
@@ -89,7 +90,7 @@ def qwen_router_prompt(text: str) -> str:
     prompt = (
         "<|im_start|>system\n" + _ROUTER_SYSTEM + "<|im_end|>\n" +
         "<|im_start|>user\n" + safe + "<|im_end|>\n" +
-        "<|im_start|>assistant\n"
+        "<|im_start|>assistant\n<think>\n\n</think>\n\n"
     )
     if len(prompt.encode("utf-8")) > 16_384:
         raise ValueError("router prompt too large")
@@ -138,7 +139,7 @@ def classify_final_turn(text, binding, native_bridge=None):
                 return _clarify("The on-device model could not classify this command.")
             output = envelope["body"]
         elif binding.mode in {"cloud", "local"}:
-            request = json.dumps({
+            request_body = {
                 "model": binding.model,
                 "messages": [
                     {"role": "system", "content": _ROUTER_SYSTEM},
@@ -146,7 +147,11 @@ def classify_final_turn(text, binding, native_bridge=None):
                 ],
                 "max_completion_tokens": 256,
                 "stream": False,
-            }, ensure_ascii=False, separators=(",", ":"))
+            }
+            if _use_low_reasoning(binding):
+                request_body["reasoning_effort"] = "low"
+                request_body["max_completion_tokens"] = 1024
+            request = json.dumps(request_body, ensure_ascii=False, separators=(",", ":"))
             response = json.loads(str(native_bridge.execute(binding_json, request)), object_pairs_hook=_unique_pairs)
             if not isinstance(response, dict) or set(response) != {"ok", "body"} or response["ok"] is not True:
                 return _clarify("The selected model could not classify this command.")

@@ -1,5 +1,14 @@
 package dev.lain.os.runtime
 
+import android.Manifest
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.ActivityNotFoundException
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.core.app.NotificationManagerCompat
+import dev.lain.os.R
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -28,6 +37,24 @@ class NativeCapabilities(private val context: Context) {
             if (argumentsJson.toByteArray(Charsets.UTF_8).size > 65536) return reply("failure").toString()
             val args = JSONObject(argumentsJson)
             when (name) {
+                "android.notify" -> {
+                    requireFields(args, setOf("title", "content"))
+                    val title = text(args, "title")
+                    val message = text(args, "content")
+                    notify(title, message)
+                }
+                "android.open_uri" -> {
+                    requireFields(args, setOf("uri"))
+                    val uri = Uri.parse(text(args, "uri"))
+                    require(uri.scheme?.lowercase() in setOf("http", "https", "geo", "mailto"))
+                    onMain {
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, uri)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            reply("success")
+                        } catch (_: ActivityNotFoundException) { reply("unsupported") }
+                    }
+                }
                 "android.battery_status" -> {
                     requireFields(args, emptySet())
                     battery()
@@ -87,6 +114,31 @@ class NativeCapabilities(private val context: Context) {
         require(value is String && value.isNotEmpty() && !value.contains('\u0000'))
         require(value.toByteArray(Charsets.UTF_8).size <= maxBytes)
         return value
+    }
+
+    private fun text(args: JSONObject, name: String): String {
+        val value = args.get(name)
+        require(value is String && !value.contains('\u0000'))
+        return value
+    }
+
+    private fun notify(title: String, content: String): JSONObject {
+        if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED) return reply("unsupported")
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return reply("unsupported")
+        val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channel = "lain-device-actions"
+        if (Build.VERSION.SDK_INT >= 26) {
+            manager.createNotificationChannel(NotificationChannel(channel, "Device actions", NotificationManager.IMPORTANCE_DEFAULT))
+            if (manager.getNotificationChannel(channel).importance == NotificationManager.IMPORTANCE_NONE)
+                return reply("unsupported")
+        }
+        @Suppress("DEPRECATION")
+        val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, channel)
+            else Notification.Builder(context)
+        manager.notify(4108, builder.setSmallIcon(R.drawable.ic_lain)
+            .setContentTitle(title).setContentText(content).setAutoCancel(true).build())
+        return reply("success")
     }
 
     private fun battery(): JSONObject {

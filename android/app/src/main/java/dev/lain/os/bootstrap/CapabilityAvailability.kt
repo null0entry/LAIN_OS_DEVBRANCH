@@ -22,6 +22,7 @@ internal data class CapabilityRequirement(
     val capability: String,
     val minApi: Int = 24,
     val runtimePermission: String? = null,
+    val permissionMinApi: Int = 23,
     val settingsGrant: SettingsGrant? = null,
     val optionalDependency: String? = null,
 )

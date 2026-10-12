@@ -34,6 +34,10 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:text="Start the selected offline GGUF once to keep it in memory for voice, tasks and chat."
             android:textColor="@color/text_secondary" android:textSize="12sp" />
+        <Button android:id="@+id/notification_permission_button"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:minHeight="48dp" android:text="@string/enable_notifications"
+            android:textAllCaps="false" android:visibility="gone" />
         <Button android:id="@+id/open_chat_button"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="12dp" android:text="@string/chat_open"

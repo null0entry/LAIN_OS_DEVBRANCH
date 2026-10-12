@@ -1,5 +1,20 @@
 # Done
 
+## TASK-078: Repair integrated runtime, Android app and build verification
+**Priority:** P2 | **Tags:** runtime, android, functionality, regression
+**Updated:** 2026-10-12 16:17
+
+User requested a functionality audit and fixes for the repository and included app.
+
+### Plan / completion summary
+- Reproduced and repaired Qwen3 prompt contracts, role delimiter escaping, and completion after successful limited-verification effects.
+- Added genuine cloud/local-server chat replies with bounded shared history and truthful interrupted-reply recovery.
+- Wired native notification and URI capabilities, explicit notification-permission UI, speech service visibility, and pending-reply submission gating.
+- Added regression coverage and checksum/source metadata to the existing Android CI APK artifacts.
+- Canonical portable checks, native lifecycle regressions, and Android unit/build/lint checks verified; physical-device acceptance remains separate.
+
+---
+
 ## TASK-053: Implement selectable agent speech voices
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
 **Updated:** 2026-10-07

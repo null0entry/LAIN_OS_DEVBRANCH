@@ -110,4 +110,7 @@ Returning to the background requests Stop. Interrupted work requires explicit re
     <string name="planner_importing_model">Importing and verifying local model…</string>
     <string name="planner_imported_model">GGUF imported locally: %1$s</string>
     <string name="planner_offline_credential">On-device model — no API key or internet required</string>
+    <string name="enable_notifications">Enable notifications</string>
+    <string name="notification_permission_granted">Notifications enabled.</string>
+    <string name="notification_permission_denied">Notifications are disabled. You can enable them in app settings.</string>
 </resources>

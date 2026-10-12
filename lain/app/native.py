@@ -6,11 +6,12 @@ import json
 from lain.capabilities.registry import DEFAULT_REGISTRY
 from lain.errors import ErrorCode, LainError
 from lain.execution.models import ExecutionOutcome
+from lain.execution.android import validate_android_uri
 from lain.protocol.models import Action
 from lain.verification.android import verify_android_expansion
 from lain.verification.battery import validate_battery
 
-NATIVE_CAPABILITIES = frozenset({"android.battery_status", "android.vibrate", "android.toast",
+NATIVE_CAPABILITIES = frozenset({"android.notify", "android.open_uri", "android.battery_status", "android.vibrate", "android.toast",
                                  "android.clipboard_set", "android.share_text"})
 
 
@@ -33,6 +34,8 @@ class NativeAndroidAdapter:
                                                 "Native capability is unavailable")
         try:
             arguments = DEFAULT_REGISTRY.get(action.type).validate_arguments(action.arguments)
+            if action.type == "android.open_uri":
+                validate_android_uri(arguments["uri"])
             payload = str(self.callback.execute(action.type, json.dumps(arguments, ensure_ascii=False)))
             if len(payload.encode("utf-8")) > 65536:
                 raise ValueError("oversized native response")

@@ -13,4 +13,12 @@ data class WorkbenchState(
     val conversation: JSONObject? = null,
     val conversationResponse: String? = null,
     val message: String = "Connecting to local runtime…"
-)
+) {
+    val replyPending: Boolean
+        get() {
+            val replies = conversation?.optJSONArray("assistant_replies") ?: return false
+            return (0 until replies.length()).any {
+                replies.optJSONObject(it)?.optString("state") == "pending"
+            }
+        }
+}

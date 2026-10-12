@@ -2,6 +2,10 @@ package dev.lain.os
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import android.os.Bundle
 import android.os.Build
 import android.view.View
@@ -68,6 +72,12 @@ class MainActivity : AppCompatActivity() {
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
+        }
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            ui.message.text = getString(if (granted) R.string.notification_permission_granted
+                else R.string.notification_permission_denied)
+            refreshNotificationPermission()
         }
     private val ggufPicker =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -149,6 +159,15 @@ class MainActivity : AppCompatActivity() {
                 ui.modelResidencyStatus.text = "Model stop failed; check the active service"
             }
         }
+        ui.notificationPermissionButton.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")))
+            }
+        }
         ui.openChatButton.setOnClickListener {
             // Both chat and task planning now share the :runtime model process.
             if (model.state.value?.session?.optBoolean("active") == true) {
@@ -202,12 +221,18 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         voice.reconcilePermission()
+        refreshNotificationPermission()
     }
     override fun onStop() {
         voice.onActivityStop(isChangingConfigurations)
         residentClient.disconnect()
         model.detach(isChangingConfigurations)
         super.onStop()
+    }
+
+    private fun refreshNotificationPermission() {
+        ui.notificationPermissionButton.visibility = if (
+            NotificationManagerCompat.from(this).areNotificationsEnabled()) View.GONE else View.VISIBLE
     }
 
     private fun render(state: WorkbenchState) {
@@ -222,7 +247,7 @@ class MainActivity : AppCompatActivity() {
         ui.reconnectButton.visibility = if (!state.connected || state.startupFailed) View.VISIBLE else View.GONE
         ui.message.text = state.message
         renderTranscript(state, session)
-        ui.runButton.isEnabled = state.ready && !state.pending && !recovery
+        ui.runButton.isEnabled = state.ready && !state.pending && !state.replyPending && !recovery
         updateVoiceRecordEnabled()
         speakProgress(session)
         speakResponse(session)
@@ -338,7 +363,7 @@ class MainActivity : AppCompatActivity() {
                 val reply = replies[turnId]
                 if (reply != null) {
                     val (replyState, replyText) = reply
-                    val display = if (replyState == "pending") "Generating local reply…" else replyText
+                    val display = if (replyState == "pending") "Generating reply…" else replyText
                     if (display.isNotBlank()) {
                         ui.conversationTranscript.addView(
                             resultText("LAIN · " + replyState + "\n" + display)
@@ -484,7 +509,7 @@ class MainActivity : AppCompatActivity() {
         val recording = voice.state.value?.status == MicrophoneStatus.RECORDING
         val transcribing = voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
         ui.voiceRecordButton.isEnabled = recording ||
-            (runtime?.ready == true && !runtime.pending && !recovery && !transcribing)
+            (runtime?.ready == true && !runtime.pending && !runtime.replyPending && !recovery && !transcribing)
     }
 
     private fun resultText(value: String) = TextView(this).apply {

@@ -127,7 +127,7 @@ internal class OnDevicePlannerCall(
         )
         private fun failure(code: String) = JSONObject().put("ok", false).put("error", code).toString()
 
-        /** Qwen2.5 chat format for the first supported offline GGUF family. */
+        /** Qwen3 non-thinking chat format: bounded JSON generation, no reasoning preamble. */
         internal fun promptForQwen(payload: String): String {
             require(payload.toByteArray(Charsets.UTF_8).size <= MAX_REQUEST_BYTES)
             val tokener = JSONTokener(payload)
@@ -141,8 +141,8 @@ internal class OnDevicePlannerCall(
                 "{\"status\":\"continue|complete|blocked\",\"reason\":\"brief reason\",\"actions\":[{\"type\":\"capability\",\"arguments\":{}}]}. " +
                 "Use an empty actions array when complete or blocked. Never add markdown."
             val prompt = "<|im_start|>system\n" + system +
-                "<|im_end|>\n<|im_start|>user\n" + payload +
-                "<|im_end|>\n<|im_start|>assistant\n"
+                "<|im_end|>\n<|im_start|>user\n" + payload.replace("<|", "‹|") +
+                "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
             require(prompt.toByteArray(Charsets.UTF_8).size <= 16_384)
             return prompt
         }
