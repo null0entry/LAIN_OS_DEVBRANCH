@@ -110,7 +110,7 @@ class ResidentModelService : Service() {
                 worker.execute {
                     val result = try {
                         val selected = profiles.active()
-                        if (selected?.mode != "on_device" || selected.protocol != "gguf_native_v1") {
+                        if (selected?.mode != "on_device" || selected?.protocol != "gguf_native_v1") {
                             "FAILED: select an on-device GGUF profile"
                         } else {
                             val verifiedFile = models.resolve(selected.model) { stopRequested.get() }
