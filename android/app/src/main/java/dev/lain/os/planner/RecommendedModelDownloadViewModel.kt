@@ -62,10 +62,12 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                     (RecommendedModel, (Long, Long) -> Unit, () -> Boolean) -> ImportedGgufModel =
                     { model, progress, cancelled ->
                         val imported = downloader.download(model, progress, cancelled)
-                        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-                            throw IllegalStateException("Android 9 and earlier require a user-selected download location")
+                        // On API 24-28 the user chooses the export destination
+                        // with ACTION_CREATE_DOCUMENT; retain the verified private model
+                        // instead of reporting the successful download as failed.
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            publisher.publish(model, store.resolve(imported.sha256, cancelled), cancelled)
                         }
-                        publisher.publish(model, store.resolve(imported.sha256, cancelled), cancelled)
                         imported
                     }
                 action
@@ -125,7 +127,7 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                     },
                     cancelled::get,
                 )
-                // A returned import means the exact model was already verified and published.
+                // The imported model is always verified; public export on API 24-28 is a separate user action.
                 // A late Cancel cannot truthfully roll that completed publication back.
                 RecommendedModelDownloadState.Downloaded(model, imported, editor)
             } catch (_: InterruptedIOException) {
