@@ -27,12 +27,12 @@ internal class OnDeviceModelStore(
         private val SHA = Regex("^[0-9a-f]{64}$")
         private const val DEFAULT_MAX_BYTES = 2_000_000_000L
         private const val FREE_SPACE_FLOOR_BYTES = 96L * 1024 * 1024
+        @Volatile private var lastVerified: Verified? = null
     }
 
     init { require(root.isDirectory || root.mkdirs()) { "private model storage unavailable" } }
 
     private data class Verified(val path: String, val size: Long, val modified: Long)
-    @Volatile private var lastVerified: Verified? = null
 
     fun requireStagingCapacity(expectedBytes: Long) {
         require(expectedBytes > 24 && expectedBytes <= DEFAULT_MAX_BYTES) {
