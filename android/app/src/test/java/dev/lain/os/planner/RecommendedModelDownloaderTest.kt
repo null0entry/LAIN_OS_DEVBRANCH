@@ -85,6 +85,25 @@ class RecommendedModelDownloaderTest {
         assertEquals(listOf(imported.sha256), OnDeviceModelStore(root).list().map { it.sha256 })
     }
 
+    @Test fun insufficientStorageFailsBeforeOpeningNetwork() {
+        val bytes = candidate()
+        var opened = false
+        val downloader = RecommendedModelDownloader(
+            modelStore = OnDeviceModelStore(root, usableSpace = { 0L }),
+            connectionFactory = {
+                opened = true
+                FakeConnection(it, 200, bytes)
+            },
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            downloader.download(model(bytes))
+        }
+
+        assertFalse(opened)
+        assertTrue(OnDeviceModelStore(root).list().isEmpty())
+    }
+
     @Test fun httpFailureDoesNotPublish() {
         val downloader = RecommendedModelDownloader(
             modelStore = OnDeviceModelStore(root),
