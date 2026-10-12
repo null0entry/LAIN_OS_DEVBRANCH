@@ -1,20 +1,21 @@
 package dev.lain.os.planner
 
+import android.annotation.TargetApi
 import android.content.ContentValues
 import android.content.Context
-import android.annotation.TargetApi
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.provider.MediaStore
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import java.io.File
 import java.io.InterruptedIOException
 
 /**
  * Publishes a verified private GGUF into user-visible Downloads.
- * Android 10+ uses a pending MediaStore entry: incomplete files never become public.
- * Older Android versions require a user-selected SAF destination (handled by the caller).
+ * Android 10+ uses a pending MediaStore entry so incomplete files are hidden.
+ * Android 7-9 exports via ACTION_CREATE_DOCUMENT and the user's chosen location.
+ * The private app-owned copy must remain for native GGUF path loading.
  */
 internal class RecommendedModelDownloadsPublisher(private val context: Context) {
     @TargetApi(Build.VERSION_CODES.Q)
@@ -48,24 +49,6 @@ internal class RecommendedModelDownloadsPublisher(private val context: Context) 
                 }
             } ?: throw IllegalStateException("cannot write public Downloads entry")
             if (isCancelled() || Thread.currentThread().isInterrupted) {
-                            throw InterruptedIOException("GGUF export cancelled")
-                        }
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        if (count == 0) continue
-                        copied += count
-                        require(copied <= model.expectedBytes) { "model export exceeded pinned size" }
-                        digest.update(buffer, 0, count)
-                        output.write(buffer, 0, count)
-                    }
-                    output.flush()
-                }
-            } ?: throw IllegalStateException("cannot write public Downloads entry")
-            val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
-            require(copied == model.expectedBytes && actual == model.expectedSha256) {
-                "exported GGUF checksum or size mismatch"
-            }
-            if (isCancelled() || Thread.currentThread().isInterrupted) {
                 throw InterruptedIOException("GGUF export cancelled")
             }
             val update = ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) }
@@ -79,7 +62,7 @@ internal class RecommendedModelDownloadsPublisher(private val context: Context) 
         }
     }
 
-    /** ACTION_CREATE_DOCUMENT destination, including Android 7–9 SAF Downloads. */
+    /** Target must be the newly created URI returned by ACTION_CREATE_DOCUMENT. */
     fun publishToDocument(
         uri: Uri,
         expectedSha256: String,
@@ -103,7 +86,6 @@ internal class RecommendedModelDownloadsPublisher(private val context: Context) 
             complete = true
         } finally {
             if (!complete) {
-                // ACTION_CREATE_DOCUMENT creates a new file: remove a partial on failure.
                 try { DocumentsContract.deleteDocument(resolver, uri) } catch (_: Exception) { }
             }
         }
