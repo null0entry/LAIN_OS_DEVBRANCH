@@ -1,7 +1,7 @@
 # LAIN_OS — Embedded Offline GGUF Planner (Android) Design
 
-Date: 2026-10-08  
-Status: **design for owner review; no runtime implementation or physical acceptance claimed**  
+Date: 2026-10-08
+Status: **design for owner review; no runtime implementation or physical acceptance claimed**
 Owner request: [canonical queue handoff](https://github.com/null0entry/LAIN_OS_DEVBRANCH/issues/6#issuecomment-6066165567)
 
 ## Intent and acceptance
