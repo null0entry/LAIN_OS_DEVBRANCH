@@ -4,6 +4,9 @@
     <string name="bootstrap_intro">Try the built-in Demo immediately, or configure a planner and import an on-device GGUF model in Planner Settings. Demo uses fixed examples; an on-device model is required for local chat.</string>
     <string name="bootstrap_demo">Continue with Demo</string>
     <string name="bootstrap_configure_planner">Configure planner</string>
+    <string name="bootstrap_download_qwen">Download recommended Qwen</string>
+    <string name="bootstrap_download_metadata">Qwen3 1.7B Q4_K_M · ~1.28 GB · source: https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf · SHA-256 d2387ca2dbfe… pinned before use</string>
+    <string name="bootstrap_download_complete">Recommended Qwen downloaded and verified. Configure planner to select it.</string>
     <string name="bootstrap_finish">Finish setup</string>
     <string name="bootstrap_capabilities_heading">Device capabilities</string>
     <string name="bootstrap_microphone">Enable microphone</string>
@@ -97,6 +100,13 @@ Returning to the background requests Stop. Interrupted work requires explicit re
     <string name="planner_testing">Testing connection…</string>
     <string name="planner_error">Planner settings error: %1$s</string>
     <string name="planner_import_model">Import on-device GGUF model</string>
+    <string name="planner_download_model">Download recommended Qwen</string>
+    <string name="planner_download_cancel">Cancel Qwen download</string>
+    <string name="planner_download_metadata">Qwen3 1.7B Q4_K_M · ~1.28 GB · source: https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf · SHA-256 d2387ca2dbfe… pinned before use</string>
+    <string name="planner_download_progress">Downloading recommended Qwen… %1$d%% (%2$d / %3$d MiB)</string>
+    <string name="planner_download_complete">Qwen downloaded and verified: %1$s</string>
+    <string name="planner_download_cancelled">Qwen download cancelled. No partial model was published.</string>
+    <string name="planner_download_failed">Qwen download failed: %1$s</string>
     <string name="planner_importing_model">Importing and verifying local model…</string>
     <string name="planner_imported_model">GGUF imported locally: %1$s</string>
     <string name="planner_offline_credential">On-device model — no API key or internet required</string>

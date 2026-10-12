@@ -20,6 +20,15 @@
         <Button android:id="@+id/bootstrap_configure_planner" android:layout_width="match_parent"
             android:layout_height="wrap_content" android:minHeight="48dp"
             android:text="@string/bootstrap_configure_planner" android:textAllCaps="false" />
+        <Button android:id="@+id/bootstrap_download_qwen" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:minHeight="48dp"
+            android:text="@string/bootstrap_download_qwen" android:textAllCaps="false" />
+        <TextView android:id="@+id/bootstrap_download_status" android:layout_width="match_parent"
+            android:layout_height="wrap_content" android:layout_marginTop="4dp"
+            android:text="@string/bootstrap_download_metadata"
+            android:textColor="@color/text_secondary" android:textSize="13sp"
+            android:autoLink="web" android:linksClickable="true"
+            android:accessibilityLiveRegion="polite" />
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="16dp" android:text="@string/bootstrap_capabilities_heading"
             android:textColor="@color/text_primary" android:textSize="18sp"

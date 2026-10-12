@@ -88,6 +88,9 @@ class BootstrapActivityAndroidTest {
                         .text.toString().contains("Set up LAIN_OS"),
                 )
                 assertTrue(activity.findViewById<Button>(R.id.bootstrap_demo).isEnabled)
+                val qwen = activity.findViewById<Button>(R.id.bootstrap_download_qwen)
+                assertTrue(qwen.isEnabled)
+                assertTrue(qwen.text.toString().contains("Download recommended Qwen"))
                 val capabilities = activity.findViewById<TextView>(R.id.bootstrap_capabilities)
                     .text.toString()
                 assertTrue(capabilities.contains("voice.input"))
