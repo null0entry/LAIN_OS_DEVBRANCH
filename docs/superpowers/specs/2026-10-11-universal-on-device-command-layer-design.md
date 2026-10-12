@@ -77,6 +77,13 @@ First-run setup must be app-owned and recoverable. It should include:
 
 - planner choice: Demo, configured Cloud/Local endpoint, or On-device GGUF;
 - On-device setup that can import a GGUF through Android's document picker into app-private storage without Termux;
+- a visible **Download recommended Qwen** control next to **Import GGUF**, initially targeting `Qwen3-1.7B-Q4_K_M.gguf`;
+- recommended-model metadata displayed before download: model name, quantization, expected size, source host, and SHA-256;
+- direct download target: `https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf`;
+- expected file size: approximately 1.28 GB;
+- expected SHA-256: `d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5`;
+- download into a private staging file with cancellation, bounded storage checks, and progress; publish into `OnDeviceModelStore` only after GGUF preflight and exact SHA-256 verification;
+- if the recommended download metadata changes in a later release, ship it as versioned app metadata rather than silently trusting whatever a mutable URL returns;
 - a future app-managed recommended-model acquisition path, so manual browser/Termux model staging is not a permanent product requirement;
 - a capability scan showing which capabilities are READY, NEEDS_PERMISSION, NEEDS_SETTINGS_GRANT, OPTIONAL_DEPENDENCY_MISSING, or UNSUPPORTED;
 - runtime permission requests only when the user enables or first invokes a capability that needs them;
@@ -244,6 +251,8 @@ Required behavior:
 - app-private directories and durable stores initialize themselves;
 - planner setup offers a usable path without external tooling;
 - on-device GGUF import uses the Android document picker and app-private model storage;
+- the setup UI offers **Download recommended Qwen** beside **Import GGUF** and downloads the pinned recommended GGUF directly into private staging without launching a shell or requiring a helper app;
+- the recommended download is accepted only when its expected SHA-256, size/resource bounds, and GGUF preflight pass; partial/cancelled/mismatched downloads never become selectable models;
 - capability availability is derived from device/API/permission state rather than hardcoded assumptions;
 - ordinary runtime permissions are requested through Android's permission APIs when needed;
 - special grants open the correct Android-owned Settings surface and are revalidated on return;
