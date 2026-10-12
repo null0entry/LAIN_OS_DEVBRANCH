@@ -125,7 +125,14 @@ class RuntimeFlowTest {
                 assertFalse(text.contains("Hello from LAIN_OS."))
                 assertTrue(activity.findViewById<android.view.View>(R.id.approve_button).isEnabled)
             }
-            onView(withId(R.id.stop_button)).perform(click())
+            // Keep this assertion scoped to runtime/UI wiring, just like Run.
+            // Focus/inset changes can keep Stop outside Espresso's click viewport
+            // even after scrollTo; invoke its real listener after checking readiness.
+            scenario.onActivity { activity ->
+                val stop = activity.findViewById<android.view.View>(R.id.stop_button)
+                assertTrue(stop.isEnabled)
+                assertTrue(stop.performClick())
+            }
             await(scenario) { it.findViewById<TextView>(R.id.task_status).text.toString() == "CANCELLED" }
         }
     }

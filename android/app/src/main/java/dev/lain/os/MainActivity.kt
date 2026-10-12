@@ -13,6 +13,8 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnLayout
+import dev.lain.os.bootstrap.PermissionBroker
 import dev.lain.os.databinding.ActivityMainBinding
 import dev.lain.os.planner.PlannerConnectionStatus
 import dev.lain.os.planner.PlannerProfile
@@ -37,11 +39,15 @@ import dev.lain.os.voice.TrustedProgressSnapshot
 import dev.lain.os.voice.VoiceCaptureViewModel
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        internal const val EXTRA_CONFIGURE_PLANNER = "dev.lain.os.CONFIGURE_PLANNER"
+    }
     private lateinit var ui: ActivityMainBinding
     private val model: WorkbenchViewModel by viewModels()
     private val voice: VoiceCaptureViewModel by viewModels()
     private val speechOutput: SpeechOutputViewModel by viewModels()
     private val onDevicePlannerSave: OnDevicePlannerSaveViewModel by viewModels()
+    private val permissionBroker by lazy { PermissionBroker.android(this) }
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
@@ -118,13 +124,23 @@ class MainActivity : AppCompatActivity() {
                 // before the microphone can begin capturing to avoid self-echo.
                 speechOutput.stopTalking()
                 if (!voice.start()) {
-                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    permissionBroker.runtimePermissionFor("voice.input")?.let(microphonePermission::launch)
                 }
             }
         }
         setupSpeechVoiceSelection()
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
+        if (intent.getBooleanExtra(EXTRA_CONFIGURE_PLANNER, false)) {
+            ui.plannerProfiles.doOnLayout {
+                ui.plannerProfiles.post {
+                    ui.plannerProfiles.requestRectangleOnScreen(
+                        android.graphics.Rect(0, 0, ui.plannerProfiles.width, ui.plannerProfiles.height),
+                        true,
+                    )
+                }
+            }
+        }
         onDevicePlannerSave.state.observe(this, ::renderOnDevicePlannerSave)
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
         demos.forEach { command ->
