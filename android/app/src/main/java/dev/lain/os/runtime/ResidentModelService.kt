@@ -21,6 +21,7 @@ import dev.lain.os.planner.PlannerProfileStore
 import org.json.JSONObject
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * A user-started foreground service, deliberately hosted in :runtime alongside
@@ -41,6 +42,7 @@ class ResidentModelService : Service() {
 
     private val worker = Executors.newSingleThreadExecutor()
     private val currentChat = AtomicReference<OnDevicePlannerCall?>(null)
+    private val stopRequested = AtomicBoolean(false)
     private val models by lazy { OnDeviceModelStore(this) }
     private val profiles by lazy { PlannerProfileStore(this) }
     @Volatile private var state = "STOPPED"
@@ -84,7 +86,7 @@ class ResidentModelService : Service() {
                 }
             } catch (_: Exception) { failure("PLANNER_REQUEST_INVALID") }
             reply.writeNoException()
-            reply.writeString(answer.take(20_000))
+            reply.writeString(if (answer.toByteArray(Charsets.UTF_8).size <= 65536) answer else failure("PLANNER_OUTPUT_INVALID"))
             return true
         }
     }
@@ -94,6 +96,7 @@ class ResidentModelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
+                stopRequested.set(false)
                 state = "LOADING"
                 // Foreground promotion precedes heavy I/O; started only by an explicit UI tap.
                 ensureChannel()
@@ -110,7 +113,8 @@ class ResidentModelService : Service() {
                         if (selected?.mode != "on_device" || selected.protocol != "gguf_native_v1") {
                             "FAILED: select an on-device GGUF profile"
                         } else {
-                            val verifiedFile = models.resolve(selected.model)
+                            val verifiedFile = models.resolve(selected.model) { stopRequested.get() }
+                            if (stopRequested.get()) throw java.io.InterruptedIOException("preload cancelled")
                             when (val outcome = GgufNativeProbe.warm(verifiedFile.absolutePath)) {
                                 is GgufNativeProbeResult.Generated -> "READY"
                                 is GgufNativeProbeResult.Rejected -> "FAILED: " + outcome.reason.name
@@ -126,6 +130,7 @@ class ResidentModelService : Service() {
                 }
             }
             ACTION_STOP -> {
+                stopRequested.set(true)
                 state = "STOPPING"
                 GgufNativeProbe.cancelWarm()
                 currentChat.get()?.cancel()
@@ -175,6 +180,7 @@ class ResidentModelService : Service() {
     }
 
     override fun onDestroy() {
+        stopRequested.set(true)
         GgufNativeProbe.cancelWarm()
         currentChat.get()?.cancel()
         // The native lease serializes release after any in-flight generation.
