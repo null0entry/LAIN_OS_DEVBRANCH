@@ -31,6 +31,9 @@ internal class OnDeviceModelStore(
 
     init { require(root.isDirectory || root.mkdirs()) { "private model storage unavailable" } }
 
+    private data class Verified(val path: String, val size: Long, val modified: Long)
+    @Volatile private var lastVerified: Verified? = null
+
     fun requireStagingCapacity(expectedBytes: Long) {
         require(expectedBytes > 24 && expectedBytes <= DEFAULT_MAX_BYTES) {
             "invalid GGUF staging budget"
@@ -94,12 +97,14 @@ internal class OnDeviceModelStore(
             } else {
                 require(stage.renameTo(destination)) { "atomic GGUF import failed" }
             }
+            lastVerified = Verified(destination.canonicalPath, destination.length(), destination.lastModified())
             return ImportedGgufModel(hash, bytes)
         } finally {
             stage.delete()
         }
     }
 
+    @Synchronized
     fun resolve(hash: String, isCancelled: () -> Boolean = { false }): File {
         checkCancellation(isCancelled)
         require(SHA.matches(hash)) { "invalid GGUF model identity" }
@@ -108,6 +113,13 @@ internal class OnDeviceModelStore(
         require(file.canonicalFile.parentFile == parent) { "model escaped private storage" }
         require(file.isFile && file.length() > 24 && file.length() <= DEFAULT_MAX_BYTES) {
             "model file not found or outside resource bounds"
+        }
+        // This is app-private storage. A matching fingerprint avoids repeatedly
+        // hashing gigabytes for every turn after the initial verification.
+        val signature = Verified(file.canonicalPath, file.length(), file.lastModified())
+        if (lastVerified == signature) {
+            checkCancellation(isCancelled)
+            return file
         }
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().buffered().use { input ->
@@ -123,6 +135,7 @@ internal class OnDeviceModelStore(
         checkCancellation(isCancelled)
         val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 255) }
         require(hash == actual) { "GGUF digest mismatch" }
+        lastVerified = signature
         return file
     }
 
