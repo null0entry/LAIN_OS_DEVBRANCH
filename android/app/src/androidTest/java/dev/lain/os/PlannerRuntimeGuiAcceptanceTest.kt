@@ -90,7 +90,7 @@ class PlannerRuntimeGuiAcceptanceTest {
                 val payload = data.readString() ?: error("missing payload")
                 val command = JSONObject(payload).getString("command")
                 val response = controller.callAttr("dispatch", payload).toString()
-                if (command in setOf("start", "approve", "resume")) {
+                if (command in setOf("start", "turn_submit", "approve", "resume")) {
                     while (controller.callAttr("advance").toBoolean()) {
                         // Drain the same bounded controller pump used by RuntimeService.
                     }
