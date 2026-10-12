@@ -36,9 +36,12 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
             (Application) -> (RecommendedModel, (Long, Long) -> Unit, () -> Boolean) -> ImportedGgufModel =
             { app ->
                 val downloader = RecommendedModelDownloader(OnDeviceModelStore(app))
-                { model, progress, cancelled ->
-                    downloader.download(model, progress, cancelled)
-                }
+                val action:
+                    (RecommendedModel, (Long, Long) -> Unit, () -> Boolean) -> ImportedGgufModel =
+                    { model, progress, cancelled ->
+                        downloader.download(model, progress, cancelled)
+                    }
+                action
             }
     }
 
