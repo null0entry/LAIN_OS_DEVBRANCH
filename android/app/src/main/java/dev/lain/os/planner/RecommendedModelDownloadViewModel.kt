@@ -89,11 +89,9 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                     },
                     cancelled::get,
                 )
-                if (cancelled.get()) {
-                    RecommendedModelDownloadState.Cancelled(model)
-                } else {
-                    RecommendedModelDownloadState.Downloaded(model, imported)
-                }
+                // A returned import means the exact model was already verified and published.
+                // A late Cancel cannot truthfully roll that completed publication back.
+                RecommendedModelDownloadState.Downloaded(model, imported)
             } catch (_: InterruptedIOException) {
                 RecommendedModelDownloadState.Cancelled(model)
             } catch (exc: Exception) {
