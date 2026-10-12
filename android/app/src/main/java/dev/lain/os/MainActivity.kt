@@ -368,7 +368,7 @@ class MainActivity : AppCompatActivity() {
         updateVoiceRecordEnabled()
         if (state.status == SpeechInputStatus.READY) {
             val text = state.result?.text
-            if (text != null && model.submitSpeech(text)) voice.consumeFinalTranscript()
+            if (text != null && model.submitSpeech(text, state.finalId)) voice.consumeFinalTranscript()
         }
     }
 
