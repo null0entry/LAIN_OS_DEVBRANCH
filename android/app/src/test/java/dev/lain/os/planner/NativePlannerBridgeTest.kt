@@ -50,6 +50,43 @@ class NativePlannerBridgeTest {
         )
     }
 
+
+    @Test fun onDeviceRouterAcceptsExactlyTheNativeModelBinding() {
+        val bridge = NativePlannerBridge(NativePlannerTransport(NoopSecretStore))
+        val model = bridge.parseOnDeviceBinding(nativeModelBindingJson())
+        assertEquals("a".repeat(64), model.digest)
+        assertEquals(60.0, model.timeoutSeconds, 0.0)
+        assertEquals(4096, model.maxResponseBytes)
+    }
+
+    @Test fun onDeviceRouterRejectsCloudBindingAndExtraAuthorityFields() {
+        val bridge = NativePlannerBridge(NativePlannerTransport(NoopSecretStore))
+        assertThrows(IllegalArgumentException::class.java) {
+            bridge.parseOnDeviceBinding(bindingJson())
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            bridge.parseOnDeviceBinding(nativeModelBindingJson().replace(
+                "\"profile_id\":\"offline-primary\"",
+                "\"profile_id\":\"offline-primary\",\"approval\":true",
+            ))
+        }
+    }
+
+    private fun nativeModelBindingJson() = """
+        {
+          "profile_id":"offline-primary",
+          "mode":"on_device",
+          "protocol":"gguf_native_v1",
+          "base_url":"",
+          "model":"${"a".repeat(64)}",
+          "credential_ref":null,
+          "timeout_seconds":60.0,
+          "max_response_bytes":4096,
+          "response_mode":"none",
+          "allow_insecure_lan_http":false
+        }
+    """.trimIndent()
+
     private fun bindingJson() = """
         {
           "profile_id":"cloud-primary",
