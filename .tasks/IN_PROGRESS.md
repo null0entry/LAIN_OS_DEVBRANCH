@@ -1,32 +1,5 @@
 # In Progress
 
-## TASK-072: Deliver native offline GGUF text chat
-**Priority:** P0 | **Tags:** owner-directed, android, on-device, gguf, conversation
-**Updated:** 2026-10-11 15:20
-
-### Goal
-Use the existing imported Qwen GGUF and embedded native inference engine to exchange real
-plain-text messages inside the installed Android client, with no Termux runtime dependency.
-
-### Plan
-- Build a bounded Qwen plain-text chat prompt independent of task planner JSON.
-- Reuse native generation, cancellation lease and verified app-private model identity.
-- Add explicit foreground Chat UI, persistence, New Chat, Send and Stop response.
-- Verify prompt bounds/authority separation and Android API 24/35 CI.
-- Retain honest physical-device inference acceptance status.
-
-### Acceptance
-- Owner can select imported Qwen GGUF and receive real native assistant responses.
-- Follow-up messages retain bounded prior context and completed chat survives restart.
-- No ordinary chat message can execute tasks or grant capabilities.
-- Chat cancellation does not become task cancellation; foreground-only behavior is explicit.
-- Real device output remains UNVERIFIED until owner exercises exact APK with model.
-
-### Status
-Implementation source pushed to stacked feature branch; CI and device acceptance pending.
-
----
-
 ## TASK-070: Establish bounded GGUF header-preflight and native feasibility gate
 **Priority:** P1 | **Tags:** owner-approved, developer, on-device, offline, gguf, feasibility, android
 **Updated:** 2026-10-08
