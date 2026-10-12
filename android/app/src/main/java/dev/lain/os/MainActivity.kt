@@ -13,6 +13,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import dev.lain.os.bootstrap.PermissionBroker
 import dev.lain.os.databinding.ActivityMainBinding
 import dev.lain.os.planner.PlannerConnectionStatus
 import dev.lain.os.planner.PlannerProfile
@@ -42,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private val voice: VoiceCaptureViewModel by viewModels()
     private val speechOutput: SpeechOutputViewModel by viewModels()
     private val onDevicePlannerSave: OnDevicePlannerSaveViewModel by viewModels()
+    private val permissionBroker by lazy { PermissionBroker.android(this) }
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
@@ -118,7 +120,7 @@ class MainActivity : AppCompatActivity() {
                 // before the microphone can begin capturing to avoid self-echo.
                 speechOutput.stopTalking()
                 if (!voice.start()) {
-                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                    permissionBroker.runtimePermissionFor("voice.input")?.let(microphonePermission::launch)
                 }
             }
         }
