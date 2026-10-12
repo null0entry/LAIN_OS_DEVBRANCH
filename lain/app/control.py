@@ -27,6 +27,7 @@ from lain.agent.models import (
 from lain.agent.planning import AgentPlanningService
 from lain.agent.store import AgentSessionStore
 from lain.app.demo import COMMANDS, DemoPlanner
+from lain.conversation_routing import TurnDisposition, classify_final_turn
 from lain.app.planner_bridge import AndroidPlannerFactory
 from lain.app.native import NativeAndroidAdapter
 from lain.audit.logger import redact, redact_android_narratives
@@ -121,10 +122,11 @@ class AppController:
         self.turns = ConversationTurnManager(root / "conversation")
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
         self._planner_bridge = planner_bridge
+        self._binding_provider = _planner_binding_provider(planner_profiles)
         self.controller = AgentController(
             AgentPlanningService(DemoPlanner(workspace), max_actions=1), self.runtime,
             self.store, AgentBudget(12, 1, 32, 900.0),
-            planner_binding_provider=_planner_binding_provider(planner_profiles),
+            planner_binding_provider=self._binding_provider,
             planner_factory=AndroidPlannerFactory(workspace, planner_bridge),
         )
         self._lock = threading.RLock()
@@ -243,6 +245,24 @@ class AppController:
         target_session_id,
         legacy_start=False,
     ):
+        route_decision = None
+        if kind == "auto":
+            # Only a final, new, reference-free owner turn may ask the router.
+            # Model output is untrusted: it never contains executable actions.
+            if reference != TurnReference.NONE.value or target_session_id is not None:
+                raise ValueError("automatic turns cannot carry a task reference")
+            if self._active or self._unfinished():
+                raise ValueError("another session needs attention")
+            route_decision = classify_final_turn(
+                text, self._binding_provider(), self._planner_bridge,
+            )
+            if route_decision.disposition is TurnDisposition.TASK:
+                kind = TurnKind.TASK.value
+            else:
+                kind = TurnKind.CHAT.value
+                if route_decision.disposition is TurnDisposition.CLARIFY:
+                    reference = TurnReference.AMBIGUOUS.value
+
         source_value = TurnSource(source)
         kind_value = TurnKind(kind)
         reference_value = TurnReference(reference)
@@ -305,9 +325,21 @@ class AppController:
                     },
                     "session": self._snapshot(revised),
                 }
+        if record.route is TurnRoute.CHAT:
+            return {
+                "turn": record.to_dict(),
+                "conversation_response": (
+                    route_decision.response_text if route_decision is not None
+                    else "Use the chat screen to ask questions."
+                ),
+            }
         return {
             "turn": record.to_dict(),
             "clarification_required": True,
+            "conversation_response": (
+                route_decision.response_text if route_decision is not None
+                else "Which active task should I revise?"
+            ),
         }
 
     def _resume(self, sid):
