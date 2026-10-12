@@ -35,6 +35,47 @@ on a stock or factory-equivalent device. Record the exact APK hash and device/AP
 Permission readiness is separate from installed speech-service availability and
 verified model inference. Recommended-model downloading is a later feature.
 
+## TASK-073 universal typed and final-speech bridge
+
+Physical acceptance is **UNVERIFIED** until performed on a declared installed
+APK. Record the APK SHA-256, device model/API, selected planner profile,
+offline/online state, and permission availability. Emulator CI proves only its
+respective API and fixture behavior.
+
+1. Start with **Demo**. Type **Show battery** and tap Run. Verify a new task
+   appears, executes `android.battery_status`, and shows a truthful verification
+   outcome and audit. Stop or finish the task before the next command.
+2. On Android 13+ with local offline recognition available, grant microphone
+   explicitly. Record and finalize **Show battery**. Verify the accepted final
+   speech uses exactly the same task/permission/execution/verification path as
+   typed input. No task may start on partial or low-confidence speech.
+3. Type **What can you do?** while idle. The result must appear as an assistant
+   conversation response with **no session or device action created**.
+4. Type **Send it** without an identified target. Expect clarification and no
+   capability invocation; do not grant approval merely because the model
+   answered.
+5. Start a task, then issue a final typed or spoken revision. The same session
+   must receive the revision and invalidate any previous exact approval.
+   **Stop talking** or **Stop response** must not stop the task; **Stop task**
+   must remain independently reachable.
+6. Rotate/recreate the Activity while a speech final is being delivered.
+   An already accepted speech result must not create a second session. A
+   genuinely new recorded final utterance may create a new task after the first
+   settles.
+7. Select **On-device Model**, import a verified local GGUF, and repeat an
+   explicit device request and a non-executing conversational question in
+   airplane mode. Record model SHA-256, routing/result and timing. A model
+   load/busy/invalid-output failure must clarify or report unavailable, never
+   silently switch to cloud or execute an unclassified action.
+8. Deny/revoke an optional permission, repeat a supported command, and record
+   truthful unsupported/denied behavior. No missing grant may be fabricated,
+   and no raw model-generated action payload may bypass policy.
+
+For every path record **actual** route (`chat/task/clarify/revision`), session
+identity where applicable, action status, verification status, and relevant
+redacted audit evidence. Physical voice recognition and on-device GGUF
+inference are not established merely by CI passing.
+
 ## Native capability checks
 
 1. Open LAIN_OS. Wait for “Local runtime ready”; Run must remain disabled until
