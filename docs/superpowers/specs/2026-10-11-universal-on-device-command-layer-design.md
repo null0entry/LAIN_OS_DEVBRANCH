@@ -1,7 +1,7 @@
 # Universal On-Device Command Layer — Design
 
-**Date:** 2026-10-11  
-**Status:** Proposed architecture  
+**Date:** 2026-10-11
+**Status:** Proposed architecture
 **Repository:** `null0entry/LAIN_OS_DEVBRANCH`
 
 ## 1. Intent
