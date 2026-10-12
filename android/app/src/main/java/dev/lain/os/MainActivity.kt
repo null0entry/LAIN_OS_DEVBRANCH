@@ -58,13 +58,14 @@ class MainActivity : AppCompatActivity() {
     private val permissionBroker by lazy { PermissionBroker.android(this) }
     private val residentClient by lazy {
         ResidentModelClient(this) { connected ->
-            if (isDestroyed) return@ResidentModelClient
-            ui.modelResidencyStatus.text = if (connected) {
-                try {
-                    val state = org.json.JSONObject(residentClient.status()).optString("state", "STOPPED")
-                    "Offline model: $state"
-                } catch (_: Exception) { "Offline model status unavailable" }
-            } else "Offline model stopped or process disconnected"
+            if (!isDestroyed) {
+                ui.modelResidencyStatus.text = if (connected) {
+                    try {
+                        val state = org.json.JSONObject(residentClient.status()).optString("state", "STOPPED")
+                        "Offline model: $state"
+                    } catch (_: Exception) { "Offline model status unavailable" }
+                } else "Offline model stopped or process disconnected"
+            }
         }
     }
     private val microphonePermission =
