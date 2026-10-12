@@ -73,38 +73,33 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     }
 
     fun run(goal: String) {
-        val snapshot = current()
-        if (snapshot.pending || !snapshot.ready) return
-        if (goal.isBlank()) { change { it.copy(message = "Choose a demo command first") }; return }
-        if (snapshot.session?.optBoolean("recovery_required") == true) return
-        val text = goal.trim()
-        if (snapshot.session?.optBoolean("active") == true) {
-            submitRevision(text, "typed")
-        } else {
-            mutate("start", JSONObject().put("goal", text))
+        if (goal.isBlank()) {
+            change { it.copy(message = "Enter a command or question") }
+            return
         }
+        submitFinalTurn(goal, "typed")
     }
 
-    fun submitSpeech(text: String): Boolean {
+    /** Only accepted, FINAL local transcripts arrive here; partials never dispatch. */
+    fun submitSpeech(text: String): Boolean = submitFinalTurn(text, "speech")
+
+    private fun submitFinalTurn(text: String, source: String): Boolean {
         val snapshot = current()
-        val session = snapshot.session
         if (
-            snapshot.pending ||
-            !snapshot.ready ||
-            text.isBlank() ||
-            session?.optBoolean("recovery_required") == true ||
+            snapshot.pending || !snapshot.ready || text.isBlank() ||
+            snapshot.session?.optBoolean("recovery_required") == true ||
             text.toByteArray(Charsets.UTF_8).size > 4096
         ) return false
         val normalized = text.trim()
-        if (session?.optBoolean("active") == true) {
-            submitRevision(normalized, "speech")
+        if (snapshot.session?.optBoolean("active") == true) {
+            submitRevision(normalized, source)
         } else {
             mutate(
                 "turn_submit",
                 JSONObject()
                     .put("text", normalized)
-                    .put("source", "speech")
-                    .put("kind", "task")
+                    .put("source", source)
+                    .put("kind", "auto")
                     .put("reference", "none")
                     .put("target_session_id", JSONObject.NULL),
             )
@@ -168,8 +163,11 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
             val session = reply.optJSONObject("session")
             if (session != null) saved["session_id"] = session.getString("session_id")
             change { it.copy(pending = false, session = session ?: it.session,
-                message = if (reply.optBoolean("ok")) "Request accepted" else
-                    reply.optString("message", "Request rejected; inspect state before retrying")) }
+                message = if (reply.optBoolean("ok")) {
+                    reply.optString("conversation_response").takeIf { it.isNotBlank() }
+                        ?: if (reply.optBoolean("clarification_required")) "Please clarify the command."
+                        else "Request accepted"
+                } else reply.optString("message", "Request rejected; inspect state before retrying")) }
             refresh()
         }
     }
