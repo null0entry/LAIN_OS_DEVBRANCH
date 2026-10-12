@@ -216,6 +216,9 @@ class BootstrapActivityAndroidTest {
             scenario.onActivity { activity ->
                 assertTrue(activity.findViewById<Button>(R.id.bootstrap_configure_planner).performClick())
             }
+            // Opening MainActivity is asynchronous across activity lifecycles.
+            // Wait for the destination to resume before matching its view tree.
+            awaitWorkbench()
             onView(withId(R.id.planner_profiles)).check(matches(isDisplayed()))
             assertTrue(!store.isComplete())
             androidx.test.espresso.Espresso.pressBack()
