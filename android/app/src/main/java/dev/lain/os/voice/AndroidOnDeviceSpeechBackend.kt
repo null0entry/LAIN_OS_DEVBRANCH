@@ -26,6 +26,28 @@ private const val LOCAL_STT_TIMEOUT_MS = 30_000L
  */
 internal fun firstRecognizerConfidence(scores: FloatArray?): Float? = scores?.firstOrNull()
 
+/** Owns the captured-PCM Intent reader until the asynchronous recognizer has
+ * finished or been cancelled. startListening returning does NOT imply that
+ * the remote SpeechRecognizer service has unmarshalled EXTRA_AUDIO_SOURCE.
+ */
+internal class SpeechAudioSourceLease {
+    private var owned: ParcelFileDescriptor? = null
+
+    fun retain(source: ParcelFileDescriptor) {
+        val previous = owned
+        owned = source
+        if (previous !== source) try { previous?.close() } catch (_: Exception) { }
+    }
+
+    fun isRetained(): Boolean = owned?.fileDescriptor?.valid() == true
+
+    fun release() {
+        val previous = owned
+        owned = null
+        try { previous?.close() } catch (_: Exception) { }
+    }
+}
+
 class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
@@ -33,6 +55,7 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
     private var generation = 0L
     private var callback: ((BackendTranscriptionResult) -> Unit)? = null
     private var recognizer: SpeechRecognizer? = null
+    private val audioSourceLease = SpeechAudioSourceLease()
     private var ownedAudio: ByteArray? = null
 
     override val transcriptionAvailable: Boolean
@@ -186,10 +209,13 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
         val readSide = pipe[0]
         val writeSide = pipe[1]
         try {
+            // SpeechRecognizer dispatches the Intent asynchronously. Retain the
+            // read FD until recognition ends, otherwise Binder receives a
+            // closed EXTRA_AUDIO_SOURCE before it can consume captured PCM.
+            audioSourceLease.retain(readSide)
             local.startListening(recognitionIntent(readSide, audio))
-            try { readSide.close() } catch (_: Exception) { }
         } catch (_: Exception) {
-            try { readSide.close() } catch (_: Exception) { }
+            audioSourceLease.release()
             try { writeSide.close() } catch (_: Exception) { }
             finish(
                 token,
@@ -300,6 +326,7 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
             if (cancelFirst) try { local.cancel() } catch (_: Exception) { }
             try { local.destroy() } catch (_: Exception) { }
         }
+        audioSourceLease.release()
     }
 
     private fun supportedCapture(audio: CapturedAudio): Boolean =
