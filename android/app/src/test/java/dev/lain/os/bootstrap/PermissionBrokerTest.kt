@@ -93,4 +93,19 @@ class PermissionBrokerTest {
         )
         assertEquals(AvailabilityState.READY, state.getValue("android.battery_status").state)
     }
+
+    @Test fun missingOnDeviceRecognizerNeverReportsTranscriptionReady() {
+        val state = broker(runtimeGranted = setOf(Manifest.permission.RECORD_AUDIO))
+            .snapshot().associateBy { it.capability }
+        assertEquals(AvailabilityState.READY, state.getValue("voice.input").state)
+        assertEquals(
+            AvailabilityState.OPTIONAL_DEPENDENCY_MISSING,
+            state.getValue("voice.on_device_stt").state,
+        )
+        val installed = broker(
+            runtimeGranted = setOf(Manifest.permission.RECORD_AUDIO),
+            dependencies = setOf("android.on_device_recognizer"),
+        ).snapshot().associateBy { it.capability }
+        assertEquals(AvailabilityState.READY, installed.getValue("voice.on_device_stt").state)
+    }
 }

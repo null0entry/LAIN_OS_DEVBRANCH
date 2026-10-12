@@ -38,6 +38,9 @@ import dev.lain.os.voice.TrustedProgressSnapshot
 import dev.lain.os.voice.VoiceCaptureViewModel
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        internal const val EXTRA_CONFIGURE_PLANNER = "dev.lain.os.CONFIGURE_PLANNER"
+    }
     private lateinit var ui: ActivityMainBinding
     private val model: WorkbenchViewModel by viewModels()
     private val voice: VoiceCaptureViewModel by viewModels()
@@ -127,6 +130,14 @@ class MainActivity : AppCompatActivity() {
         setupSpeechVoiceSelection()
         plannerSettings = PlannerSettingsManager(this)
         setupPlannerSettings()
+        if (intent.getBooleanExtra(EXTRA_CONFIGURE_PLANNER, false)) {
+            ui.plannerProfiles.post {
+                ui.plannerProfiles.requestRectangleOnScreen(
+                    android.graphics.Rect(0, 0, ui.plannerProfiles.width, ui.plannerProfiles.height),
+                    true,
+                )
+            }
+        }
         onDevicePlannerSave.state.observe(this, ::renderOnDevicePlannerSave)
         val demos = listOf("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly", "Copy demo text", "Share demo text")
         demos.forEach { command ->
