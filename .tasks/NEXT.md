@@ -1,5 +1,91 @@
 # Next
 
+## TASK-071: Implement clean-install bootstrap and permission broker
+**Priority:** P0 | **Tags:** owner-approved, android, bootstrap, permissions, clean-install
+
+### Goal
+Make one LAIN_OS APK boot into a truthful usable state on stock/factory-equivalent Android with no Termux, Tasker/Automate, Shizuku, root, ADB, external Python, or developer setup.
+
+### Depends on
+- Current native GGUF stack PR #41 -> #44 reaching a stable integration point.
+- Existing PlannerProfileStore/PlannerSettingsManager, voice permission flow, and Android runtime.
+
+### Acceptance
+- Clean app data launches into a skippable first-run setup and can continue immediately with Demo.
+- Capability state is reported as READY / NEEDS_PERMISSION / NEEDS_SETTINGS_GRANT / OPTIONAL_DEPENDENCY_MISSING / UNSUPPORTED.
+- Runtime permission denial or special-grant refusal disables only affected capabilities.
+- Returning from Android Settings revalidates state rather than trusting stale grants.
+- Reinstall/clear-data reproduces the same setup path.
+
+### Plan
+`docs/superpowers/plans/2026-10-11-clean-install-bootstrap-and-qwen-download.md`
+
+---
+
+## TASK-072: Add in-app pinned recommended Qwen download
+**Priority:** P0 | **Tags:** owner-approved, android, gguf, qwen, bootstrap, download
+
+### Goal
+Expose **Download recommended Qwen** beside **Import GGUF** so a fresh phone can acquire the recommended local model without leaving LAIN_OS.
+
+### Pinned target
+- File: `Qwen3-1.7B-Q4_K_M.gguf`
+- Source: `https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf`
+- Approximate size: 1.28 GB
+- SHA-256: `d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5`
+
+### Acceptance
+- HTTPS-only bounded download to private staging with progress and cancellation.
+- Expected SHA-256 and GGUF preflight pass before publication.
+- Partial, cancelled, low-storage, HTTP-failed, or hash-mismatched downloads never become selectable.
+- Manual Import GGUF remains available.
+
+### Plan
+`docs/superpowers/plans/2026-10-11-clean-install-bootstrap-and-qwen-download.md`
+
+---
+
+## TASK-073: Implement universal typed/voice command bridge
+**Priority:** P0 | **Tags:** owner-approved, voice, commands, agent-controller, trust-boundary
+
+### Goal
+Route ordinary final typed/spoken commands through the existing trusted AgentController while preserving non-executing conversation.
+
+### Acceptance
+- Typed and accepted final speech “Show battery” reach the same trusted task path.
+- Chat cannot call a capability or grant approval.
+- Ambiguous side-effecting turns clarify rather than run.
+- Partial/low-confidence speech cannot start a task.
+- Active-task revision, approvals, verification, audit, and Stop semantics remain authoritative.
+
+### Plan
+`docs/superpowers/plans/2026-10-11-universal-command-bridge.md`
+
+---
+
+## TASK-074: Expand core Android on-device capabilities
+**Priority:** P1 | **Tags:** owner-approved, android, capabilities, native, intents
+
+### Goal
+Add high-value bounded capabilities such as app launch, flashlight, volume, media control where supported, brightness/settings surfaces, notifications, URI/deep links, and existing file/device actions using native APIs/Intents first.
+
+### Constraints
+No generic shell. Shizuku/Accessibility remain optional scoped backends, never base-install requirements.
+
+---
+
+## TASK-075: Close physical universal-command clean-device acceptance
+**Priority:** P0 | **Tags:** owner-approved, android, physical, acceptance, clean-install
+
+### Goal
+Prove the full path on a clean/factory-equivalent reference Android device: install APK -> first run -> permissions -> model import/download -> typed/voice commands -> policy/approval -> execution -> verification -> audit -> restart/Stop.
+
+### Evidence
+Record exact APK/model hashes, device/API, permission paths, resource observations, and distinguish physical proof from CI/emulator evidence.
+
+---
+
+
 ## TASK-069: Build truthful Android durable-workflow inspection and control
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-3, workflow, android-ui, recovery
 **Updated:** 2026-10-08
