@@ -675,7 +675,6 @@ class MainActivity : AppCompatActivity() {
                 )
             }
             is RecommendedModelDownloadState.Downloaded -> {
-                ui.plannerMode.setSelection(2)
                 ui.plannerModel.setText(state.imported.sha256)
                 getString(R.string.planner_download_complete, state.imported.sha256.take(12))
             }
@@ -811,9 +810,13 @@ class MainActivity : AppCompatActivity() {
         ui.plannerImportModel.visibility = downloadVisibility
         ui.plannerDownloadModel.visibility = downloadVisibility
         ui.plannerDownloadStatus.visibility = downloadVisibility
+        val editorBusy = downloading || onDevicePlannerSave.isSaving
+        ui.plannerProfiles.isEnabled = !editorBusy
+        ui.plannerNew.isEnabled = !editorBusy
+        ui.plannerMode.isEnabled = !editorBusy && ui.plannerName.isEnabled
         ui.plannerImportModel.isEnabled = offline && ui.plannerName.isEnabled && !downloading
         ui.plannerDownloadModel.isEnabled = offline && (downloading || ui.plannerName.isEnabled)
-        ui.plannerSave.isEnabled = ui.plannerName.isEnabled && !downloading
+        ui.plannerSave.isEnabled = ui.plannerName.isEnabled && !editorBusy
         ui.plannerModel.isEnabled = !offline && ui.plannerName.isEnabled
         if (offline) ui.plannerCredentialState.text = getString(R.string.planner_offline_credential)
     }
