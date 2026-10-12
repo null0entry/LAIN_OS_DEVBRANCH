@@ -7,9 +7,9 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.provider.DocumentsContract
 import java.io.File
 import java.io.InterruptedIOException
-import java.security.MessageDigest
 
 /**
  * Publishes a verified private GGUF into user-visible Downloads.
@@ -41,13 +41,13 @@ internal class RecommendedModelDownloadsPublisher(private val context: Context) 
             ?: throw IllegalStateException("cannot create public Downloads entry")
         var published = false
         try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            var copied = 0L
             resolver.openOutputStream(uri, "w")?.use { output ->
                 privateFile.inputStream().buffered().use { input ->
-                    val buffer = ByteArray(64 * 1024)
-                    while (true) {
-                        if (isCancelled() || Thread.currentThread().isInterrupted) {
+                    VerifiedModelExport.copy(input, output, model.expectedBytes,
+                        model.expectedSha256, isCancelled)
+                }
+            } ?: throw IllegalStateException("cannot write public Downloads entry")
+            if (isCancelled() || Thread.currentThread().isInterrupted) {
                             throw InterruptedIOException("GGUF export cancelled")
                         }
                         val count = input.read(buffer)
@@ -76,6 +76,36 @@ internal class RecommendedModelDownloadsPublisher(private val context: Context) 
             return uri
         } finally {
             if (!published) resolver.delete(uri, null, null)
+        }
+    }
+
+    /** ACTION_CREATE_DOCUMENT destination, including Android 7–9 SAF Downloads. */
+    fun publishToDocument(
+        uri: Uri,
+        expectedSha256: String,
+        expectedBytes: Long,
+        privateFile: File,
+        isCancelled: () -> Boolean = { false },
+    ) {
+        require(uri.scheme == "content") { "invalid system document URI" }
+        require(privateFile.isFile && privateFile.length() == expectedBytes) {
+            "private GGUF size mismatch"
+        }
+        val resolver = context.contentResolver
+        var complete = false
+        try {
+            resolver.openOutputStream(uri, "w")?.use { output ->
+                privateFile.inputStream().buffered().use { input ->
+                    VerifiedModelExport.copy(input, output, expectedBytes,
+                        expectedSha256, isCancelled)
+                }
+            } ?: throw IllegalStateException("cannot open system document")
+            complete = true
+        } finally {
+            if (!complete) {
+                // ACTION_CREATE_DOCUMENT creates a new file: remove a partial on failure.
+                try { DocumentsContract.deleteDocument(resolver, uri) } catch (_: Exception) { }
+            }
         }
     }
 }
