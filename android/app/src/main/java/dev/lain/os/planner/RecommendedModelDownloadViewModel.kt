@@ -8,7 +8,6 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import java.io.InterruptedIOException
 import java.util.concurrent.Executors
-import java.util.concurrent.Future
 import java.util.concurrent.atomic.AtomicBoolean
 
 internal sealed interface RecommendedModelDownloadState {
@@ -57,7 +56,7 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
 
     @Volatile private var cleared = false
     @Volatile private var cancellation = AtomicBoolean(false)
-    @Volatile private var activeFuture: Future<*>? = null
+    @Volatile private var activeThread: Thread? = null
 
     fun start(model: RecommendedModel = RecommendedModelCatalog.default()): Boolean {
         check(Looper.myLooper() == Looper.getMainLooper())
@@ -66,7 +65,8 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
         val cancelled = AtomicBoolean(false)
         cancellation = cancelled
         mutable.value = RecommendedModelDownloadState.Downloading(model, 0L, model.expectedBytes)
-        activeFuture = worker.submit {
+        worker.execute {
+            activeThread = Thread.currentThread()
             var lastReported = 0L
             val result = try {
                 val imported = downloadAction(
@@ -106,6 +106,7 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
                     )
                 }
             }
+            activeThread = null
             main.post { if (!cleared) mutable.value = result }
         }
         return true
@@ -115,14 +116,14 @@ internal class RecommendedModelDownloadViewModel(application: Application) : And
         check(Looper.myLooper() == Looper.getMainLooper())
         if (!isDownloading) return false
         cancellation.set(true)
-        activeFuture?.cancel(true)
+        activeThread?.interrupt()
         return true
     }
 
     override fun onCleared() {
         cleared = true
         cancellation.set(true)
-        activeFuture?.cancel(true)
+        activeThread?.interrupt()
         worker.shutdownNow()
         main.removeCallbacksAndMessages(null)
         super.onCleared()
