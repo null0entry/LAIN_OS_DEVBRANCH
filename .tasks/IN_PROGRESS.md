@@ -1,5 +1,23 @@
 # In Progress
 
+## TASK-081: Add continuous LAIN wake commands and broad Android device control
+**Priority:** P2 | **Tags:** android, voice, continuous-listening, device-control
+**Updated:** 2026-10-14
+
+Owner wants continuous hands-free task execution, including settings, flashlight and volume. Owner selected “LAIN” as the activation phrase and identified a Moto G Play 2026.
+
+### Plan
+- Review existing speech, runtime ownership, capability and permission boundaries and the target device.
+- Prepare a concrete architecture for user-started background listening and expanded device controls.
+- Complete the architectural design review required by the applied brainstorming skill, then write the implementation plan.
+- Implement with tests for activation, lifecycle, background runtime ownership, controls and permission failures.
+- Verify Android compatibility and deliver a source/checksum-bound test APK; record real-device limits honestly.
+
+### Status
+Design prepared in `docs/superpowers/specs/2026-10-14-continuous-voice-device-control-design.md`; implementation has not started. Written-spec review is pending.
+
+---
+
 ## TASK-070: Establish bounded GGUF header-preflight and native feasibility gate
 **Priority:** P1 | **Tags:** owner-approved, developer, on-device, offline, gguf, feasibility, android
 **Updated:** 2026-10-08
