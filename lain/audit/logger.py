@@ -22,7 +22,7 @@ _SECRET_MARKERS = (
 
 def _is_secret_key(key: str) -> bool:
     lowered = key.lower().replace("-", "_")
-    if lowered in {"content", "body"}:
+    if lowered in {"content", "body", "recipient"}:
         return True
     return any(marker in lowered for marker in _SECRET_MARKERS)
 
@@ -51,10 +51,14 @@ def redact_android_narratives(value: Any, source: Any) -> Any:
 
     def collect(item):
         if isinstance(item, dict):
-            if item.get("type") in {"android.clipboard_set", "android.share_text"}:
+            if item.get("type") in {"android.clipboard_set", "android.share_text", "android.sms.compose"}:
                 args = item.get("arguments")
                 if isinstance(args, dict) and isinstance(args.get("content"), str) and args["content"]:
                     contents.add(args["content"])
+                if item.get("type") == "android.sms.compose" and isinstance(args, dict):
+                    recipient = args.get("recipient")
+                    if isinstance(recipient, str) and recipient:
+                        contents.add(recipient)
             for child in item.values():
                 collect(child)
         elif isinstance(item, (list, tuple)):
