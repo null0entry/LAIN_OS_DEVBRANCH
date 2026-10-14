@@ -70,7 +70,10 @@ Activity remaining visible.
 The UI provides Start listening, Stop listening, recognizer/language setup and
 current state. A persistent notification shows microphone use and includes a
 Stop action. Startup requests microphone permission from a visible Activity;
-notification setup is explicit. The manifest declares the microphone foreground
+notification setup is explicit. Continuous mode starts only when its notification
+channel and notification permission allow a visible Stop control. Denial leaves
+continuous mode stopped; manual voice and typed commands retain their existing
+permission requirements. The manifest declares the microphone foreground
 service permission/type. Android 16 compatibility is tested; current compile and
 target SDK values are not changed solely to add this feature.
 
@@ -104,7 +107,8 @@ backoff of 500 ms, 1 s, 2 s, 4 s, 8 s and 15 s, then stop with a visible error. 
 visible stopped/error state. No infinite retry loop, concealed microphone use or
 claim of perpetual operation after Android kills the process is allowed.
 
-Listening pauses around LAIN's own spoken playback, including Workbench TTS,
+Routine device controls use a short acknowledgement/status. Listening pauses
+around LAIN's own spoken playback, including Workbench TTS,
 and resumes afterward if the session is still enabled. Manual capture and
 continuous recognition have one microphone owner. There is no simultaneous
 second recording session or automatic execution of LAIN's own spoken reply.
@@ -182,7 +186,10 @@ click/type action must reference the same current package/window and a fresh
 snapshot; missing, ambiguous, disabled or stale elements fail instead of falling
 back to arbitrary coordinates. Inspect only the active window, at most 128 nodes to depth 20, at most 256
 Unicode characters per node text and at most 32 KiB of serialized observation.
-Snapshot IDs expire after 15 seconds or an intervening window/content change.
+Snapshot IDs expire after 120 seconds or an intervening window/content change.
+The longer bound accommodates on-device planning on this 4 GB phone. Immediately
+before execution, re-read the active window and require the observed context and
+selected element to match; a valid timestamp alone never authorizes a stale tap.
 The bounded UI contracts are `android.ui.inspect`,
 `android.ui.click {snapshot_id,node_id}`,
 `android.ui.scroll {snapshot_id,node_id,direction}` (forward/backward), and
