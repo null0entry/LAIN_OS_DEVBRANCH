@@ -123,7 +123,7 @@ def classify_final_turn(text, binding, native_bridge=None):
         return TurnRoutingDecision(TurnDisposition.TASK, "", "exact supported command")
     if parse_sms_compose_command(phrase) is not None:
         return TurnRoutingDecision(TurnDisposition.TASK, "", "explicit numeric SMS compose request")
-    if re.match(r"^(?:text|send (?:a )?text to|compose (?:an? )?sms to)\\b", normalized):
+    if re.match(r"^(?:text|send (?:a )?text to|compose (?:an? )?sms to)\b", normalized):
         return _clarify("Give a phone number and message, for example: Text 5551234567 saying hello.")
 
     if re.fullmatch(r"(send|share|delete|erase|move|open|install|uninstall)\s+(it|that|this|them)[.!]?", normalized):
