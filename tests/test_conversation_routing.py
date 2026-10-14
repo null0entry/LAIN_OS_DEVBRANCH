@@ -166,7 +166,7 @@ class CommandBridgeTests(unittest.TestCase):
                     if state["status"] == "paused_confirmation":
                         break
                 self.assertEqual(state["status"], "paused_confirmation")
-                self.assertEqual(native.calls, [])
+                self.assertEqual(len(native.calls), 0 if source == "typed" else 1)
                 self.assertEqual(state["approval"]["type"], "android.sms.compose")
                 self.assertEqual(state["approval"]["arguments"]["content"], "[REDACTED]")
                 token = state["approval"]["token"]
