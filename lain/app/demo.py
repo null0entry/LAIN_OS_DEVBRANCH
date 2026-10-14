@@ -1,11 +1,37 @@
 """Deterministic offline demonstration, explicitly not a language model."""
 from pathlib import Path
+import re
 
 from lain.planning.models import AgentPlannerDecision, AgentPlannerStatus, ProposedAction
 
 
 COMMANDS = ("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly",
             "Copy demo text", "Share demo text")
+
+
+# Deliberately narrow deterministic grammar for offline typed/final-spoken SMS
+# composition. A contact name is *not* a resolved number and must clarify.
+_SMS_PATTERN = re.compile(
+    r"^(?:text|send (?:a )?text to|compose (?:an? )?sms to)\\s+"
+    r"(?P<recipient>\\+?[0-9 ()-]{3,32})"
+    r"(?::\\s*|\\s+(?:saying|that says)\\s+)"
+    r"(?P<content>[^\\r\\n]+)$",
+    re.IGNORECASE,
+)
+
+
+def parse_sms_compose_command(goal: str) -> dict[str, str] | None:
+    if not isinstance(goal, str):
+        return None
+    match = _SMS_PATTERN.fullmatch(goal.strip())
+    if match is None:
+        return None
+    recipient = re.sub(r"[ ()-]", "", match["recipient"])
+    content = match["content"].strip()
+    if (re.fullmatch(r"\\+?[0-9]{3,15}", recipient) is None or
+            not content or len(content.encode("utf-8")) > 4096):
+        return None
+    return {"recipient": recipient, "content": content}
 
 
 class DemoPlanner:
@@ -26,6 +52,13 @@ class DemoPlanner:
         if context["history"]:
             return AgentPlannerDecision(AgentPlannerStatus.COMPLETE,
                                         "Offline demo finished; inspect execution and verification results.", ())
+        sms = parse_sms_compose_command(goal)
+        if sms is not None:
+            return AgentPlannerDecision(
+                AgentPlannerStatus.CONTINUE,
+                "Prepare the SMS composer for owner review; no text is sent by LAIN_OS.",
+                (ProposedAction("android.sms.compose", sms),),
+            )
         normalized_goal = goal.strip().lower()
         if normalized_goal == "create demo file":
             target = self._next_demo_file()
