@@ -29,8 +29,11 @@ def _is_secret_key(key: str) -> bool:
 
 def redact(value: Any) -> Any:
     if isinstance(value, dict):
+        # Text entry arguments are private; inspected node text is required as
+        # untrusted planner observation and does not carry a snapshot_id here.
+        text_entry = {"snapshot_id", "node_id", "text"}.issubset(value)
         return {
-            key: "[REDACTED]" if isinstance(key, str) and _is_secret_key(key) else redact(item)
+            key: "[REDACTED]" if (isinstance(key, str) and _is_secret_key(key)) or (text_entry and key == "text") else redact(item)
             for key, item in value.items()
         }
     if isinstance(value, list):
@@ -51,10 +54,11 @@ def redact_android_narratives(value: Any, source: Any) -> Any:
 
     def collect(item):
         if isinstance(item, dict):
-            if item.get("type") in {"android.clipboard_set", "android.share_text"}:
+            if item.get("type") in {"android.clipboard_set", "android.share_text", "android.ui.set_text"}:
                 args = item.get("arguments")
-                if isinstance(args, dict) and isinstance(args.get("content"), str) and args["content"]:
-                    contents.add(args["content"])
+                key = "text" if item.get("type") == "android.ui.set_text" else "content"
+                if isinstance(args, dict) and isinstance(args.get(key), str) and args[key]:
+                    contents.add(args[key])
             for child in item.values():
                 collect(child)
         elif isinstance(item, (list, tuple)):

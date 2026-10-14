@@ -12,6 +12,7 @@ import json
 import re
 
 from lain.app.demo import COMMANDS
+from lain.device_commands import parse_device_command
 from lain.app.planner_bridge import _use_low_reasoning
 
 MAX_ROUTER_BYTES = 4096
@@ -119,7 +120,7 @@ def classify_final_turn(text, binding, native_bridge=None):
     _validate_final(text)
     phrase = text.strip()
     normalized = phrase.casefold()
-    if any(normalized == command.casefold() for command in COMMANDS):
+    if any(normalized == command.casefold() for command in COMMANDS) or parse_device_command(phrase) is not None:
         return TurnRoutingDecision(TurnDisposition.TASK, "", "exact supported command")
     if re.fullmatch(r"(send|share|delete|erase|move|open|install|uninstall)\s+(it|that|this|them)[.!]?", normalized):
         return _clarify("Which item or app do you mean?")

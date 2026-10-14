@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import json
 
-from lain.capabilities.registry import DEFAULT_REGISTRY
+from lain.capabilities.registry import DEFAULT_REGISTRY, DEVICE_CAPABILITIES
 from lain.errors import ErrorCode, LainError
 from lain.execution.models import ExecutionOutcome
 from lain.execution.android import validate_android_uri
 from lain.protocol.models import Action
 from lain.verification.android import verify_android_expansion
 from lain.verification.battery import validate_battery
+from lain.verification.device import validate_device_evidence, validate_device_failure
 
 NATIVE_CAPABILITIES = frozenset({"android.notify", "android.open_uri", "android.battery_status", "android.vibrate", "android.toast",
-                                 "android.clipboard_set", "android.share_text"})
+                                 "android.clipboard_set", "android.share_text"}) | DEVICE_CAPABILITIES
 
 
 def _unique_object(pairs):
@@ -39,16 +40,28 @@ class NativeAndroidAdapter:
             payload = str(self.callback.execute(action.type, json.dumps(arguments, ensure_ascii=False)))
             if len(payload.encode("utf-8")) > 65536:
                 raise ValueError("oversized native response")
-            raw = json.loads(payload, object_pairs_hook=_unique_object)
+            raw = json.loads(payload, object_pairs_hook=_unique_object,
+                             parse_constant=lambda _: (_ for _ in ()).throw(ValueError("nonfinite native evidence")))
             if not isinstance(raw, dict) or set(raw) != {"status", "details"}:
                 raise ValueError("invalid native response")
             if not isinstance(raw["details"], dict):
                 raise ValueError("invalid native details")
+            if action.type in DEVICE_CAPABILITIES and raw["status"] != "success":
+                if raw["status"] not in {"unsupported", "failure"}:
+                    raise ValueError("invalid native failure envelope")
+                details = validate_device_failure(raw["details"])
+                if raw["status"] == "unsupported":
+                    return ExecutionOutcome.unsupported(ErrorCode.PLATFORM_UNSUPPORTED.value,
+                                                        "Native operation is unavailable", **details)
+                return ExecutionOutcome.failure(ErrorCode.EXECUTION_FAILED.value,
+                                                "Native operation failed", **details)
             if raw["status"] == "unsupported":
                 return ExecutionOutcome.unsupported(ErrorCode.PLATFORM_UNSUPPORTED.value,
                                                     "Native operation is unavailable")
             if raw["status"] != "success":
                 return ExecutionOutcome.failure(ErrorCode.EXECUTION_FAILED.value, "Native operation failed")
+            if action.type in DEVICE_CAPABILITIES:
+                return ExecutionOutcome.success(**validate_device_evidence(action.type, arguments, raw["details"]))
             if action.type == "android.battery_status":
                 return ExecutionOutcome.success(battery=validate_battery(raw["details"].get("battery")))
             if action.type == "android.clipboard_set":
@@ -64,4 +77,4 @@ class NativeAndroidAdapter:
             return ExecutionOutcome.failure(ErrorCode.EXECUTION_FAILED.value, "Native operation failed")
 
     def verify(self, action: Action, outcome: ExecutionOutcome):
-        return verify_android_expansion(action.type, outcome)
+        return verify_android_expansion(action.type, outcome, action.arguments)
