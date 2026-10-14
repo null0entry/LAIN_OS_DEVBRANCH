@@ -181,6 +181,17 @@ Add high-value bounded capabilities such as app launch, flashlight, volume, medi
 ### Constraints
 No generic shell. Shizuku/Accessibility remain optional scoped backends, never base-install requirements.
 
+### Voice-to-SMS bounded slice — PR #59
+- Adds numeric-recipient, explicit-content SMS composer from accepted final
+  typed/spoken input, including deterministic offline command grammar.
+- Requires exact-action approval before opening Android's SMS composer.
+  Final sending remains in the user's installed SMS app; no direct SMS permission
+  or delivery claim.
+- CI Verify + Android API24/API35 and physical device acceptance are separate
+  gates; contact-name selection/resolution is still not implemented.
+- **TASK-074 remains NEXT** for the rest of the listed Android capabilities.
+- Details: `docs/VOICE_SMS_COMPOSE.md`.
+
 ---
 
 ## TASK-075: Close physical universal-command clean-device acceptance
