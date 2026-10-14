@@ -64,6 +64,55 @@ class NativeAdapterTests(unittest.TestCase):
         result = NativeAndroidAdapter(NativeStub({})).execute(Action("a1", "android.shell", {}))
         self.assertEqual(result.status, ActionStatus.UNSUPPORTED)
 
+    def test_sms_compose_is_registered_and_requires_confirmation(self):
+        from lain.capabilities.registry import DEFAULT_REGISTRY, RiskClass
+        from lain.policy.engine import PolicyDecision, evaluate_policy
+
+        capability = DEFAULT_REGISTRY.get("android.sms.compose")
+        action = Action("a1", "android.sms.compose",
+                        {"recipient": "+15551234567", "content": "Running late"})
+        config = RuntimeConfig.for_workspace(Path(tempfile.gettempdir()))
+        self.assertEqual(capability.risk_class, RiskClass.EXTERNAL_WRITE)
+        self.assertTrue(capability.confirmation_required)
+        self.assertEqual(evaluate_policy(capability, action, config),
+                         PolicyDecision.REQUIRE_CONFIRMATION)
+
+    def test_sms_compose_reaches_native_callback_without_claiming_delivery(self):
+        class Recorder:
+            def __init__(self):
+                self.calls = []
+
+            def execute(self, name, arguments):
+                self.calls.append((name, json.loads(arguments)))
+                return json.dumps({"status": "success", "details": {"handoff": "composer_opened"}})
+
+        callback = Recorder()
+        adapter = NativeAndroidAdapter(callback)
+        action = Action("a1", "android.sms.compose",
+                        {"recipient": "+15551234567", "content": "Running late"})
+        outcome = adapter.execute(action)
+        self.assertEqual(outcome.status, ActionStatus.SUCCESS)
+        self.assertEqual(callback.calls, [("android.sms.compose", action.arguments)])
+        self.assertEqual(adapter.verify(action, outcome).status, VerificationStatus.LIMITED)
+        self.assertNotIn("delivered", json.dumps(outcome.details))
+
+    def test_sms_compose_rejects_names_or_uri_injection_before_android(self):
+        class NeverCalled:
+            def execute(self, *_):
+                raise AssertionError("unsafe SMS recipient reached Android")
+
+        adapter = NativeAndroidAdapter(NeverCalled())
+        for recipient in ("Alex", "smsto:911", "123?body=oops", "123\\n456",
+                          "+", "", "12345678901234567890", "555;1234"):
+            with self.subTest(recipient=recipient):
+                action = Action("a1", "android.sms.compose",
+                                {"recipient": recipient, "content": "hello"})
+                result = adapter.execute(action)
+                self.assertEqual(result.status, ActionStatus.FAILURE)
+        self.assertEqual(adapter.execute(Action("a1", "android.sms.compose",
+            {"recipient": "5551234567", "content": "hi", "send_now": True})).status,
+            ActionStatus.FAILURE)
+
     def test_cli_keeps_default_dispatch(self):
         with tempfile.TemporaryDirectory() as root:
             runtime = RuntimeEngine(RuntimeConfig.for_workspace(Path(root)))
