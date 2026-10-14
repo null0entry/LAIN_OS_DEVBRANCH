@@ -26,7 +26,7 @@ from lain.agent.models import (
 )
 from lain.agent.planning import AgentPlanningService
 from lain.agent.store import AgentSessionStore
-from lain.app.demo import COMMANDS, DemoPlanner
+from lain.app.demo import COMMANDS, DemoPlanner, parse_sms_compose_command
 from lain.conversation_routing import TurnDisposition, classify_final_turn
 from lain.app.planner_bridge import AndroidPlannerFactory, _use_low_reasoning
 from lain.app.native import NativeAndroidAdapter
@@ -296,7 +296,8 @@ class AppController:
             # let untrusted classifier reason/response text choose the executor.
             trusted_demo = (route_decision is not None and
                             route_decision.disposition is TurnDisposition.TASK and
-                            record.text.strip().casefold() in {cmd.casefold() for cmd in COMMANDS})
+                            (record.text.strip().casefold() in {cmd.casefold() for cmd in COMMANDS}
+                             or parse_sms_compose_command(record.text) is not None))
             session = self._start_session(record.text, trusted_demo=trusted_demo)
             self.turns.link_task(record.turn_id, session.session_id)
             result = {"session": self._snapshot(session)}
