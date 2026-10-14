@@ -12,10 +12,10 @@ COMMANDS = ("Create demo file", "Show battery", "Show demo toast", "Vibrate brie
 # Deliberately narrow deterministic grammar for offline typed/final-spoken SMS
 # composition. A contact name is *not* a resolved number and must clarify.
 _SMS_PATTERN = re.compile(
-    r"^(?:text|send (?:a )?text to|compose (?:an? )?sms to)\\s+"
-    r"(?P<recipient>\\+?[0-9 ()-]{3,32})"
-    r"(?::\\s*|\\s+(?:saying|that says)\\s+)"
-    r"(?P<content>[^\\r\\n]+)$",
+    r"^(?:text|send (?:a )?text to|compose (?:an? )?sms to)\s+"
+    r"(?P<recipient>\+?[0-9 ()-]{3,32})"
+    r"(?::\s*|\s+(?:saying|that says)\s+)"
+    r"(?P<content>[^\r\n]+)$",
     re.IGNORECASE,
 )
 
@@ -28,7 +28,7 @@ def parse_sms_compose_command(goal: str) -> dict[str, str] | None:
         return None
     recipient = re.sub(r"[ ()-]", "", match["recipient"])
     content = match["content"].strip()
-    if (re.fullmatch(r"\\+?[0-9]{3,15}", recipient) is None or
+    if (re.fullmatch(r"\+?[0-9]{3,15}", recipient) is None or
             not content or len(content.encode("utf-8")) > 4096):
         return None
     return {"recipient": recipient, "content": content}
