@@ -1,7 +1,7 @@
 # Continuous LAIN commands and Android device control
 
 Date: 2026-10-14
-Status: Proposed; implementation has not started
+Status: Approved by owner on 2026-10-14; implementation in progress
 
 ## Intended outcome and target
 

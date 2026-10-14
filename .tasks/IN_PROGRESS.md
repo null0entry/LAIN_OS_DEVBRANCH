@@ -14,7 +14,7 @@ Owner wants continuous hands-free task execution, including settings, flashlight
 - Verify Android compatibility and deliver a source/checksum-bound test APK; record real-device limits honestly.
 
 ### Status
-Design prepared in `docs/superpowers/specs/2026-10-14-continuous-voice-device-control-design.md`; implementation has not started. Written-spec review is pending.
+Design prepared in `docs/superpowers/specs/2026-10-14-continuous-voice-device-control-design.md`; implementation has not started. Owner approved the written design and instructed “Approved. Proceed.” Implementation is authorized and in progress.
 
 ---
 
