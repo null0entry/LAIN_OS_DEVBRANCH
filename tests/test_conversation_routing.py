@@ -141,6 +141,54 @@ class CommandBridgeTests(unittest.TestCase):
                 self.app.advance()
         self.assertEqual(bridge.calls, 0)
 
+    def test_explicit_number_sms_voice_routes_to_confirmation_without_model(self):
+        class SMSNative:
+            def __init__(self):
+                self.calls = []
+
+            def execute(self, name, arguments):
+                self.calls.append((name, json.loads(arguments)))
+                return json.dumps({"status": "success", "details": {"handoff": "composer_opened"}})
+
+        native = SMSNative()
+        self.app = AppController(Path(self.tmp.name), native=native)
+        for source in ("typed", "speech"):
+            with self.subTest(source=source):
+                utterance = "Text +15551234567 saying I'm running late"
+                routed = self.final(utterance, source=source)
+                self.assertTrue(routed["ok"], routed)
+                self.assertEqual(routed["turn"]["route"], "start_task")
+                self.assertEqual(routed["session"]["planner"]["mode"], "demo")
+                sid = routed["session"]["session_id"]
+                for _ in range(8):
+                    self.app.advance()
+                    state = self.send("inspect", session_id=sid)["session"]
+                    if state["status"] == "paused_confirmation":
+                        break
+                self.assertEqual(state["status"], "paused_confirmation")
+                self.assertEqual(native.calls, [])
+                self.assertEqual(state["approval"]["type"], "android.sms.compose")
+                self.assertEqual(state["approval"]["arguments"]["content"], "[REDACTED]")
+                token = state["approval"]["token"]
+                approved = self.send("approve", session_id=sid, token=token)
+                self.assertTrue(approved["ok"], approved)
+                for _ in range(8):
+                    self.app.advance()
+                    state = self.send("inspect", session_id=sid)["session"]
+                    if state["status"] in ("complete", "blocked", "failed"):
+                        break
+                self.assertEqual(state["status"], "complete")
+                self.assertEqual(native.calls[-1][0], "android.sms.compose")
+                self.assertEqual(native.calls[-1][1]["recipient"], "+15551234567")
+                self.assertEqual(native.calls[-1][1]["content"], "I'm running late")
+                self.assertEqual(len(native.calls), 1 if source == "typed" else 2)
+
+    def test_sms_name_requires_clarification_and_no_effect(self):
+        response = self.final("Text Alex saying I'm running late", source="speech")
+        self.assertTrue(response["ok"], response)
+        self.assertTrue(response["clarification_required"])
+        self.assertEqual(self.send("sessions")["sessions"], [])
+
     def test_chat_question_cannot_start_a_task(self):
         reply = self.final("What can you do?")
         self.assertTrue(reply["ok"], reply)
