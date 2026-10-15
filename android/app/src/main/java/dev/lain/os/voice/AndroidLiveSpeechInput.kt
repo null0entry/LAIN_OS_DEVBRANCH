@@ -40,7 +40,8 @@ class AndroidLiveSpeechInput(context: Context) : LiveSpeechInput {
     override fun start(onFinal: (BackendTranscriptionResult) -> Unit): Boolean {
         check(Looper.myLooper() == Looper.getMainLooper())
         cancel()
-        if (!available) return false
+        // Guard the API31 class entry point itself, not just the availability getter.
+        if (Build.VERSION.SDK_INT < 31 || !available) return false
         val token = ++generation
         callback = onFinal
         try {
