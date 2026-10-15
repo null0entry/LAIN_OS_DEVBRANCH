@@ -465,6 +465,12 @@
         "order": 70
       },
       {
+        "id": "TASK-081",
+        "title": "Unify Local chat and Workbench under one canonical conversation",
+        "priority": "P0",
+        "order": 71
+      },
+      {
         "id": "TASK-082",
         "title": "Add continuous LAIN wake commands and broad Android device control",
         "priority": "P2",
@@ -472,7 +478,7 @@
       }
     ],
     "issue": 6,
-    "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "PR #57, #59 and #58 merged. TASK-081 belongs to canonical cross-surface conversation work. Continue TASK-082 on draft PR #60: complete consent-based continuous foreground voice service, optional accessibility, background runtime ownership, UI and physical acceptance. Retarget/reconcile with main after SMS feature; no direct silent SMS send or device-acceptance claim."
+    "repo_head": "043627b80d4ad8d0f56de4a3d849074bada66284",
+    "next_action": "PR #57, #59, #58 merged. TASK-081 unified conversation planned; TASK-082 continuous voice/device control partially implemented on draft PR #60. Complete foreground mic service, background ownership, optional accessibility, UI, review and physical Moto testing. Preserve SMS approval and explicit Send."
   }
 }

@@ -27,6 +27,13 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(redacted["arguments"]["content"], "[REDACTED]")
         self.assertEqual(redacted["arguments"]["path"], "note.md")
 
+    def test_sms_content_and_recipient_redact_from_audit(self):
+        value = {"action": {"type": "android.sms.compose",
+                            "arguments": {"recipient": "+15551234567", "content": "Private"}}}
+        scrubbed = redact(value)
+        self.assertEqual(scrubbed["action"]["arguments"]["content"], "[REDACTED]")
+        self.assertEqual(scrubbed["action"]["arguments"]["recipient"], "[REDACTED]")
+
     def test_append_writes_one_json_object_per_line(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "audit.jsonl")

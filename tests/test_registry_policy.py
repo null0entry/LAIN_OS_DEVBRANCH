@@ -18,7 +18,7 @@ class RegistryPolicyTests(unittest.TestCase):
              "android.flashlight_set", "android.volume_get", "android.volume_set", "android.volume_adjust",
              "android.brightness_set", "android.rotation_set", "android.screen_timeout_set", "android.settings_open",
              "android.app_open", "android.app_list", "android.ui.inspect", "android.ui.click", "android.ui.scroll",
-             "android.ui.set_text", "android.ui.global_action"},
+             "android.ui.set_text", "android.ui.global_action", "android.sms.compose"},
         )
         for name in DEFAULT_REGISTRY.names():
             cap = DEFAULT_REGISTRY.get(name)

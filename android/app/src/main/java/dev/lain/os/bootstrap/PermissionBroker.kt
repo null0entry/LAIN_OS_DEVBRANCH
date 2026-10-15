@@ -72,6 +72,7 @@ internal class PermissionBroker(
             CapabilityRequirement(capability = "android.notify",
                 runtimePermission = Manifest.permission.POST_NOTIFICATIONS, permissionMinApi = 33),
             CapabilityRequirement(capability = "android.share_text"),
+            CapabilityRequirement(capability = "android.sms.compose"),
         )
 
         fun android(context: Context): PermissionBroker {

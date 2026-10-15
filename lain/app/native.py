@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from lain.capabilities.registry import DEFAULT_REGISTRY, DEVICE_CAPABILITIES
 from lain.errors import ErrorCode, LainError
@@ -13,7 +14,7 @@ from lain.verification.battery import validate_battery
 from lain.verification.device import validate_device_evidence, validate_device_failure
 
 NATIVE_CAPABILITIES = frozenset({"android.notify", "android.open_uri", "android.battery_status", "android.vibrate", "android.toast",
-                                 "android.clipboard_set", "android.share_text"}) | DEVICE_CAPABILITIES
+                                 "android.clipboard_set", "android.share_text", "android.sms.compose"}) | DEVICE_CAPABILITIES
 
 
 def _unique_object(pairs):
@@ -37,6 +38,11 @@ class NativeAndroidAdapter:
             arguments = DEFAULT_REGISTRY.get(action.type).validate_arguments(action.arguments)
             if action.type == "android.open_uri":
                 validate_android_uri(arguments["uri"])
+            if action.type == "android.sms.compose":
+                recipient = re.sub(r"[ ()-]", "", arguments["recipient"])
+                if not re.fullmatch(r"\+?[0-9]{3,15}", recipient):
+                    raise ValueError("invalid SMS recipient")
+                arguments["recipient"] = recipient
             payload = str(self.callback.execute(action.type, json.dumps(arguments, ensure_ascii=False)))
             if len(payload.encode("utf-8")) > 65536:
                 raise ValueError("oversized native response")

@@ -304,6 +304,20 @@ DEFAULT_REGISTRY = CapabilityRegistry(
             verification="chooser_command_acceptance",
         ),
         CapabilityDefinition(
+            name="android.sms.compose",
+            arguments={
+                "recipient": ArgumentSpec(_STR, max_bytes=32),
+                "content": ArgumentSpec(_STR, max_bytes=4096),
+            },
+            risk_class=RiskClass.EXTERNAL_WRITE,
+            required_permissions=("android.sms_composer",),
+            reversible=False,
+            confirmation_required=True,
+            network_required=False,
+            environments=("android",),
+            verification="sms_composer_handoff_only",
+        ),
+        CapabilityDefinition(
             name="reddit.create_post",
             arguments={
                 "subreddit": ArgumentSpec(_STR),
