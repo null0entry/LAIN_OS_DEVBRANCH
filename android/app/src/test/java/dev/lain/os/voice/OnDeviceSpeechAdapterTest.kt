@@ -61,6 +61,12 @@ class OnDeviceSpeechAdapterTest {
             )
         }
 
+        fun failTranscript(diagnostic: String) {
+            transcriptionCallback?.invoke(BackendTranscriptionResult(
+                failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE, diagnostic = diagnostic,
+            ))
+        }
+
         fun finishTranscript(text: String, confidence: Float? = null) {
             transcriptionCallback?.invoke(
                 BackendTranscriptionResult(
@@ -134,6 +140,33 @@ class OnDeviceSpeechAdapterTest {
         assertEquals(1, results.size)
         assertEquals("Show battery", results.single().text)
         assertNull(results.single().failure)
+    }
+
+    @Test fun androidUnavailableConfidenceIsNotATranscriptionFailure() {
+        assertNull(firstRecognizerConfidence(floatArrayOf(-1f)))
+        assertNull(firstRecognizerConfidence(floatArrayOf()))
+        assertEquals(0.4f, firstRecognizerConfidence(floatArrayOf(0.4f)))
+        assertEquals(-0.5f, firstRecognizerConfidence(floatArrayOf(-0.5f)))
+        val backend = FakeBackend()
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        val results = mutableListOf<SpeechTranscriptionResult>()
+        adapter.transcribe(capture(), results::add)
+        backend.finishTranscript("Show battery", firstRecognizerConfidence(floatArrayOf(-1f)))
+        assertTrue(results.single().ok)
+        assertNull(results.single().confidence)
+    }
+
+    @Test fun recognizerFailureKeepsActionableDiagnostic() {
+        val backend = FakeBackend()
+        val adapter = OnDeviceSpeechAdapter(apiLevel = 33, backend = backend)
+        val results = mutableListOf<SpeechTranscriptionResult>()
+        val diagnostic = recognizerErrorDiagnostic(13, supportCheck = true)
+        adapter.transcribe(capture(), results::add)
+        backend.failTranscript(diagnostic)
+        assertFalse(results.single().ok)
+        assertEquals(diagnostic, results.single().diagnostic)
+        assertTrue(diagnostic.contains("install the language"))
+        assertTrue(diagnostic.contains("Android error 13"))
     }
 
     @Test fun androidBackendPreservesMalformedConfidenceForAdapterRejection() {

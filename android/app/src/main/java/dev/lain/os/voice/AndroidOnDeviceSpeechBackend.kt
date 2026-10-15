@@ -15,6 +15,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import androidx.annotation.RequiresApi
 import java.util.concurrent.Executors
+import java.util.Locale
 
 private const val LOCAL_STT_TIMEOUT_MS = 30_000L
 
@@ -24,7 +25,21 @@ private const val LOCAL_STT_TIMEOUT_MS = 30_000L
  * Captured PCM is accepted only on API 33+, where it can be supplied through
  * EXTRA_AUDIO_SOURCE. This backend never constructs a network recognizer.
  */
-internal fun firstRecognizerConfidence(scores: FloatArray?): Float? = scores?.firstOrNull()
+// Android documents -1 as an unavailable confidence score, not a bad transcript.
+internal fun firstRecognizerConfidence(scores: FloatArray?): Float? =
+    scores?.firstOrNull()?.takeUnless { it == -1f }
+
+internal fun recognizerErrorDiagnostic(error: Int, supportCheck: Boolean): String {
+    val reason = when (error) {
+        6, 7 -> "No speech recognized; try again"
+        8 -> "Offline speech recognizer is busy; try again"
+        9 -> "Microphone permission is required"
+        12, 13 -> "Offline speech language unavailable; install the language in system voice settings"
+        14 -> "Speech provider cannot verify captured-audio support; update the offline speech service"
+        else -> if (supportCheck) "Offline speech support check failed" else "Offline speech recognition failed"
+    }
+    return "$reason (Android error $error)"
+}
 
 /** Owns the captured-PCM Intent reader until the asynchronous recognizer has
  * finished or been cancelled. startListening returning does NOT imply that
@@ -172,6 +187,7 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
                             token,
                             BackendTranscriptionResult(
                                 failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE,
+                                diagnostic = recognizerErrorDiagnostic(error, supportCheck = true),
                             ),
                             cancelFirst = true,
                         )
@@ -255,7 +271,10 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
         override fun onError(error: Int) {
             finish(
                 token,
-                BackendTranscriptionResult(failure = SpeechAdapterFailure.PROVIDER_FAILED),
+                BackendTranscriptionResult(
+                    failure = SpeechAdapterFailure.PROVIDER_FAILED,
+                    diagnostic = recognizerErrorDiagnostic(error, supportCheck = false),
+                ),
                 cancelFirst = true,
             )
         }
@@ -290,6 +309,7 @@ class AndroidOnDeviceSpeechBackend(context: Context) : OnDeviceSpeechBackend {
     @RequiresApi(33)
     private fun recognitionIntent(source: ParcelFileDescriptor, audio: CapturedAudio): Intent =
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)

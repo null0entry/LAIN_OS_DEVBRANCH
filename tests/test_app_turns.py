@@ -104,6 +104,19 @@ class AppConversationTurnTests(unittest.TestCase):
         self.assertEqual(after_state.goal, "Create demo file\n\nUser revision: Make it shorter")
         self.assertEqual(after_state.last_revision_turn_id, reply["turn"]["turn_id"])
 
+    def test_process_restart_settles_interrupted_chat_without_replaying_model(self):
+        from lain.conversation import TurnSource, TurnKind, TurnReference
+        record = self.app.turns.accept("Hello", source=TurnSource.TYPED,
+            kind=TurnKind.CHAT, reference=TurnReference.NONE).record
+        self.app.turns.begin_reply(record.turn_id)
+        class NoReplay:
+            def route(self, *_):
+                raise AssertionError("restart must not replay generation")
+        self.app = AppController(Path(self.tmp.name), planner_bridge=NoReplay())
+        replies = self.send("turns")["conversation"]["assistant_replies"]
+        self.assertEqual(replies[0]["state"], "failed")
+        self.assertIn("interrupted", replies[0]["text"].lower())
+
     def test_revision_invalidates_old_approval_without_replaying_pending_action(self):
         started = self.send("start", goal="Share demo text")
         sid = started["session"]["session_id"]

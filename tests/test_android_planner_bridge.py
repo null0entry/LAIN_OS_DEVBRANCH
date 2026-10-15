@@ -136,6 +136,29 @@ class AndroidPlannerFactoryTests(unittest.TestCase):
             )
         self.assertEqual(raised.exception.code, ErrorCode.PLANNER_OUTPUT_INVALID)
 
+    def test_on_device_completion_accepts_limited_effects_without_upgrading_evidence(self):
+        binding = PlannerBinding(
+            profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",
+            base_url="", model="a" * 64, credential_ref=None, timeout_seconds=120.0,
+            max_response_bytes=65536, response_mode="none", allow_insecure_lan_http=False,
+        )
+        bridge = FakeNativePlannerBridge({"ok": True, "body": json.dumps({
+            "status": "complete", "reason": "Android accepted the command", "actions": [],
+        })})
+        planner = AndroidPlannerFactory(self.workspace, bridge)(binding)
+        for verification in ("passed", "limited", "not_applicable"):
+            context = {"history": [{"actions": [{"result": {
+                "status": "success", "verification": {"status": verification},
+            }}]}]}
+            with self.subTest(verification=verification):
+                self.assertEqual(planner.decide("Vibrate", context, ()).status, AgentPlannerStatus.COMPLETE)
+                self.assertEqual(context["history"][0]["actions"][0]["result"]["verification"]["status"], verification)
+        for verification in ("failed", "unavailable"):
+            with self.subTest(verification=verification), self.assertRaises(LainError):
+                planner.decide("Vibrate", {"history": [{"actions": [{"result": {
+                    "status": "success", "verification": {"status": verification},
+                }}]}]}, ())
+
     def test_on_device_malformed_json_and_native_error_fail_closed(self):
         binding = PlannerBinding(
             profile_id="offline-qwen", mode="on_device", protocol="gguf_native_v1",

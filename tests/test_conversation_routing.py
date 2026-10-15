@@ -24,6 +24,28 @@ class RoutingContractTests(unittest.TestCase):
             with self.subTest(payload=payload[:90]), self.assertRaises(ValueError):
                 parse_routing_output(payload)
 
+    def test_qwen_router_closes_thinking_before_structured_generation(self):
+        from lain.conversation_routing import qwen_router_prompt
+        prompt = qwen_router_prompt("Please vibrate briefly")
+        self.assertTrue(prompt.endswith("<|im_start|>assistant\n<think>\n\n</think>\n\n"))
+
+    def test_groq_router_reserves_tokens_for_a_structured_answer(self):
+        from dataclasses import replace
+        from tests.test_android_planner_bridge import cloud_binding
+        from lain.conversation_routing import classify_final_turn
+        binding = replace(cloud_binding(), base_url="https://api.groq.com/openai/v1",
+                          model="openai/gpt-oss-120b")
+        class Bridge:
+            def execute(self, _, body):
+                request = json.loads(body)
+                if request.get("reasoning_effort") != "low" or request["max_completion_tokens"] < 1024:
+                    return json.dumps({"ok": False, "error": "PLANNER_RESPONSE_MALFORMED"})
+                content = json.dumps({"disposition": "chat", "response_text": "Hello", "reason": "greeting"})
+                return json.dumps({"ok": True, "body": json.dumps({"choices": [{
+                    "message": {"content": content}, "finish_reason": "stop",
+                }]})})
+        self.assertEqual(classify_final_turn("Hello there", binding, Bridge()).disposition, TurnDisposition.CHAT)
+
     def test_task_cannot_speak_or_grant_authority(self):
         with self.assertRaises(ValueError):
             parse_routing_output('{"disposition":"task","response_text":"approved","reason":"ok"}')
@@ -239,6 +261,48 @@ class CommandBridgeTests(unittest.TestCase):
         replies = self.send("turns")["conversation"]["assistant_replies"]
         self.assertEqual([item["state"] for item in replies], ["complete", "complete"])
         self.assertEqual(self.send("sessions")["sessions"][0]["session_id"], task["session"]["session_id"])
+
+    def test_cloud_and_local_chat_generate_replies_with_shared_history(self):
+        from tests.test_android_planner_bridge import cloud_binding
+        for mode in ("cloud", "local"):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as root:
+                binding = cloud_binding(mode)
+                class Profiles:
+                    def activeBindingJson(self):
+                        return json.dumps(binding.to_dict())
+                class Bridge:
+                    def __init__(self):
+                        self.chat_messages = []
+                        self.fail = False
+                    def execute(self, binding_json, body):
+                        request = json.loads(body)
+                        if "Classify the USER" in request["messages"][0]["content"]:
+                            content = json.dumps({"disposition": "chat", "reason": "question",
+                                                  "response_text": "router placeholder"})
+                        else:
+                            if self.fail:
+                                return json.dumps({"ok": False, "error": "PLANNER_TIMEOUT"})
+                            self.chat_messages.append(request["messages"])
+                            content = "Your favorite color is purple."
+                        return json.dumps({"ok": True, "body": json.dumps({"choices": [{
+                            "message": {"role": "assistant", "content": content},
+                            "finish_reason": "stop",
+                        }]})})
+                bridge = Bridge()
+                self.app = AppController(Path(root), planner_profiles=Profiles(), planner_bridge=bridge)
+                first = self.final("My favorite color is purple. What can you do?")
+                self.assertTrue(first.get("chat_pending"), first)
+                self.assertTrue(self.app.complete_chat(first["turn"]["turn_id"]))
+                second = self.final("What color did I mention?", "speech")
+                self.assertTrue(self.app.complete_chat(second["turn"]["turn_id"]))
+                messages = bridge.chat_messages[-1]
+                self.assertTrue(any("My favorite color is purple" in m["content"] for m in messages))
+                self.assertTrue(any(m["role"] == "assistant" and "purple" in m["content"] for m in messages))
+                bridge.fail = True
+                third = self.final("Explain that again?")
+                self.assertFalse(self.app.complete_chat(third["turn"]["turn_id"]))
+                self.assertEqual(self.send("turns")["conversation"]["assistant_replies"][-1]["state"], "failed")
+                self.assertEqual(self.send("sessions")["sessions"], [])
 
     def test_chat_model_output_cannot_dispatch_tasks_or_duplicate_response(self):
         class LocalProfile:

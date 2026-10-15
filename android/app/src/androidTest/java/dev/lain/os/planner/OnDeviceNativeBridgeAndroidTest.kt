@@ -19,6 +19,23 @@ class OnDeviceNativeBridgeAndroidTest {
         maxResponseBytes = 65536, responseMode = "none", allowInsecureLanHttp = false,
     ).toTrustedBindingJson()
 
+    @Test fun constrainedGenerationUsesThePackagedJniEntryPoint() {
+        val file = java.io.File.createTempFile("lain-grammar-jni-", ".gguf", context.cacheDir)
+        file.writeBytes(ByteArray(32))
+        val id = 9001L
+        try {
+            assertEquals(null, GgufNativeProbe.registerGeneration(id))
+            val result = GgufNativeProbe.generate(file.absolutePath, "prompt", 4096, 16,
+                id, OnDeviceJsonGrammar.routing())
+            // A readable invalid model must reach native loading, rather than
+            // failing with a missing symbol or silently using an unconstrained path.
+            assertEquals(GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.MODEL_LOAD_FAILED), result)
+        } finally {
+            GgufNativeProbe.releaseGeneration(id)
+            file.delete()
+        }
+    }
+
     @Test fun absentModelFailsClosedWithoutHttpOrDemoFallback() {
         val request = JSONObject()
             .put("mode", "agent").put("version", "0")

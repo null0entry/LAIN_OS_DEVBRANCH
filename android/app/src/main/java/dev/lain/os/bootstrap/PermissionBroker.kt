@@ -26,7 +26,7 @@ internal class PermissionBroker(
                 requirement.settingsGrant != null &&
                     !hasSettingsGrant(requirement.settingsGrant) ->
                     AvailabilityState.NEEDS_SETTINGS_GRANT
-                requirement.runtimePermission != null &&
+                requirement.runtimePermission != null && apiLevel >= requirement.permissionMinApi &&
                     !hasRuntimePermission(requirement.runtimePermission) ->
                     AvailabilityState.NEEDS_PERMISSION
                 else -> AvailabilityState.READY
@@ -35,14 +35,14 @@ internal class PermissionBroker(
                 apiLevel < requirement.minApi -> "Android API ${requirement.minApi}+"
                 requirement.optionalDependency != null -> requirement.optionalDependency
                 requirement.settingsGrant != null -> requirement.settingsGrant.name.lowercase()
-                requirement.runtimePermission != null -> requirement.runtimePermission
+                requirement.runtimePermission != null && apiLevel >= requirement.permissionMinApi -> requirement.runtimePermission
                 else -> null
             },
         )
     }
 
     fun runtimePermissionFor(capability: String): String? =
-        rules.firstOrNull { it.capability == capability }?.runtimePermission
+        rules.firstOrNull { it.capability == capability && apiLevel >= it.permissionMinApi }?.runtimePermission
 
     fun settingsGrantFor(capability: String): SettingsGrant? =
         rules.firstOrNull { it.capability == capability }?.settingsGrant
@@ -65,6 +65,12 @@ internal class PermissionBroker(
                 optionalDependency = "android.on_device_recognizer",
             ),
             CapabilityRequirement(capability = "android.battery_status"),
+            CapabilityRequirement(capability = "android.vibrate"),
+            CapabilityRequirement(capability = "android.toast"),
+            CapabilityRequirement(capability = "android.clipboard_set"),
+            CapabilityRequirement(capability = "android.open_uri"),
+            CapabilityRequirement(capability = "android.notify",
+                runtimePermission = Manifest.permission.POST_NOTIFICATIONS, permissionMinApi = 33),
             CapabilityRequirement(capability = "android.share_text"),
         )
 

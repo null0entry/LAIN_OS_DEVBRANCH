@@ -81,7 +81,11 @@ internal class NativePlannerBridge(
      * verified private model store, timeout and cancellation with task planning.
      * This method cannot execute any device capability.
      */
-    fun route(bindingJson: String, prompt: String): String {
+    fun route(bindingJson: String, prompt: String): String = generatePrompt(bindingJson, prompt, false)
+
+    fun classify(bindingJson: String, prompt: String): String = generatePrompt(bindingJson, prompt, true)
+
+    private fun generatePrompt(bindingJson: String, prompt: String, structured: Boolean): String {
         if (bindingJson.toByteArray(Charsets.UTF_8).size > MAX_BINDING_BYTES ||
             prompt.toByteArray(Charsets.UTF_8).size > 16_384) {
             return failure("PLANNER_REQUEST_INVALID")
@@ -89,7 +93,8 @@ internal class NativePlannerBridge(
         val store = modelStore ?: return failure("PLANNER_MODEL_NOT_FOUND")
         val call = try {
             val binding = parseOnDeviceBinding(bindingJson)
-            OnDevicePlannerCall.chat(store, binding.digest, prompt, binding.timeoutSeconds)
+            if (structured) OnDevicePlannerCall.routing(store, binding.digest, prompt, binding.timeoutSeconds)
+            else OnDevicePlannerCall.chat(store, binding.digest, prompt, binding.timeoutSeconds)
         } catch (_: Exception) {
             return failure("PLANNER_REQUEST_INVALID")
         }

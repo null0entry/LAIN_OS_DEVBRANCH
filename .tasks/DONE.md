@@ -1,5 +1,49 @@
 # Done
 
+## TASK-080: Repair chat preload handoff and on-device speech transcription
+**Priority:** P2 | **Tags:** android, chat, voice, regression
+**Updated:** 2026-10-12
+
+User reports that model preload does not work in local chat and voice transcription still fails.
+
+### Plan / completion summary
+- Trace resident-service handoff and reproduce chat submission during model loading.
+- Make chat observe actual model status, support explicit preload in chat, and prevent loading/generation races.
+- Reproduce Android confidence/error handling failures and correct them without network recognition fallback.
+- Added confidence/diagnostic regressions and Android chat/service preload integration tests. 351 Python tests, 145 Android JVM tests, native residency lifecycle tests, both APK builds and lint pass locally. Emulator checks rerun in CI; physical speech-provider behavior remains unverified.
+
+---
+
+## TASK-079: Show model startup progress in Workbench
+**Priority:** P2 | **Tags:** android, ui, model
+**Updated:** 2026-10-12
+
+User requested a progress bar for model start.
+
+### Plan / completion summary
+- Show indeterminate progress immediately on Start Model.
+- Read actual resident-service status off the UI thread while Workbench is visible; render only state changes so accessibility and UI automation can become idle.
+- Hide progress on readiness, failure, stop or disconnect and restore status after returning.
+- Added Android instrumentation for state transitions and actual service status after activity recreation. Portable verification (351 Python tests), 143 Android JVM tests, both APK builds and lint pass; device matrix reruns in CI.
+
+---
+
+## TASK-078: Repair integrated runtime, Android app and build verification
+**Priority:** P2 | **Tags:** runtime, android, functionality, regression
+**Updated:** 2026-10-12 17:29
+
+User requested a functionality audit and fixes for the repository and included app.
+
+### Plan / completion summary
+- Reproduced and repaired Qwen3 prompt contracts, role delimiter escaping, and completion after successful limited-verification effects.
+- Added genuine cloud/local-server chat replies with bounded shared history and truthful interrupted-reply recovery.
+- Wired native notification and URI capabilities, explicit notification-permission UI, speech service visibility, and pending-reply submission gating.
+- Added decoder constraints for valid task/routing JSON and exact catalog names after real Qwen exposed placeholder types, copied historical IDs and malformed follow-up output.
+- Added regression coverage and checksum/source metadata to the existing Android CI APK artifacts.
+- Canonical portable checks, native lifecycle regressions, and Android unit/build/lint checks verified; 143 Android JVM tests and a real Qwen/controller smoke pass; physical-device acceptance remains separate.
+
+---
+
 ## TASK-053: Implement selectable agent speech voices
 **Priority:** P1 | **Tags:** overseer-assigned, developer, phase-2, voice, speech, android, ux
 **Updated:** 2026-10-07

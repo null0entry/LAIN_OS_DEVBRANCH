@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="chat_start_model" type="id" />
+    <item name="chat_stop_model" type="id" />
+    <item name="chat_model_progress" type="id" />
+    <item name="chat_model_status" type="id" />
+    <item name="chat_send" type="id" />
+</resources>

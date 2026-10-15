@@ -28,11 +28,11 @@ from lain.agent.planning import AgentPlanningService
 from lain.agent.store import AgentSessionStore
 from lain.app.demo import COMMANDS, DemoPlanner
 from lain.conversation_routing import TurnDisposition, classify_final_turn
-from lain.app.planner_bridge import AndroidPlannerFactory
+from lain.app.planner_bridge import AndroidPlannerFactory, _use_low_reasoning
 from lain.app.native import NativeAndroidAdapter
 from lain.audit.logger import redact, redact_android_narratives
 from lain.config import RuntimeConfig
-from lain.conversation.chat_context import build_chat_prompt
+from lain.conversation.chat_context import build_chat_prompt, build_chat_messages
 from lain.conversation import (
     ConversationTurnManager,
     TurnKind,
@@ -121,6 +121,13 @@ class AppController:
         config = RuntimeConfig.for_workspace(workspace)
         self.store = AgentSessionStore(root / "sessions")
         self.turns = ConversationTurnManager(root / "conversation")
+        # A process restart cannot resume an in-memory model call. Settle only
+        # pending replies; preserve completed history and never replay inference.
+        for turn_id, state, _ in self.turns.snapshot().assistant_replies:
+            if state == "pending":
+                self.turns.finish_reply(
+                    turn_id, "The reply was interrupted. Send your message again to retry.", "failed",
+                )
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
         self._planner_bridge = planner_bridge
         self._binding_provider = _planner_binding_provider(planner_profiles)
@@ -334,7 +341,7 @@ class AppController:
                 }
         if record.route is TurnRoute.CHAT:
             binding = self._binding_provider()
-            if binding.mode == "on_device" and self._planner_bridge is not None:
+            if binding.mode in {"on_device", "cloud", "local"} and self._planner_bridge is not None:
                 # Return to Binder promptly after routing; heavy response generation
                 # runs separately and updates the same durable conversation.
                 self.turns.begin_reply(record.turn_id)
@@ -396,17 +403,45 @@ class AppController:
             if record.route is not TurnRoute.CHAT or snapshot.turns[-1].turn_id != turn_id:
                 raise ValueError("chat turn is not current")
             binding = self._binding_provider()
-            if binding.mode != "on_device" or self._planner_bridge is None:
-                raise ValueError("selected offline model unavailable")
-            prompt = build_chat_prompt(snapshot, self._verified_task_observation)
-            response = json.loads(str(self._planner_bridge.route(
-                json.dumps(binding.to_dict(), separators=(",", ":")), prompt,
-            )), object_pairs_hook=_unique_object)
+            if binding.mode not in {"on_device", "cloud", "local"} or self._planner_bridge is None:
+                raise ValueError("selected model unavailable")
+            binding_json = json.dumps(binding.to_dict(), separators=(",", ":"))
+            if binding.mode == "on_device":
+                prompt = build_chat_prompt(snapshot, self._verified_task_observation)
+                raw = self._planner_bridge.route(binding_json, prompt)
+            else:
+                request = {
+                    "model": binding.model,
+                    "messages": build_chat_messages(snapshot, self._verified_task_observation),
+                    "max_completion_tokens": 1024,
+                    "stream": False,
+                }
+                if _use_low_reasoning(binding):
+                    request["reasoning_effort"] = "low"
+                raw = self._planner_bridge.execute(
+                    binding_json, json.dumps(request, ensure_ascii=False, separators=(",", ":")),
+                )
+            response = json.loads(str(raw), object_pairs_hook=_unique_object)
             if not isinstance(response, dict) or set(response) != {"ok", "body"} or response["ok"] is not True:
                 raise ValueError("model did not return a valid reply")
             body = response["body"]
             if not isinstance(body, str):
                 raise ValueError("invalid model response")
+            if binding.mode != "on_device":
+                if len(body.encode("utf-8")) > binding.max_response_bytes:
+                    raise ValueError("chat transport response exceeds byte limit")
+                upstream = json.loads(body, object_pairs_hook=_unique_object)
+                choices = upstream.get("choices")
+                if not isinstance(choices, list) or len(choices) != 1:
+                    raise ValueError("invalid chat choices")
+                choice = choices[0]
+                message = choice.get("message")
+                if (choice.get("finish_reason") != "stop" or not isinstance(message, dict)
+                        or message.get("tool_calls") or message.get("function_call")):
+                    raise ValueError("chat response is not completed plain text")
+                body = message.get("content")
+                if not isinstance(body, str):
+                    raise ValueError("invalid chat response content")
             reply = body.split("<|im_end|>", 1)[0].strip()
             if not reply or len(reply.encode("utf-8")) > 4096:
                 raise ValueError("empty or oversized model response")
@@ -416,7 +451,7 @@ class AppController:
             try:
                 self.turns.finish_reply(
                     turn_id,
-                    "Local chat could not generate a reply. Check that Qwen is ready and retry.",
+                    "Chat could not generate a reply. Check the selected model and try again.",
                     "failed",
                 )
             except ValueError:

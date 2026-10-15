@@ -163,7 +163,8 @@ class OnDeviceBridgePlanner:
             max_actions=self.max_actions,
         )
         # Unlike the demo path, a local model cannot claim a completed *task*
-        # without at least one trusted executed action in the session history.
+        # without at least one trusted accepted action in the session history.
+        # LIMITED is command acceptance, never proof of a downstream UI effect.
         history = context.get("history") if isinstance(context, dict) else None
         if decision.status is AgentPlannerStatus.COMPLETE and isinstance(history, list):
             witnessed = any(
@@ -174,12 +175,12 @@ class OnDeviceBridgePlanner:
                     and isinstance(action.get("result"), dict)
                     and action["result"].get("status") == "success"
                     and isinstance(action["result"].get("verification"), dict)
-                    and action["result"]["verification"].get("status") in {"passed", "not_applicable"}
+                    and action["result"]["verification"].get("status") in {"passed", "limited", "not_applicable"}
                     for action in iteration["actions"]
                 )
                 for iteration in history
             )
             if not witnessed:
                 raise LainError(ErrorCode.PLANNER_OUTPUT_INVALID,
-                                "model cannot claim completion without a verified action")
+                                "model cannot claim completion without an accepted action")
         return decision

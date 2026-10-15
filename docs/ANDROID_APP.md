@@ -1,131 +1,140 @@
-# Android interface
+# Android app
 
-The `android/` module is the first standalone LAIN_OS GUI. It embeds the existing
-Python package with Chaquopy in a private `:runtime` process; it does not require
-Termux, an external Python installation, a server, or a cloud account on the phone.
+The `android/` module embeds the Python runtime and native GGUF inference in a
+private `:runtime` process. Launching the app requires no Termux, external Python,
+root, Shizuku, server, or cloud account.
 
-## Current source scope
+## Setup and conversation
 
-- Kotlin/AndroidX text workbench: command entry, Run/Stop, progress and per-action
-  execution/verification results, exact-action approval, and recent sessions.
-- One active session with existing finite budgets and atomic checkpoints.
-- Non-exported bound service, same-UID Binder checks, bounded typed JSON, and an
-  independent Stop channel. Backgrounding requests Stop; rotation keeps the
-  selected session without submitting another task. This is on-demand execution,
-  not a persistent background service.
-- Run and approval wait for embedded Python initialization and durable-state
-  inspection. Startup failures are distinct from initialization in progress.
-  Reconnect inspects existing state; it never replays queued writes. Requests
-  and replies from a previous connection cannot migrate into a new binding.
-- Native adapters for the five existing expansion capabilities: battery,
-  vibration, toast, clipboard write/private comparison, and confirmed share
-  chooser. No receiver selection or generic clipboard read is exposed.
-- Explicit user-started microphone capture using bounded 16 kHz mono PCM16,
-  with a visible recording state. Rotation preserves truthful capture state;
-  ordinary backgrounding, permission loss, lifecycle teardown, capture failure,
-  and resource-limit failure release the microphone and discard buffered audio.
-  Raw microphone audio is not written to durable storage by this slice.
-- Native notification/URI operations and provider-backed planning remain
-  unsupported in this interface. The portable CLI keeps its default adapters.
+On first launch, choose Demo for fixed offline commands, or configure a planner.
+Typed input works without microphone or notification permissions.
 
-This version uses a deliberately labeled **offline demo planner**, not a language
-model. Choose one of these exact commands:
+- **Demo:** the six exact commands below use deterministic plans.
+- **On-device:** download the recommended Qwen3 GGUF or import a supported GGUF,
+  then save and select its on-device profile. The download verifies the pinned
+  size and SHA-256 before use. The recommended model is approximately 1.28 GB;
+  its private copy and optional public Downloads copy require separate space.
+- **Cloud / local server:** configure an HTTPS OpenAI-compatible endpoint and
+  model. Cloud credentials remain in Android Keystore. Local-server mode connects
+  to a server; on-device mode runs the GGUF on the phone.
+
+Tap **Start model** in Workbench or Local chat to keep the selected offline GGUF in memory. An animated
+progress bar appears while it loads; the status changes to **Offline model ready**
+when loading succeeds, or shows the failure. **Stop model** releases the model.
+Workbench and Local chat refresh the actual service status when you return.
+Local chat enables **Send** only after the service confirms that the selected
+model is ready. It shows preload failures directly and lets you retry in chat;
+changing models requires loading the newly selected model. Loading is indeterminate
+because the native loader does not provide a reliable completion percentage.
+
+The Workbench accepts typed and final spoken turns. Ordinary conversation uses
+bounded prior turns, assistant replies, and trusted task observations. Cloud,
+local-server, and on-device profiles generate their replies through the selected
+transport. No cloud fallback occurs from on-device mode. Chat responses cannot
+execute capabilities or approve actions.
+
+Qwen3 prompts disable thinking using its non-thinking chat template so the bounded
+router and planner can request JSON without a reasoning preamble. Native decoding
+constrains routing fields and task JSON, including the supplied capability names;
+follow-up plans cannot copy historical IDs or add trailing non-JSON text. Successful
+history stays read-only. Only strict validated proposals enter the controller. Exact built-in commands bypass model
+routing and planning even when a model is selected.
+
+A generating reply prevents another submission until it settles. App restart
+marks interrupted replies as failed and leaves them available to inspect; it does
+not replay model calls. Accepted turns and replies are durable; partial speech is
+provisional and raw microphone audio is not persisted.
+
+Offline voice transcription uses Android's on-device speech recognizer, independently
+of the Qwen text model. Captured-audio recognition requires Android 13 or newer
+and an installed offline speech language. Android's unavailable confidence score
+is accepted as unknown; actual low or malformed scores still reject the transcript.
+Recognizer failures show their Android error code and language/setup guidance.
+No network speech recognizer is selected as a fallback.
+
+## Device tools
+
+| Capability | Native behavior | Verification |
+| --- | --- | --- |
+| `android.battery_status` | Structured battery reading | Validated reading |
+| `android.vibrate` | Bounded vibration | Command acceptance only |
+| `android.toast` | Short toast | Command acceptance only |
+| `android.clipboard_set` | Clipboard write and private immediate comparison | Match, mismatch, or unavailable readback |
+| `android.share_text` | Open a share chooser after exact-action approval | Chooser acceptance only |
+| `android.notify` | Post an app notification | Command acceptance only |
+| `android.open_uri` | Open an HTTP, HTTPS, geo, or mailto URI through a VIEW intent | Intent acceptance only |
+
+Disabled notifications, denied permission, or a missing URI handler report
+unavailability. **Enable notifications** appears in the Workbench when app
+notifications are disabled. Android 13+ asks for notification permission only
+when that button is tapped; older versions open app settings if needed.
+
+Limited verification means Android accepted the operation, not that the user
+saw its effect. Successful limited operations can finish their task without
+upgrading that evidence. Clipboard readback values remain private.
+
+Filesystem writes, copies, and moves stay within the configured private workspace.
+Other integrations retain their own configuration requirements; an unavailable
+adapter never simulates success.
+
+### Fixed Demo commands
 
 | Command | Action |
 | --- | --- |
-| Create demo file | Write `demo.txt` in the app's private workspace; overwrite is not automatic |
-| Show battery | Obtain approved structured battery fields |
-| Show demo toast | Request a short “Hello from LAIN_OS.” toast |
+| Create demo file | Write the next available `demo.txt` / `demo-N.txt` slot |
+| Show battery | Read approved structured battery fields |
+| Show demo toast | Request “Hello from LAIN_OS.” |
 | Vibrate briefly | Request a 200 ms vibration |
-| Copy demo text | Set “Hello from LAIN_OS.” and compare privately |
-| Share demo text | Request exact-action confirmation, then open a chooser with “Hello from LAIN_OS.” |
+| Copy demo text | Write “Hello from LAIN_OS.” and compare privately |
+| Share demo text | Request approval, then open a chooser with “Hello from LAIN_OS.” |
 
-Unknown goals become blocked; they do not launch a shell or arbitrary operation.
-During later device testing dismiss the share chooser without sending anything.
+## Voice and lifecycle
 
-## Build a debug APK
+Voice capture starts only after tapping **Record voice** and granting microphone
+permission. Recognition of captured PCM requires Android 13+ and an installed
+on-device recognizer that supports the captured-audio request. Offline speech
+output requires an installed offline TTS voice. The manifest declares discovery
+of recognition and TTS services for Android package visibility.
 
-Requirements: JDK 17 or 21, Android SDK platform 35 and its build tools, and network
-access for the pinned Gradle/AndroidX/Chaquopy dependencies. Android Studio can
-open `android/` directly. Configure the local SDK through `ANDROID_HOME` or an
-ignored `android/local.properties` file containing `sdk.dir=/absolute/sdk/path`.
+Run and approval wait for embedded Python initialization and durable-state
+inspection. Rotation preserves selected work without submitting it again.
+Backgrounding requests Stop for active work and cancels model transport. Stop
+prevents further steps while an operation already in flight may settle; inspect
+its execution and verification results.
 
-From the repository root:
+Approvals expire after 120 seconds and are bound to the exact action and stored
+session revision. Stop, resume, mutation, and process restart invalidate grants.
+Interrupted tasks require explicit recovery; the app never resumes automatically.
+A non-exported Binder service and same-UID checks protect the control interface.
+Data stays under the app's private files directory. Backups and cleartext planner
+traffic are disabled.
 
-```sh
-./android/gradlew --project-dir android :app:assembleDebug
-```
+## Build and verification
 
-The official Gradle wrapper is included. If the default Gradle cache is not
-writable, select a writable cache using `GRADLE_USER_HOME`. Keep the execution
-environment's proxy and CA trust when downloading dependencies.
-
-Expected artifact after a successful build:
-`android/app/build/outputs/apk/debug/app-debug.apk`. A debug APK is not a production
-release. No release-signing credentials are included. The source bundles
-only `lain/`, not repository secrets, session files, or developer configuration.
-
-## Approvals, privacy, and recovery
-
-Approvals are one-use tokens expiring after 120 seconds and bound to the stored
-session revision, request ID, and exact action. A planner cannot grant them. Stop,
-resume, mutation, and process restart invalidate grants. Sensitive action arguments
-are redacted on the interface/history path; clipboard readback stays private.
-
-Data is scoped to the application's private `files/lain` directory. Checkpoints
-retain original supplied input and action payloads for trusted recovery, in private
-files, as the CLI does. History shows only fixed demo labels and structured results.
-Backups and cleartext traffic are disabled. Internet permission is used only by
-configured planner transports. `RECORD_AUDIO` is declared for voice input but capture
-is owner-started: the runtime permission flow begins only after tapping **Record
-voice**, and typed input remains available when permission is denied. No storage
-permission is requested. Uninstalling the application removes its private data
-through Android's normal behavior.
-
-Stop acknowledges the request while an operation already in flight may settle.
-It prevents further steps and records the actual outcome; it does not promise
-rollback of an external effect. After process death, the app does not resume or
-replay automatically. Select interrupted work and explicitly Resume, approve a
-fresh pending action, or Stop it. Existing audit-ahead reconciliation remains
-authoritative. Ambiguous requests are never automatically retried.
-
-## Stop scheduling
-
-Stop wake-ups enter the same single-worker queue as runtime steps, so a Stop
-arriving while an action enters a confirmation pause still settles cancellation.
-A deterministic JVM regression exercises this case alongside APK assembly, lint,
-and instrumentation. Version `0.1.4-interface` still requires current physical
-acceptance for Stop at the confirmation transition; older emulator or Termux
-evidence does not certify a changed APK.
-
-## Verification status
-
-The latest recorded interface verification includes 19 focused Python tests, 251
-tests in the canonical portable suite, 251 through the Android portable helper,
-APK assembly, instrumentation compilation, and Android lint. The Android emulator
-matrix covers API 24 and API 35; the API 24 run passed all nine applicable
-instrumentation cases after the compatibility fixes documented in source.
-
-The package is `dev.lain.os`, version `0.1.4-interface` (version code 5), supports
-arm64-v8a and x86_64, and has minimum Android API level 24. Debug artifacts are
-debug-signed and do not constitute a production release.
-
-Physical-device acceptance remains required for native adapters, Binder behavior,
-approval handling, rotation/rebind, interruption, recovery, and measured Stop
-latency. Use [the native APK checklist](ANDROID_DEVICE_ACCEPTANCE.md).
-
-Verification commands:
+Use a full JDK 17 or 21, Android platform/build tools 35, NDK 29.0.13113456, and
+CMake 3.22.1. Configure `ANDROID_HOME` or an ignored `android/local.properties`.
+The wrapper downloads the pinned Gradle and dependency versions. Preserve the
+execution environment's proxy and CA trust.
 
 ```sh
-python -m unittest tests.test_app_control tests.test_app_native -v
+python -m pip install -e .
 python scripts/verify.py
+bash tests/native/run_gguf_lifecycle_test.sh
+./android/gradlew --project-dir android :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
 ./android/gradlew --project-dir android :app:connectedDebugAndroidTest
 ```
 
-The current instrumentation set does not cover every physical-device failure
-contract. Foreign-application IPC rejection, clipboard restrictions, chooser behavior,
-stale approvals, backgrounding races, physical microphone behavior, and measured
-Stop latency remain device acceptance work. Voice turn management, speech playback,
-barge-in/echo handling, media workflows, provider integrations, and YouTube
-publishing are later product stages.
+The debug APK is `android/app/build/outputs/apk/debug/app-debug.apk`, package
+`dev.lain.os`, version `0.1.4-interface` (code 5), minimum API 24, with arm64-v8a
+and x86_64 runtimes. Debug signing is for testing; release signing remains
+owner-configured.
 
+GitHub Android checks build the app and run instrumentation on API 24 and API 35.
+Their APK artifact includes `build-info.json` and `SHA256SUMS`. These bind the APK
+binary to the checkout, workflow run, package version, and bundled architectures.
+After extracting the debug APK directory, run `sha256sum -c SHA256SUMS` before
+installation. Artifacts require GitHub access and expire under its retention rules.
+
+Compilation and emulator results do not establish physical model performance,
+microphone behavior, clipboard restrictions, chooser behavior, or Stop latency.
+Use [the device acceptance checklist](ANDROID_DEVICE_ACCEPTANCE.md) for those checks.

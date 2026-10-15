@@ -41,7 +41,7 @@
     <string name="voice_captured">Captured %1$d ms · raw audio not retained</string>
     <string name="voice_transcribing">Transcribing on device…</string>
     <string name="voice_transcription_ready">Voice turn accepted.</string>
-    <string name="voice_transcription_unavailable">On-device speech recognition unavailable. Typed input still works.</string>
+    <string name="voice_transcription_unavailable">Offline voice unavailable. Requires Android 13+ and an installed offline speech language in system voice settings. Qwen handles text, not audio. Typed input still works.</string>
     <string name="voice_transcription_low_confidence">Voice input was uncertain and was not submitted. Type or try again.</string>
     <string name="voice_transcription_failed">On-device speech recognition failed. Typed input still works.</string>
     <string name="voice_talkback_unavailable">Local speech output unavailable.</string>
@@ -110,4 +110,8 @@ Returning to the background requests Stop. Interrupted work requires explicit re
     <string name="planner_importing_model">Importing and verifying local model…</string>
     <string name="planner_imported_model">GGUF imported locally: %1$s</string>
     <string name="planner_offline_credential">On-device model — no API key or internet required</string>
+    <string name="enable_notifications">Enable notifications</string>
+    <string name="notification_permission_granted">Notifications enabled.</string>
+    <string name="notification_permission_denied">Notifications are disabled. You can enable them in app settings.</string>
+    <string name="model_start_progress">Loading offline model</string>
 </resources>

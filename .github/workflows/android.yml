@@ -37,6 +37,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - name: Build APK, instrumentation, unit tests, and lint
         run: ./android/gradlew --project-dir android :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest :app:lintDebug --no-daemon
+      - name: Record APK checksum and source metadata
+        run: python scripts/android_artifact.py
       - name: Enable emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

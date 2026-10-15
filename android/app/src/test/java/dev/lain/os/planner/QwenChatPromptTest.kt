@@ -13,7 +13,7 @@ class QwenChatPromptTest {
         assertTrue(prompt.contains("<|im_start|>user\nMy color is purple"))
         assertTrue(prompt.contains("<|im_start|>assistant\nNoted."))
         assertTrue(prompt.indexOf("Noted.") < prompt.indexOf("What is my color?"))
-        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n<think>\n\n</think>\n\n"))
         assertFalse(prompt.contains("lain_agent_decision"))
     }
 

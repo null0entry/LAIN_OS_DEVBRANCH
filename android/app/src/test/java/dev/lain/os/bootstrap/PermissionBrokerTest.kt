@@ -20,6 +20,18 @@ class PermissionBrokerTest {
         rules = rules,
     )
 
+    @Test fun notificationsRequireRuntimePermissionOnlyOnAndroid13AndLater() {
+        assertEquals(AvailabilityState.READY, broker(apiLevel = 24).snapshot()
+            .first { it.capability == "android.notify" }.state)
+        assertNull(broker(apiLevel = 24).runtimePermissionFor("android.notify"))
+        assertEquals(AvailabilityState.NEEDS_PERMISSION, broker().snapshot()
+            .first { it.capability == "android.notify" }.state)
+        assertEquals(Manifest.permission.POST_NOTIFICATIONS, broker().runtimePermissionFor("android.notify"))
+        assertEquals(AvailabilityState.READY,
+            broker(runtimeGranted = setOf(Manifest.permission.POST_NOTIFICATIONS)).snapshot()
+                .first { it.capability == "android.notify" }.state)
+    }
+
     @Test fun microphonePermissionDoesNotDisableUnrelatedCapabilities() {
         val state = broker().snapshot().associateBy { it.capability }
 

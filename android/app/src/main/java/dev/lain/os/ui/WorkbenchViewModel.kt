@@ -95,7 +95,7 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
     private fun submitFinalTurn(text: String, source: String): Boolean {
         val snapshot = current()
         if (
-            snapshot.pending || !snapshot.ready || text.isBlank() ||
+            snapshot.pending || snapshot.replyPending || !snapshot.ready || text.isBlank() ||
             snapshot.session?.optBoolean("recovery_required") == true ||
             text.toByteArray(Charsets.UTF_8).size > 4096
         ) return false

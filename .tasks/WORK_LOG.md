@@ -1,5 +1,11 @@
 # Work Log
 
+2026-10-12: TASK-080 added actual chat preload status/control and selected-model readiness gating; fixed Android unknown confidence (-1) handling, explicit recognition locale and actionable errors. Portable, native and Android JVM/build/lint checks pass; emulator matrix rerunning and real-device speech still unverified.
+
+2026-10-12: TASK-079 added model startup progress and lifecycle-aware resident status refresh; unchanged states no longer repeatedly emit UI updates; portable verification, Android JVM/build/lint checks pass; instrumentation added for state transitions and screen recreation.
+
+2026-10-12: TASK-078 repaired integrated chat, Qwen prompts/decoder constraints, native tools, permissions, recovery and APK artifact provenance; 351 Python/143 Android JVM tests and real Qwen/controller smoke pass; device-only acceptance remains unverified.
+
 ## 2026-10-09 — TASK-071
 Draft PR #43 implementation `a49281d` passed Verify and Android API 24/API 35 build, JVM tests, lint and instrumentation. Offline GGUF cancellation/save lifecycle and cross-process Python startup are hardened; physical Qwen/airplane-mode acceptance remains UNVERIFIED and TASK-070 stays open.
 

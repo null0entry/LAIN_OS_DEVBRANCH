@@ -2,6 +2,10 @@ package dev.lain.os
 
 import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import android.os.Bundle
 import android.os.Build
 import android.view.View
@@ -11,6 +15,14 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,6 +62,7 @@ class MainActivity : AppCompatActivity() {
         internal const val EXTRA_CONFIGURE_PLANNER = "dev.lain.os.CONFIGURE_PLANNER"
     }
     private lateinit var ui: ActivityMainBinding
+    private var renderedModelState: String? = null
     private val model: WorkbenchViewModel by viewModels()
     private val voice: VoiceCaptureViewModel by viewModels()
     private val speechOutput: SpeechOutputViewModel by viewModels()
@@ -58,16 +71,19 @@ class MainActivity : AppCompatActivity() {
     private val permissionBroker by lazy { PermissionBroker.android(this) }
     private val residentClient: ResidentModelClient by lazy {
         ResidentModelClient(this) { connected ->
-            if (!isDestroyed) {
-                ui.modelResidencyStatus.text = if (connected)
-                    "Model process connected · status shown in service notification"
-                else "Offline model stopped or process disconnected"
-            }
+            if (!connected && !isDestroyed) renderModelStatus("DISCONNECTED")
         }
     }
+
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
+        }
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            ui.message.text = getString(if (granted) R.string.notification_permission_granted
+                else R.string.notification_permission_denied)
+            refreshNotificationPermission()
         }
     private val ggufPicker =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -134,9 +150,9 @@ class MainActivity : AppCompatActivity() {
                         .setAction(ResidentModelService.ACTION_START)
                     if (Build.VERSION.SDK_INT >= 26) startForegroundService(request)
                     else startService(request)
-                    ui.modelResidencyStatus.text = "Loading selected GGUF · notification will show Ready"
+                    renderModelStatus("LOADING")
                 } catch (_: Exception) {
-                    ui.modelResidencyStatus.text = "Could not start the model service"
+                    renderModelStatus("FAILED: could not start the model service")
                 }
             }
         }
@@ -144,9 +160,18 @@ class MainActivity : AppCompatActivity() {
             try {
                 startService(Intent(this, ResidentModelService::class.java)
                     .setAction(ResidentModelService.ACTION_STOP))
-                ui.modelResidencyStatus.text = "Stopping model and releasing memory…"
+                renderModelStatus("STOPPING")
             } catch (_: Exception) {
-                ui.modelResidencyStatus.text = "Model stop failed; check the active service"
+                renderModelStatus("FAILED: model stop failed; check the active service")
+            }
+        }
+        ui.notificationPermissionButton.setOnClickListener {
+            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:$packageName")))
             }
         }
         ui.openChatButton.setOnClickListener {
@@ -193,6 +218,18 @@ class MainActivity : AppCompatActivity() {
             }
             ui.demoCommands.addView(button)
         }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    val response = withContext(Dispatchers.IO) { residentClient.status() }
+                    val state = try {
+                        JSONObject(response).optString("state").takeIf { it.isNotEmpty() }
+                    } catch (_: Exception) { null }
+                    renderModelStatus(state ?: "DISCONNECTED")
+                    delay(500)
+                }
+            }
+        }
         model.state.observe(this) { render(it) }
         voice.state.observe(this) { renderVoice(it) }
         voice.speechState.observe(this) { renderSpeechInput(it) }
@@ -202,12 +239,34 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         voice.reconcilePermission()
+        refreshNotificationPermission()
     }
     override fun onStop() {
         voice.onActivityStop(isChangingConfigurations)
         residentClient.disconnect()
         model.detach(isChangingConfigurations)
         super.onStop()
+    }
+
+    internal fun renderModelStatus(state: String) {
+        if (state == renderedModelState) return
+        renderedModelState = state
+        val busy = state == "LOADING" || state == "STOPPING"
+        ui.modelStartProgress.visibility = if (busy) View.VISIBLE else View.GONE
+        ui.startModelButton.isEnabled = !busy && state != "READY"
+        ui.modelResidencyStatus.text = when (state) {
+            "LOADING" -> "Loading selected GGUF into memory…"
+            "READY" -> "Offline model ready"
+            "STOPPING" -> "Stopping model and releasing memory…"
+            "STOPPED" -> "Offline model stopped"
+            "DISCONNECTED" -> "Offline model process disconnected"
+            else -> if (state.startsWith("FAILED:")) state else "Model status unavailable"
+        }
+    }
+
+    private fun refreshNotificationPermission() {
+        ui.notificationPermissionButton.visibility = if (
+            NotificationManagerCompat.from(this).areNotificationsEnabled()) View.GONE else View.VISIBLE
     }
 
     private fun render(state: WorkbenchState) {
@@ -222,7 +281,7 @@ class MainActivity : AppCompatActivity() {
         ui.reconnectButton.visibility = if (!state.connected || state.startupFailed) View.VISIBLE else View.GONE
         ui.message.text = state.message
         renderTranscript(state, session)
-        ui.runButton.isEnabled = state.ready && !state.pending && !recovery
+        ui.runButton.isEnabled = state.ready && !state.pending && !state.replyPending && !recovery
         updateVoiceRecordEnabled()
         speakProgress(session)
         speakResponse(session)
@@ -338,7 +397,7 @@ class MainActivity : AppCompatActivity() {
                 val reply = replies[turnId]
                 if (reply != null) {
                     val (replyState, replyText) = reply
-                    val display = if (replyState == "pending") "Generating local reply…" else replyText
+                    val display = if (replyState == "pending") "Generating reply…" else replyText
                     if (display.isNotBlank()) {
                         ui.conversationTranscript.addView(
                             resultText("LAIN · " + replyState + "\n" + display)
@@ -426,7 +485,7 @@ class MainActivity : AppCompatActivity() {
                         R.string.voice_transcription_low_confidence
                     else -> R.string.voice_transcription_failed
                 }
-            )
+            ) + (state.result?.diagnostic?.let { "\n$it" } ?: "")
             SpeechInputStatus.READY -> getString(R.string.voice_transcription_ready)
         }
         updateVoiceRecordEnabled()
@@ -484,7 +543,7 @@ class MainActivity : AppCompatActivity() {
         val recording = voice.state.value?.status == MicrophoneStatus.RECORDING
         val transcribing = voice.speechState.value?.status == SpeechInputStatus.TRANSCRIBING
         ui.voiceRecordButton.isEnabled = recording ||
-            (runtime?.ready == true && !runtime.pending && !recovery && !transcribing)
+            (runtime?.ready == true && !runtime.pending && !runtime.replyPending && !recovery && !transcribing)
     }
 
     private fun resultText(value: String) = TextView(this).apply {

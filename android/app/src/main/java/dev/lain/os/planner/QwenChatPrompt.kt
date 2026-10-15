@@ -29,7 +29,7 @@ internal object QwenChatPrompt {
                     append("<|im_start|>").append(turn.role).append('\n')
                     append(escape(turn.text)).append("<|im_end|>\n")
                 }
-                append("<|im_start|>assistant\n")
+                append("<|im_start|>assistant\n<think>\n\n</think>\n\n")
             }
             if (prompt.toByteArray(Charsets.UTF_8).size <= MAX_PROMPT_BYTES) return prompt
             require(start < turns.lastIndex) { "Current chat message exceeds prompt budget" }

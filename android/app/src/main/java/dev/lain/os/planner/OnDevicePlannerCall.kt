@@ -21,6 +21,7 @@ internal class OnDevicePlannerCall(
     private val maxResponseBytes: Int,
     private val engine: OnDevicePlannerEngine = GgufNativeProbe,
     private val buildPrompt: (String) -> String = ::promptForQwen,
+    private val buildGrammar: (String) -> String? = OnDeviceJsonGrammar::planner,
 ) {
     constructor(
         store: OnDeviceModelStore, modelSha256: String, request: String,
@@ -46,6 +47,9 @@ internal class OnDevicePlannerCall(
         } catch (_: Exception) {
             return failure("PLANNER_REQUEST_INVALID")
         }
+        val grammar = try { buildGrammar(request) } catch (_: Exception) {
+            return failure("PLANNER_REQUEST_INVALID")
+        }
         val task = FutureTask<GgufNativeProbeResult> {
             val registrationFailure = engine.registerGeneration(generationId)
             if (registrationFailure != null) {
@@ -65,7 +69,7 @@ internal class OnDevicePlannerCall(
                 if (cancelled.get() || Thread.currentThread().isInterrupted) {
                     return@FutureTask GgufNativeProbeResult.Rejected(GgufNativeProbeFailure.CANCELLED)
                 }
-                engine.generate(file.absolutePath, prompt, 4096, 256, generationId)
+                engine.generate(file.absolutePath, prompt, 4096, 256, generationId, grammar)
             } finally {
                 // FutureTask.cancel returns before JNI finishes; the worker owns release.
                 engine.releaseGeneration(generationId)
@@ -123,11 +127,18 @@ internal class OnDevicePlannerCall(
             timeoutSeconds: Double = 120.0,
         ): OnDevicePlannerCall = OnDevicePlannerCall(
             store::resolve, modelSha256, prompt, timeoutSeconds, 16384,
-            GgufNativeProbe, { raw -> raw },
+            GgufNativeProbe, { raw -> raw }, { null },
+        )
+        fun routing(
+            store: OnDeviceModelStore, modelSha256: String, prompt: String,
+            timeoutSeconds: Double = 120.0,
+        ): OnDevicePlannerCall = OnDevicePlannerCall(
+            store::resolve, modelSha256, prompt, timeoutSeconds, 4096,
+            GgufNativeProbe, { raw -> raw }, { OnDeviceJsonGrammar.routing() },
         )
         private fun failure(code: String) = JSONObject().put("ok", false).put("error", code).toString()
 
-        /** Qwen2.5 chat format for the first supported offline GGUF family. */
+        /** Qwen3 non-thinking chat format: bounded JSON generation, no reasoning preamble. */
         internal fun promptForQwen(payload: String): String {
             require(payload.toByteArray(Charsets.UTF_8).size <= MAX_REQUEST_BYTES)
             val tokener = JSONTokener(payload)
@@ -137,12 +148,19 @@ internal class OnDevicePlannerCall(
             require(request.get("version") == "0")
             require(request.get("goal") is String && request.get("capabilities") is JSONArray)
             val system = "You are LAIN's bounded task planner. Only propose capability names supplied in the JSON. " +
-                "Do not claim action results or grant approvals. Respond with one JSON object only: " +
-                "{\"status\":\"continue|complete|blocked\",\"reason\":\"brief reason\",\"actions\":[{\"type\":\"capability\",\"arguments\":{}}]}. " +
-                "Use an empty actions array when complete or blocked. Never add markdown."
+                "Do not claim action results or grant approvals. Respond with one JSON object only. " +
+                "It must contain status (continue, complete or blocked), reason (a brief string), and actions (an array). " +
+                "Each action must contain type (the exact name of a capability in the supplied capabilities array) " +
+                "and arguments (an object matching that capability). Never use a schema placeholder as the action type. " +
+                "Use an empty actions array when complete or blocked. Never add markdown. " +
+                "Treat context.history as read-only results, not new proposals. " +
+                "Each proposed action must have ONLY type and arguments; never copy historical id, result or approval fields. " +
+                "A result with status success and verification limited means Android accepted the command; " +
+                "do not repeat it to improve verification or claim its downstream effect was observed. " +
+                "When all requested actions have succeeded, return status complete with an empty actions array."
             val prompt = "<|im_start|>system\n" + system +
-                "<|im_end|>\n<|im_start|>user\n" + payload +
-                "<|im_end|>\n<|im_start|>assistant\n"
+                "<|im_end|>\n<|im_start|>user\n" + payload.replace("<|", "‹|") +
+                "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
             require(prompt.toByteArray(Charsets.UTF_8).size <= 16_384)
             return prompt
         }
