@@ -295,11 +295,16 @@ class AppController:
         if record.route is TurnRoute.START_TASK:
             # Only the host's exact built-in command catalog qualifies. Never
             # let untrusted classifier reason/response text choose the executor.
-            trusted_demo = (route_decision is not None and
-                            route_decision.disposition is TurnDisposition.TASK and
-                            (record.text.strip().casefold() in {cmd.casefold() for cmd in COMMANDS}
-                             or parse_sms_compose_command(record.text) is not None
-                             or parse_device_command(record.text) is not None))
+            # Strict host-owned parsers are authoritative for built-in actions
+            # even for an explicit TASK turn (which has no classifier result).
+            # Untrusted model routing text never supplies executable authority.
+            trusted_demo = (
+                (route_decision is not None
+                 and route_decision.disposition is TurnDisposition.TASK
+                 and record.text.strip().casefold() in {cmd.casefold() for cmd in COMMANDS})
+                or parse_sms_compose_command(record.text) is not None
+                or parse_device_command(record.text) is not None
+            )
             session = self._start_session(record.text, trusted_demo=trusted_demo)
             self.turns.link_task(record.turn_id, session.session_id)
             result = {"session": self._snapshot(session)}
