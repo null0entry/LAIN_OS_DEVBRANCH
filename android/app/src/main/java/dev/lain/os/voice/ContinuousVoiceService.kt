@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -66,6 +67,8 @@ class ContinuousVoiceService : Service() {
     private var commandPending = false
     private var playbackActive = false
     private var nextStart: Runnable? = null
+    private var timeout: Runnable? = null
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -86,12 +89,14 @@ class ContinuousVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (running) return START_NOT_STICKY
-        if (Build.VERSION.SDK_INT < 31 ||
+        val recognizerAvailable = Build.VERSION.SDK_INT >= 31 && try {
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        } catch (_: Exception) { false }
+        if (!recognizerAvailable ||
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
             (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) ||
-            !NotificationManagerCompat.from(this).areNotificationsEnabled() ||
-            !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            !NotificationManagerCompat.from(this).areNotificationsEnabled()) {
             shutdown()
             return START_NOT_STICKY
         }
@@ -143,7 +148,10 @@ class ContinuousVoiceService : Service() {
 
     private fun beginListen() {
         if (!running || !connected || !foregroundReady || commandPending || playbackActive) return
-        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ||
+            !NotificationManagerCompat.from(this).areNotificationsEnabled() ||
+            (Build.VERSION.SDK_INT >= 33 &&
+             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)) {
             shutdown()
             return
         }
@@ -151,6 +159,11 @@ class ContinuousVoiceService : Service() {
         val token = ++generation
         var completed = false
         try {
+            val power = getSystemService(POWER_SERVICE) as PowerManager
+            wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LAIN:local-speech").apply {
+                setReferenceCounted(false)
+                acquire(35_000L)
+            }
             val speech = SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
             recognizer = speech
             speech.setRecognitionListener(object : RecognitionListener {
@@ -207,6 +220,16 @@ class ContinuousVoiceService : Service() {
                 .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
             speech.startListening(request)
+            val watchdog = Runnable {
+                if (running && token == generation && !completed) {
+                    completed = true
+                    endRecognizer()
+                    if (errorStreak >= 6) shutdown()
+                    else scheduleListen(longArrayOf(500L, 1000L, 2000L, 4000L, 8000L, 15000L)[errorStreak++])
+                }
+            }
+            timeout = watchdog
+            main.postDelayed(watchdog, 30_000L)
         } catch (_: Exception) {
             endRecognizer()
             shutdown()
@@ -271,6 +294,10 @@ class ContinuousVoiceService : Service() {
 
     private fun endRecognizer() {
         generation++
+        timeout?.let(main::removeCallbacks)
+        timeout = null
+        try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Exception) { }
+        wakeLock = null
         val old = recognizer
         recognizer = null
         if (old != null) {
