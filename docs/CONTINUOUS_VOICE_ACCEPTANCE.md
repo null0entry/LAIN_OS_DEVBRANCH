@@ -90,3 +90,28 @@ Acceptance for this incident:
    Workbench after reopening; inspect Android logcat error code if failure.
 5. Compare original/patch and ensure repeated rapid NO_MATCH sessions stop
    rather than continuing indefinitely.
+
+## Manual Record Voice STT failure on Moto (2026-10-14)
+
+Owner reports that Record Voice → Stop Voice fails with the app's generic STT
+error even while the separate continuous on-device mic service obtains audio.
+The earlier manual flow saved raw 16-kHz mono PCM and then attempted Android
+SpeechRecognizer `EXTRA_AUDIO_SOURCE` injection. This capability is optional
+for recognition providers and the existing support probe cannot prove it;
+the exact device recognition error code was not captured, so the platform
+root cause is not yet established.
+
+Patch on PR #60 introduces `AndroidLiveSpeechInput` using only an installed
+on-device recognizer on API 31+ at Record press, and `stopListening()` on
+the owner's Stop press, with final-transcript validation and early-final
+buffering until Stop. No cloud STT, no replay, and provider error diagnostics
+are forwarded to the visible message. Existing legacy AudioRecord tests
+remain isolated, and new regression tests exercise final-only acceptance,
+the early-final authorization boundary, cancellation/background loss, and
+Android unavailable/low-confidence results.
+
+**Acceptance required:** install exact patched APK, stop continuous mic,
+tap Record, speak 'Show battery', then Stop, and verify a final trusted turn.
+Repeat with offline language unavailable, denied mic permission, backgrounding,
+no speech, and early provider final. CI emulator verification does not prove
+Moto's installed OEM speech service works.
