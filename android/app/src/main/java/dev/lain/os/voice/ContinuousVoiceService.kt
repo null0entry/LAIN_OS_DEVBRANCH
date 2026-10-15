@@ -261,6 +261,7 @@ class ContinuousVoiceService : Service() {
             val payload = JSONObject().put("text", command).put("source", "speech")
                 .put("kind", "auto").put("reference", "none")
                 .put("target_session_id", JSONObject.NULL)
+            voiceSessionId = null  // Prior task is terminal; this submission owns a new session.
             runtime.request("turn_submit", payload) { response ->
                 // Submission is exactly once; unknown outcomes must be inspected,
                 // NEVER replayed. Approvals are handled only in the owner UI.
