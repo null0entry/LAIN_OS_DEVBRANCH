@@ -56,6 +56,8 @@ import dev.lain.os.voice.SpeechOutputViewModel
 import dev.lain.os.voice.SpeechVoiceSelectionState
 import dev.lain.os.voice.TrustedProgressSnapshot
 import dev.lain.os.voice.VoiceCaptureViewModel
+import dev.lain.os.voice.ContinuousVoiceService
+import android.speech.SpeechRecognizer
 
 class MainActivity : AppCompatActivity() {
     companion object {
@@ -78,6 +80,14 @@ class MainActivity : AppCompatActivity() {
     private val microphonePermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) {
             voice.onPermissionResult(it)
+        }
+    private val continuousMicrophonePermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) requestContinuousVoiceStart() else showContinuousStatus("Microphone permission denied")
+        }
+    private val continuousNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) requestContinuousVoiceStart() else showContinuousStatus("Notifications required for visible Stop")
         }
     private val notificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -182,7 +192,13 @@ class MainActivity : AppCompatActivity() {
                 startActivity(Intent(this, LocalChatActivity::class.java))
             }
         }
+        ui.continuousVoiceStart.setOnClickListener { requestContinuousVoiceStart() }
+        ui.continuousVoiceStop.setOnClickListener { stopContinuousVoice() }
         ui.voiceRecordButton.setOnClickListener {
+            if (ContinuousVoiceService.leaseActive) {
+                showContinuousStatus("Stop continuous listening before manual recording")
+                return@setOnClickListener
+            }
             if (voice.state.value?.status == MicrophoneStatus.RECORDING) {
                 voice.stop()
             } else {
@@ -235,9 +251,53 @@ class MainActivity : AppCompatActivity() {
         voice.speechState.observe(this) { renderSpeechInput(it) }
     }
 
+    private fun showContinuousStatus(message: String) {
+        ui.continuousVoiceStatus.text = message
+        ui.continuousVoiceStart.isEnabled = !ContinuousVoiceService.leaseActive
+        ui.continuousVoiceStop.isEnabled = ContinuousVoiceService.leaseActive
+    }
+
+    private fun requestContinuousVoiceStart() {
+        if (Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            showContinuousStatus("On-device live recognition unavailable. Typed input still works.")
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            continuousMicrophonePermission.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            continuousNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+            showContinuousStatus("Enable notifications to show the microphone Stop control")
+            return
+        }
+        if (voice.state.value?.status == MicrophoneStatus.RECORDING) voice.stop()
+        speechOutput.stopTalking()
+        try {
+            startForegroundService(Intent(this, ContinuousVoiceService::class.java)
+                .setAction(ContinuousVoiceService.ACTION_START))
+            showContinuousStatus("Starting local voice service…")
+        } catch (_: Exception) {
+            showContinuousStatus("Could not start listening. Keep LAIN open and try again.")
+        }
+    }
+
+    private fun stopContinuousVoice() {
+        try {
+            startService(Intent(this, ContinuousVoiceService::class.java)
+                .setAction(ContinuousVoiceService.ACTION_STOP))
+        } catch (_: Exception) { }
+        showContinuousStatus("Stop requested; microphone will be released")
+    }
+
     override fun onStart() { super.onStart(); model.attach(); residentClient.connect() }
     override fun onResume() {
         super.onResume()
+        showContinuousStatus(if (ContinuousVoiceService.leaseActive) "Listening for LAIN locally" else "Continuous listening stopped")
         voice.reconcilePermission()
         refreshNotificationPermission()
     }
