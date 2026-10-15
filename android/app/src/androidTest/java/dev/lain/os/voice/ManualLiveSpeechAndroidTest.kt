@@ -61,6 +61,25 @@ class ManualLiveSpeechAndroidTest {
         }
     }
 
+    @Test fun recognitionAutoFinalWaitsForExplicitOwnerStopBeforeTask() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app = instrumentation.targetContext.applicationContext as Application
+        val fake = FakeLive()
+        VoiceCaptureViewModel.liveSpeechFactory = { fake }
+        VoiceCaptureViewModel.permissionChecker = { true }
+        instrumentation.runOnMainSync {
+            val vm = VoiceCaptureViewModel(app)
+            assertTrue(vm.start())
+            fake.finish("Delete all files")
+            assertEquals(SpeechInputStatus.IDLE, vm.speechState.value!!.status)
+            assertEquals(MicrophoneStatus.RECORDING, vm.state.value!!.status)
+            vm.stop()
+            assertEquals(SpeechInputStatus.READY, vm.speechState.value!!.status)
+            assertEquals("Delete all files", vm.speechState.value!!.result!!.text)
+            vm.closeForTest()
+        }
+    }
+
     @Test fun backgroundCancelsAndNeverAcceptsLateFinal() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val app = instrumentation.targetContext.applicationContext as Application
