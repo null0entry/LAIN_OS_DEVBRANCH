@@ -73,6 +73,9 @@
                     android:layout_weight="1" android:layout_height="48dp"
                     android:text="Stop listening" android:textAllCaps="false" />
             </LinearLayout>
+            <Button android:id="@+id/continuous_voice_setup" android:layout_width="match_parent"
+                android:layout_height="48dp" android:textAllCaps="false"
+                android:text="Install or configure offline speech language" />
             <TextView android:id="@+id/continuous_voice_status"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:text="Continuous voice off. Requires installed offline speech recognition."
