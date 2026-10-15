@@ -39,7 +39,7 @@ class ContinuousVoiceService : Service() {
         private const val STOP_REASON = "last_stop_reason"
 
         internal fun lastStopReason(context: android.content.Context): String? =
-            context.getSharedPreferences(STATUS_PREFERENCES, MODE_PRIVATE)
+            context.getSharedPreferences(STATUS_PREFERENCES, android.content.Context.MODE_PRIVATE)
                 .getString(STOP_REASON, null)
         @Volatile var leaseActive: Boolean = false
             private set
@@ -66,7 +66,7 @@ class ContinuousVoiceService : Service() {
     private var recognitionStartedAtMs = 0L
 
     private fun recordStopReason(reason: String) {
-        getSharedPreferences(STATUS_PREFERENCES, MODE_PRIVATE)
+        getSharedPreferences(STATUS_PREFERENCES, android.content.Context.MODE_PRIVATE)
             .edit().putString(STOP_REASON, reason).apply()
     }
     private lateinit var runtime: RuntimeClient
@@ -104,7 +104,7 @@ class ContinuousVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (running) return START_NOT_STICKY
-        getSharedPreferences(STATUS_PREFERENCES, MODE_PRIVATE)
+        getSharedPreferences(STATUS_PREFERENCES, android.content.Context.MODE_PRIVATE)
             .edit().remove(STOP_REASON).apply()
         val recognizerAvailable = Build.VERSION.SDK_INT >= 31 && try {
             SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
