@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import java.util.UUID
 
 /**
@@ -19,6 +20,7 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     @Volatile private var ready = false
     @Volatile private var closed = false
     private val pending = mutableListOf<(List<LocalSpeechVoice>) -> Unit>()
+    private val playback = VoicePlaybackInterlock()
 
     override val providerId: String = "android-on-device-tts"
     override val supportsProgressiveSpeech: Boolean = true
@@ -58,10 +60,15 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
         if (try { tts.setVoice(actual) } catch (_: Exception) { TextToSpeech.ERROR } != TextToSpeech.SUCCESS) {
             return false
         }
+        val utteranceId = UUID.randomUUID().toString()
+        if (playback.queue(utteranceId, flush = true)) ContinuousVoiceService.playbackChanged(true)
         val queued = try {
-            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
+            tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
         } catch (_: Exception) {
             TextToSpeech.ERROR
+        }
+        if (queued != TextToSpeech.SUCCESS && playback.cancel()) {
+            ContinuousVoiceService.playbackChanged(false)
         }
         return queued == TextToSpeech.SUCCESS
     }
@@ -92,16 +99,22 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
         for ((index, segment) in segments.withIndex()) {
             if (closed) {
                 try { tts.stop() } catch (_: Exception) { }
+                if (playback.cancel()) ContinuousVoiceService.playbackChanged(false)
                 return false
             }
             val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+            val utteranceId = UUID.randomUUID().toString()
+            if (playback.queue(utteranceId, flush = index == 0)) {
+                ContinuousVoiceService.playbackChanged(true)
+            }
             val queued = try {
-                tts.speak(segment, mode, null, UUID.randomUUID().toString())
+                tts.speak(segment, mode, null, utteranceId)
             } catch (_: Exception) {
                 TextToSpeech.ERROR
             }
             if (queued != TextToSpeech.SUCCESS) {
                 try { tts.stop() } catch (_: Exception) { }
+                if (playback.cancel()) ContinuousVoiceService.playbackChanged(false)
                 return false
             }
         }
@@ -111,6 +124,7 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
     override fun stop() {
         main.post {
             try { engine?.stop() } catch (_: Exception) { }
+            if (playback.cancel()) ContinuousVoiceService.playbackChanged(false)
         }
     }
 
@@ -123,9 +137,17 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
                 try { callback(emptyList()) } catch (_: Exception) { }
             }
             try { engine?.stop() } catch (_: Exception) { }
+            if (playback.cancel()) ContinuousVoiceService.playbackChanged(false)
             try { engine?.shutdown() } catch (_: Exception) { }
             engine = null
             ready = false
+        }
+    }
+
+    private fun settle(utteranceId: String?) {
+        if (utteranceId == null) return
+        main.post {
+            if (playback.complete(utteranceId)) ContinuousVoiceService.playbackChanged(false)
         }
     }
 
@@ -135,6 +157,16 @@ class AndroidLocalSpeechSynthesisBackend(context: Context) : LocalSpeechSynthesi
             engine = TextToSpeech(app) { status ->
                 main.post {
                     ready = !closed && status == TextToSpeech.SUCCESS && engine != null
+                    if (ready) {
+                        engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                            override fun onStart(utteranceId: String?) = Unit
+                            override fun onDone(utteranceId: String?) = settle(utteranceId)
+                            @Deprecated("Android TTS callback")
+                            override fun onError(utteranceId: String?) = settle(utteranceId)
+                            override fun onError(utteranceId: String?, errorCode: Int) = settle(utteranceId)
+                            override fun onStop(utteranceId: String?, interrupted: Boolean) = settle(utteranceId)
+                        })
+                    }
                     if (!ready) {
                         try { engine?.shutdown() } catch (_: Exception) { }
                         engine = null
