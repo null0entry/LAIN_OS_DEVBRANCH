@@ -39,6 +39,8 @@ class PermissionBrokerTest {
         assertEquals(Manifest.permission.RECORD_AUDIO, state.getValue("voice.input").requirement)
         assertEquals(AvailabilityState.READY, state.getValue("android.battery_status").state)
         assertEquals(AvailabilityState.READY, state.getValue("android.share_text").state)
+        assertEquals(AvailabilityState.READY, state.getValue("android.sms.compose").state)
+        assertNull(broker().runtimePermissionFor("android.sms.compose"))
     }
 
     @Test fun grantedRuntimePermissionMakesVoiceReady() {

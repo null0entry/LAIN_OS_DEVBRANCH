@@ -45,6 +45,50 @@ class NativeCapabilitiesAndroidTest {
         }
     }
 
+    @Test fun smsComposerRequiresExplicitNumberAndNeverSendsDirectly() {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        var launched: Intent? = null
+        val context = object : ContextWrapper(app) {
+            override fun startActivity(intent: Intent) { launched = intent }
+        }
+        val ok = execute(context, "android.sms.compose", JSONObject()
+            .put("recipient", "+15551234567").put("content", "I'm running late"))
+        assertEquals("success", ok.getString("status"))
+        assertEquals("composer_opened", ok.getJSONObject("details").getString("handoff"))
+        val intent = launched!!
+        assertEquals(Intent.ACTION_SENDTO, intent.action)
+        assertEquals("smsto", intent.data?.scheme)
+        assertEquals("+15551234567", intent.data?.schemeSpecificPart)
+        assertEquals("I'm running late", intent.getStringExtra("sms_body"))
+        assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+        assertNull(intent.component)
+        assertNull(intent.`package`)
+        for (recipient in listOf("Alex", "smsto:911", "123?body=bad", "123\\n456", "+", "12345678901234567890")) {
+            launched = null
+            val denied = execute(context, "android.sms.compose", JSONObject()
+                .put("recipient", recipient).put("content", "text"))
+            assertEquals("failure", denied.getString("status"))
+            assertNull(launched)
+        }
+        launched = null
+        val extras = execute(context, "android.sms.compose", JSONObject()
+            .put("recipient", "5551234567").put("content", "text").put("send_now", true))
+        assertEquals("failure", extras.getString("status"))
+        assertNull(launched)
+    }
+
+    @Test fun smsComposerNoHandlerFailsWithoutClaimingDelivery() {
+        val app = ApplicationProvider.getApplicationContext<Context>()
+        val context = object : ContextWrapper(app) {
+            override fun startActivity(intent: Intent) {
+                throw android.content.ActivityNotFoundException("No SMS app")
+            }
+        }
+        val result = execute(context, "android.sms.compose", JSONObject()
+            .put("recipient", "5551234567").put("content", "hello"))
+        assertEquals("unsupported", result.getString("status"))
+    }
+
     @Test fun notificationDispatchPostsARealNotificationWhenPermitted() {
         val app = ApplicationProvider.getApplicationContext<Context>()
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation

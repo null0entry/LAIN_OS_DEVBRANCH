@@ -83,6 +83,26 @@ class NativeCapabilities(private val context: Context) {
                         reply("success", JSONObject().put("readback", readback))
                     }
                 }
+                "android.sms.compose" -> {
+                    requireFields(args, setOf("recipient", "content"))
+                    val rawRecipient = text(args, "recipient")
+                    val recipient = rawRecipient.replace(Regex("[ ()-]"), "")
+                    require(Regex("^\\+?[0-9]{3,15}$").matches(recipient))
+                    val message = contentField(args, "content", 4096)
+                    onMain {
+                        val compose = Intent(Intent.ACTION_SENDTO,
+                            android.net.Uri.fromParts("smsto", recipient, null)).apply {
+                            putExtra("sms_body", message)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        try {
+                            context.startActivity(compose)
+                            reply("success", JSONObject().put("handoff", "composer_opened"))
+                        } catch (_: android.content.ActivityNotFoundException) {
+                            reply("unsupported")
+                        }
+                    }
+                }
                 "android.share_text" -> {
                     val content = content(args, 16384)
                     onMain {
@@ -110,7 +130,11 @@ class NativeCapabilities(private val context: Context) {
 
     private fun content(args: JSONObject, maxBytes: Int): String {
         requireFields(args, setOf("content"))
-        val value = args.get("content")
+        return contentField(args, "content", maxBytes)
+    }
+
+    private fun contentField(args: JSONObject, name: String, maxBytes: Int): String {
+        val value = args.get(name)
         require(value is String && value.isNotEmpty() && !value.contains('\u0000'))
         require(value.toByteArray(Charsets.UTF_8).size <= maxBytes)
         return value
