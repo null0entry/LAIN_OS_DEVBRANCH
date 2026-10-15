@@ -54,6 +54,8 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
     private val liveSpeech = liveSpeechFactory(application)
     private var liveActive = false
     private var liveGeneration = 0L
+    private var liveStopRequested = false
+    private var liveEarlyFinal: BackendTranscriptionResult? = null
 
     private val controller = MicrophoneCaptureController(
         engine = engineFactory(application),
@@ -96,19 +98,20 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
 
     private fun startLive() {
         val token = ++liveGeneration
+        liveStopRequested = false
+        liveEarlyFinal = null
         liveActive = true
         publish(MicrophoneState(MicrophoneStatus.RECORDING))
         val started = try {
             liveSpeech.start { raw ->
                 if (token == liveGeneration) {
-                    liveActive = false
-                    publish(MicrophoneState())
-                    val result = validateLiveSpeechFinal(raw)
-                    publishSpeech(SpeechInputState(
-                        status = if (result.ok) SpeechInputStatus.READY else SpeechInputStatus.FAILED,
-                        result = result,
-                        finalId = if (result.ok) nextFinalId.incrementAndGet() else 0L,
-                    ))
+                    if (!liveStopRequested && raw.failure == null && raw.isFinal) {
+                        // SpeechRecognizer may stop on its own at a pause. A
+                        // final callback alone is NOT user authorization.
+                        liveEarlyFinal = raw
+                    } else {
+                        publishLiveFinal(raw)
+                    }
                 }
             }
         } catch (_: Exception) { false }
@@ -126,6 +129,18 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
         }
     }
 
+    private fun publishLiveFinal(raw: BackendTranscriptionResult) {
+        liveActive = false
+        liveEarlyFinal = null
+        publish(MicrophoneState())
+        val result = validateLiveSpeechFinal(raw)
+        publishSpeech(SpeechInputState(
+            status = if (result.ok) SpeechInputStatus.READY else SpeechInputStatus.FAILED,
+            result = result,
+            finalId = if (result.ok) nextFinalId.incrementAndGet() else 0L,
+        ))
+    }
+
     fun onPermissionResult(granted: Boolean) {
         lastPermissionGranted = granted
         if (granted && liveSpeech.available) {
@@ -136,8 +151,14 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
 
     fun stop() {
         if (liveActive) {
+            liveStopRequested = true
             publish(MicrophoneState())
             publishSpeech(SpeechInputState(status = SpeechInputStatus.TRANSCRIBING))
+            val early = liveEarlyFinal
+            if (early != null) {
+                publishLiveFinal(early)
+                return
+            }
             try { liveSpeech.stop() } catch (_: Exception) {
                 liveActive = false
                 publishSpeech(SpeechInputState(
@@ -159,6 +180,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
             if (liveActive) {
                 liveGeneration++
                 liveActive = false
+                liveEarlyFinal = null
                 liveSpeech.cancel()
                 publishSpeech(SpeechInputState(
                     status = SpeechInputStatus.FAILED,
@@ -179,6 +201,7 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
         if (!changingConfigurations && liveActive) {
             liveGeneration++
             liveActive = false
+            liveEarlyFinal = null
             liveSpeech.cancel()
             publish(MicrophoneState())
             publishSpeech(SpeechInputState())
