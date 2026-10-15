@@ -5,6 +5,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -66,6 +67,8 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Explicitly user-started local GGUF inference session retained in memory for interactive offline voice and chat; visible notification and Stop model control" />
         </service>
+        <service android:name=".voice.ContinuousVoiceService"
+            android:exported="false" android:foregroundServiceType="microphone" />
         <service android:name=".runtime.RuntimeService"
             android:exported="false" android:process=":runtime" />
     </application>
