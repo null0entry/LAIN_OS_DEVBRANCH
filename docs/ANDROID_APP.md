@@ -138,3 +138,27 @@ installation. Artifacts require GitHub access and expire under its retention rul
 Compilation and emulator results do not establish physical model performance,
 microphone behavior, clipboard restrictions, chooser behavior, or Stop latency.
 Use [the device acceptance checklist](ANDROID_DEVICE_ACCEPTANCE.md) for those checks.
+
+
+### Manual voice recognition on Android 12+
+
+The Record voice / Stop voice buttons use Android's on-device
+`SpeechRecognizer.createOnDeviceSpeechRecognizer` **directly while the
+microphone is active** when an installed local speech service is available
+(API 31+). Only a final transcript after the owner presses Stop is accepted.
+Partial and early-auto-final recognition do not create a task.
+
+This bypasses a known compatibility trap: a device may expose an on-device
+SpeechRecognizer but **not support** feeding externally captured AudioRecord
+PCM through `RecognizerIntent.EXTRA_AUDIO_SOURCE`. The support-check API
+does not certify that particular input extra. Android 12/13+ providers may
+differ; missing offline languages or recognition packages fail closed with a
+diagnostic. This is independent of the local GGUF text model and does not use
+network transcription.
+
+The old bounded captured-PCM adapter remains as compatibility code and in
+its focused tests; it is not used when direct on-device recognition is
+available. The continuous wake service is a separate UI control and must be
+stopped before manual recording; its runtime/recognizer is never used to
+self-approve tasks. Physical Moto behavior remains unverified until the
+owner tests a debug APK built from the updated head.
