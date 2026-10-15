@@ -258,7 +258,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestContinuousVoiceStart() {
-        if (Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+        val available = Build.VERSION.SDK_INT >= 31 && try {
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+        } catch (_: Exception) { false }
+        if (!available) {
             showContinuousStatus("On-device live recognition unavailable. Typed input still works.")
             return
         }
