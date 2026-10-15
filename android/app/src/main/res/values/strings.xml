@@ -31,7 +31,7 @@
     <string name="run">Run task</string>
     <string name="voice_record">Record voice</string>
     <string name="voice_stop">Stop voice</string>
-    <string name="voice_idle">Voice input ready · microphone is off</string>
+    <string name="voice_idle">Manual voice recorder ready · tap Record voice to start</string>
     <string name="voice_recording">● Recording · tap Stop voice to finish</string>
     <string name="voice_permission_required">Microphone permission required. Typed input still works.</string>
     <string name="voice_permission_denied">Microphone permission denied. Typed input still works.</string>
