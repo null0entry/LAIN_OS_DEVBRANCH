@@ -194,6 +194,14 @@ class MainActivity : AppCompatActivity() {
         }
         ui.continuousVoiceStart.setOnClickListener { requestContinuousVoiceStart() }
         ui.continuousVoiceStop.setOnClickListener { stopContinuousVoice() }
+        ui.continuousVoiceSetup.setOnClickListener {
+            try {
+                startActivity(Intent("android.settings.VOICE_INPUT_SETTINGS"))
+                showContinuousStatus("Install an offline language in Android voice input settings")
+            } catch (_: Exception) {
+                showContinuousStatus("Open Android Settings → Voice input and install an offline language")
+            }
+        }
         ui.voiceRecordButton.setOnClickListener {
             if (ContinuousVoiceService.leaseActive) {
                 showContinuousStatus("Stop continuous listening before manual recording")
@@ -254,7 +262,8 @@ class MainActivity : AppCompatActivity() {
     private fun showContinuousStatus(message: String) {
         ui.continuousVoiceStatus.text = message
         ui.continuousVoiceStart.isEnabled = !ContinuousVoiceService.leaseActive
-        ui.continuousVoiceStop.isEnabled = ContinuousVoiceService.leaseActive
+        ui.continuousVoiceStop.isEnabled = ContinuousVoiceService.leaseActive ||
+            message.startsWith("Starting") || message.startsWith("Stop requested")
     }
 
     private fun requestContinuousVoiceStart() {
