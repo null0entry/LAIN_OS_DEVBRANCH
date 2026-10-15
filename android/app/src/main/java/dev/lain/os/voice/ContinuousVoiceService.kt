@@ -66,6 +66,8 @@ class ContinuousVoiceService : Service() {
     private var errorStreak = 0
     private var commandPending = false
     private var playbackActive = false
+    private var voiceSessionId: String? = null
+    private var stopping = false
     private var nextStart: Runnable? = null
     private var timeout: Runnable? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -259,11 +261,16 @@ class ContinuousVoiceService : Service() {
             val payload = JSONObject().put("text", command).put("source", "speech")
                 .put("kind", "auto").put("reference", "none")
                 .put("target_session_id", JSONObject.NULL)
-            runtime.request("turn_submit", payload) {
+            runtime.request("turn_submit", payload) { response ->
                 // Submission is exactly once; unknown outcomes must be inspected,
                 // NEVER replayed. Approvals are handled only in the owner UI.
+                if (response.optBoolean("ok")) {
+                    voiceSessionId = response.optJSONObject("session")?.optString("session_id")
+                        ?.takeIf(String::isNotBlank)
+                }
                 commandPending = false
                 if (running) scheduleListen(300L)
+                else if (stopping && voiceSessionId != null) stopOwnedTaskThenClose()
             }
         }
     }
@@ -306,20 +313,52 @@ class ContinuousVoiceService : Service() {
         }
     }
 
+    private fun closeAndStop() {
+        if (::runtime.isInitialized) runtime.close()
+        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
+        stopSelf()
+    }
+
+    private fun stopOwnedTaskThenClose() {
+        val id = voiceSessionId
+        voiceSessionId = null
+        if (id == null || !connected) {
+            closeAndStop()
+            return
+        }
+        // Keep the private binding until Stop can reach the executor. A timeout
+        // closes it even if the runtime is unhealthy; never retry an ambiguous Stop.
+        var finished = false
+        val finish = {
+            if (!finished) {
+                finished = true
+                closeAndStop()
+            }
+        }
+        runtime.request("stop", JSONObject().put("session_id", id)) { finish() }
+        main.postDelayed({ finish() }, 3_000L)
+    }
+
     private fun shutdown() {
+        if (stopping) return
+        stopping = true
+        val awaitingSubmit = commandPending && voiceSessionId == null
         running = false
         if (currentService === this) currentService = null
         playbackActive = false
         foregroundReady = false
         leaseActive = false
-        commandPending = false
         gate.reset()
         nextStart?.let(main::removeCallbacks)
         nextStart = null
         endRecognizer()
-        if (::runtime.isInitialized) runtime.close()
-        try { stopForeground(STOP_FOREGROUND_REMOVE) } catch (_: Exception) { }
-        stopSelf()
+        if (awaitingSubmit && connected) {
+            // The accepted turn may still be in flight. Never replay it; allow
+            // its callback to identify the voice-owned session before stopping.
+            main.postDelayed({
+                if (stopping && voiceSessionId == null) closeAndStop()
+            }, 3_000L)
+        } else stopOwnedTaskThenClose()
     }
 
     override fun onDestroy() {
