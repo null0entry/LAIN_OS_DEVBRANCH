@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 81,
+  "nextId": 82,
   "states": [
     {
       "name": "Backlog",
@@ -463,10 +463,16 @@
         "title": "Provide verifiable installable Android debug APK handoff for device testing",
         "priority": "P0",
         "order": 70
+      },
+      {
+        "id": "TASK-081",
+        "title": "Unify Local chat and Workbench under one canonical conversation",
+        "priority": "P0",
+        "order": 71
       }
     ],
     "issue": 6,
-    "repo_head": "62690601b508c57e9671d9bd712037ba13f482b3",
-    "next_action": "TASK-073 exact-head Verify/Android green; review and integrate stack, then TASK-077 verifiable Android debug APK handoff for owner testing, TASK-074 capability expansion, TASK-076 real non-executing chat, and TASK-075 physical clean-device proof. CI != device acceptance."
+    "repo_head": "dc817d1a01417aec01aca9eca79e8ec2bbc5f494",
+    "next_action": "PR #57 currently open and exact-head green: independent review before integration; next TASK-081 cross-surface single conversation (stacked planning assignment), TASK-075 physical 4GB Android acceptance, then issue #52 storage/export follow-up. CI is not physical acceptance."
   }
 }
