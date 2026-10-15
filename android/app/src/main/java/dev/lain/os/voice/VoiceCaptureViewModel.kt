@@ -34,6 +34,11 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
         var speechBackendFactory: (Application) -> OnDeviceSpeechBackend = {
             AndroidOnDeviceSpeechBackend(it)
         }
+
+        @Volatile
+        var liveSpeechFactory: (Application) -> LiveSpeechInput = {
+            AndroidLiveSpeechInput(it)
+        }
     }
 
     private val mutable = MutableLiveData(MicrophoneState())
@@ -46,6 +51,9 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
         apiLevel = Build.VERSION.SDK_INT,
         backend = speechBackendFactory(application),
     )
+    private val liveSpeech = liveSpeechFactory(application)
+    private var liveActive = false
+    private var liveGeneration = 0L
 
     private val controller = MicrophoneCaptureController(
         engine = engineFactory(application),
@@ -72,22 +80,94 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
         }
         val granted = permissionChecker(getApplication())
         lastPermissionGranted = granted
-        controller.start(granted)
-        return granted
+        if (!granted) {
+            controller.start(false)
+            return false
+        }
+        if (liveSpeech.available) {
+            startLive()
+            return true
+        }
+        // Older devices have no API31 on-device live recognizer. Retain the
+        // bounded PCM adapter for compatibility, but never select cloud STT.
+        controller.start(true)
+        return true
+    }
+
+    private fun startLive() {
+        val token = ++liveGeneration
+        liveActive = true
+        publish(MicrophoneState(MicrophoneStatus.RECORDING))
+        val started = try {
+            liveSpeech.start { raw ->
+                if (token == liveGeneration) {
+                    liveActive = false
+                    publish(MicrophoneState())
+                    val result = validateLiveSpeechFinal(raw)
+                    publishSpeech(SpeechInputState(
+                        status = if (result.ok) SpeechInputStatus.READY else SpeechInputStatus.FAILED,
+                        result = result,
+                        finalId = if (result.ok) nextFinalId.incrementAndGet() else 0L,
+                    ))
+                }
+            }
+        } catch (_: Exception) { false }
+        if (!started && token == liveGeneration &&
+            speechMutable.value?.status != SpeechInputStatus.FAILED) {
+            liveActive = false
+            publish(MicrophoneState())
+            publishSpeech(SpeechInputState(
+                status = SpeechInputStatus.FAILED,
+                result = SpeechTranscriptionResult(
+                    failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE,
+                    diagnostic = "Android could not start the installed on-device speech service",
+                ),
+            ))
+        }
     }
 
     fun onPermissionResult(granted: Boolean) {
         lastPermissionGranted = granted
-        controller.onPermissionResult(granted)
+        if (granted && liveSpeech.available) {
+            controller.stop()  // Clear pending permission state without AudioRecord.
+            start()
+        } else controller.onPermissionResult(granted)
     }
 
     fun stop() {
+        if (liveActive) {
+            publish(MicrophoneState())
+            publishSpeech(SpeechInputState(status = SpeechInputStatus.TRANSCRIBING))
+            try { liveSpeech.stop() } catch (_: Exception) {
+                liveActive = false
+                publishSpeech(SpeechInputState(
+                    status = SpeechInputStatus.FAILED,
+                    result = SpeechTranscriptionResult(
+                        failure = SpeechAdapterFailure.PROVIDER_FAILED,
+                        diagnostic = "On-device speech service failed to finalize recording",
+                    ),
+                ))
+            }
+            return
+        }
         controller.stop()
     }
 
     fun reconcilePermission() {
         val granted = permissionChecker(getApplication())
         if (lastPermissionGranted && !granted) {
+            if (liveActive) {
+                liveGeneration++
+                liveActive = false
+                liveSpeech.cancel()
+                publishSpeech(SpeechInputState(
+                    status = SpeechInputStatus.FAILED,
+                    result = SpeechTranscriptionResult(
+                        failure = SpeechAdapterFailure.PROVIDER_UNAVAILABLE,
+                        diagnostic = "Microphone permission was revoked",
+                    ),
+                ))
+            }
             controller.permissionRevoked()
         } else {
             controller.reconcilePermission(granted)
@@ -96,6 +176,13 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
     }
 
     fun onActivityStop(changingConfigurations: Boolean) {
+        if (!changingConfigurations && liveActive) {
+            liveGeneration++
+            liveActive = false
+            liveSpeech.cancel()
+            publish(MicrophoneState())
+            publishSpeech(SpeechInputState())
+        }
         controller.onActivityStop(changingConfigurations)
         if (!changingConfigurations && speechMutable.value?.status == SpeechInputStatus.TRANSCRIBING) {
             speech.cancelTranscription()
@@ -109,6 +196,8 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
     }
 
     internal fun closeForTest() {
+        liveGeneration++
+        liveSpeech.close()
         speech.close()
         controller.close()
     }
@@ -130,6 +219,8 @@ class VoiceCaptureViewModel(application: Application) : AndroidViewModel(applica
     }
 
     override fun onCleared() {
+        liveGeneration++
+        liveSpeech.close()
         speech.close()
         controller.close()
         super.onCleared()
