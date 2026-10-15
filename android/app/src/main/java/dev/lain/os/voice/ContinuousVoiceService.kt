@@ -35,6 +35,12 @@ class ContinuousVoiceService : Service() {
         const val ACTION_STOP = "dev.lain.os.voice.STOP"
         private const val CHANNEL = "lain-continuous-voice"
         private const val NOTIFICATION_ID = 2927
+        private const val STATUS_PREFERENCES = "lain_continuous_voice_status"
+        private const val STOP_REASON = "last_stop_reason"
+
+        internal fun lastStopReason(context: android.content.Context): String? =
+            context.getSharedPreferences(STATUS_PREFERENCES, MODE_PRIVATE)
+                .getString(STOP_REASON, null)
         @Volatile var leaseActive: Boolean = false
             private set
         @Volatile private var currentService: ContinuousVoiceService? = null
@@ -56,6 +62,13 @@ class ContinuousVoiceService : Service() {
 
     private val main = Handler(Looper.getMainLooper())
     private val gate = WakeCommandGate(clock = { android.os.SystemClock.elapsedRealtime() })
+    private val restartPolicy = SpeechRestartPolicy()
+    private var recognitionStartedAtMs = 0L
+
+    private fun recordStopReason(reason: String) {
+        getSharedPreferences(STATUS_PREFERENCES, MODE_PRIVATE)
+            .edit().putString(STOP_REASON, reason).apply()
+    }
     private lateinit var runtime: RuntimeClient
     private var running = false
     private var connected = false
@@ -91,6 +104,8 @@ class ContinuousVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (running) return START_NOT_STICKY
+        getSharedPreferences(STATUS_PREFERENCES, MODE_PRIVATE)
+            .edit().remove(STOP_REASON).apply()
         val recognizerAvailable = Build.VERSION.SDK_INT >= 31 && try {
             SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
         } catch (_: Exception) { false }
@@ -99,7 +114,7 @@ class ContinuousVoiceService : Service() {
             (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) ||
             !NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-            shutdown()
+            shutdown("Offline recognizer or microphone/notification permission unavailable")
             return START_NOT_STICKY
         }
         try {
@@ -107,7 +122,7 @@ class ContinuousVoiceService : Service() {
             manager.createNotificationChannel(NotificationChannel(
                 CHANNEL, "LAIN listening", NotificationManager.IMPORTANCE_LOW))
             if (manager.getNotificationChannel(CHANNEL)?.importance == NotificationManager.IMPORTANCE_NONE) {
-                shutdown()
+                shutdown("Voice notification channel is disabled")
                 return START_NOT_STICKY
             }
             val stop = PendingIntent.getService(this, 1,
@@ -129,7 +144,7 @@ class ContinuousVoiceService : Service() {
                     ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             } else startForeground(NOTIFICATION_ID, notification)
         } catch (_: Exception) {
-            shutdown()
+            shutdown("Android rejected the microphone foreground service")
             return START_NOT_STICKY
         }
         running = true
@@ -159,6 +174,7 @@ class ContinuousVoiceService : Service() {
         }
         endRecognizer()
         val token = ++generation
+        recognitionStartedAtMs = android.os.SystemClock.elapsedRealtime()
         var completed = false
         try {
             val power = getSystemService(POWER_SERVICE) as PowerManager
@@ -188,9 +204,20 @@ class ContinuousVoiceService : Service() {
                     val decision = gate.accept(++finalId, phrase, score)
                     when (decision.kind) {
                         WakeKind.STOP_LISTENING -> shutdown()
-                        WakeKind.STOP_TASK -> stopTask()
-                        WakeKind.COMMAND -> dispatchCommand(decision.command)
-                        else -> scheduleListen(300L)
+                        WakeKind.STOP_TASK -> {
+                            restartPolicy.afterFinalRecognition()
+                            stopTask()
+                        }
+                        WakeKind.COMMAND -> {
+                            restartPolicy.afterFinalRecognition()
+                            dispatchCommand(decision.command)
+                        }
+                        WakeKind.ARMED -> scheduleListen(300L)
+                        WakeKind.IGNORE -> {
+                            // A completed unaddressed utterance is not authority
+                            // to immediately reopen the microphone.
+                            scheduleListen(restartPolicy.afterIgnoredFinal().delayMs!!)
+                        }
                     }
                 }
                 override fun onError(error: Int) {
@@ -201,13 +228,17 @@ class ContinuousVoiceService : Service() {
                         error == SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED ||
                         error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE ||
                         error == SpeechRecognizer.ERROR_CLIENT) {
-                        shutdown()
+                        shutdown("Offline recognition failed (Android speech error $error)")
                         return
                     }
                     if (error == SpeechRecognizer.ERROR_NO_MATCH ||
                         error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                         errorStreak = 0
-                        scheduleListen(300L)
+                        val elapsedMs = android.os.SystemClock.elapsedRealtime() - recognitionStartedAtMs
+                        val retry = restartPolicy.afterNoMatch(elapsedMs)
+                        if (retry.delayMs == null) {
+                            shutdown("Offline recognizer ends too quickly; check your installed offline speech language")
+                        } else scheduleListen(retry.delayMs)
                     } else {
                         val delays = longArrayOf(500L, 1000L, 2000L, 4000L, 8000L, 15000L)
                         if (errorStreak >= delays.size) shutdown()
@@ -234,7 +265,7 @@ class ContinuousVoiceService : Service() {
             main.postDelayed(watchdog, 30_000L)
         } catch (_: Exception) {
             endRecognizer()
-            shutdown()
+            shutdown("Offline recognizer failed to start")
         }
     }
 
@@ -340,9 +371,10 @@ class ContinuousVoiceService : Service() {
         main.postDelayed({ finish() }, 3_000L)
     }
 
-    private fun shutdown() {
+    private fun shutdown(reason: String = "Continuous voice stopped") {
         if (stopping) return
         stopping = true
+        recordStopReason(reason)
         val awaitingSubmit = commandPending && voiceSessionId == null
         running = false
         if (currentService === this) currentService = null
