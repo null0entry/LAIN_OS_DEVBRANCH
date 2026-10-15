@@ -36,6 +36,21 @@ class ContinuousVoiceService : Service() {
         private const val NOTIFICATION_ID = 2927
         @Volatile var leaseActive: Boolean = false
             private set
+        @Volatile private var currentService: ContinuousVoiceService? = null
+
+        /** Called only by the app's installed offline TTS backend. */
+        internal fun playbackChanged(playing: Boolean) {
+            val service = currentService ?: return
+            service.main.post {
+                if (currentService !== service || !service.running) return@post
+                service.playbackActive = playing
+                if (playing) {
+                    service.nextStart?.let(service.main::removeCallbacks)
+                    service.nextStart = null
+                    service.endRecognizer()
+                } else service.scheduleListen(300L)
+            }
+        }
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -49,6 +64,7 @@ class ContinuousVoiceService : Service() {
     private var finalId = 0L
     private var errorStreak = 0
     private var commandPending = false
+    private var playbackActive = false
     private var nextStart: Runnable? = null
 
     override fun onCreate() {
@@ -110,6 +126,7 @@ class ContinuousVoiceService : Service() {
             return START_NOT_STICKY
         }
         running = true
+        currentService = this
         foregroundReady = true
         gate.reset()
         runtime.connect()
@@ -118,14 +135,14 @@ class ContinuousVoiceService : Service() {
 
     private fun scheduleListen(delay: Long) {
         nextStart?.let(main::removeCallbacks)
-        if (!running || !connected || !foregroundReady || commandPending) return
+        if (!running || !connected || !foregroundReady || commandPending || playbackActive) return
         val task = Runnable { beginListen() }
         nextStart = task
         main.postDelayed(task, delay)
     }
 
     private fun beginListen() {
-        if (!running || !connected || !foregroundReady || commandPending) return
+        if (!running || !connected || !foregroundReady || commandPending || playbackActive) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             shutdown()
             return
@@ -264,6 +281,8 @@ class ContinuousVoiceService : Service() {
 
     private fun shutdown() {
         running = false
+        if (currentService === this) currentService = null
+        playbackActive = false
         foregroundReady = false
         leaseActive = false
         commandPending = false
