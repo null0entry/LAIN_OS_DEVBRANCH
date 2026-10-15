@@ -54,3 +54,39 @@ than a successful action.
 
 Exact physical results should be recorded in TASK-075/TASK-082 without changing
 the meaning of any CI-only evidence.
+
+
+## Physical report: repeated microphone start/stop tones (2026-10-14)
+
+Reported on Moto G Play 2026 after pressing Start: the Android green mic
+indicator appears, the foreground notification is visible, but the system mic
+start/stop tone repeatedly plays and wake commands do not complete.
+
+The prior service started a *new* SpeechRecognizer after every ignored final,
+NO_MATCH or SPEECH_TIMEOUT with only 300 ms between sessions. Android's
+SpeechRecognizer API is a bounded per-recognition request, **not** an
+always-on hotword engine; some OEMs audibly indicate every acquisition.
+This mechanism is consistent with the report, but on-device Android speech
+error codes / logcat are needed to confirm what path is firing.
+
+Patch on PR #60 adds SpeechRestartPolicy: escalating 2/4/8/12s cooldown
+for silent/ignored utterances, with fail-closed stop and a durable diagnostic
+message after three sub-1.5s recognition attempts that return NO_MATCH or
+SPEECH_TIMEOUT. The Workbench label now explicitly distinguishes the
+manual recorder from continuous voice. Paused/busy recognition and a running
+foreground service do not prove microphone capture or command completion.
+
+**This is churn mitigation, not seamless always-on hotword processing.**
+Eliminating all OEM per-session mic sounds likely requires a persistent
+AudioRecord microphone source with a bounded local wake detector, rather than
+repeated SpeechRecognizer starts. Do not promise seamless screen-off
+recognition or that chimes are eliminated until physically tested.
+
+Acceptance for this incident:
+1. Install APK built from exact patched commit and record hash/signature.
+2. Start with offline language available and both mic and notification grants.
+3. Observe green indicator, notification, wake response, tone frequency.
+4. Stop and resume from shade. Confirm permanent-error reasons appear in
+   Workbench after reopening; inspect Android logcat error code if failure.
+5. Compare original/patch and ensure repeated rapid NO_MATCH sessions stop
+   rather than continuing indefinitely.
