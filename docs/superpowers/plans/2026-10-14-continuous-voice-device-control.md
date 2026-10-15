@@ -93,4 +93,4 @@
 - [ ] Write tests for start permissions/Stop status, retained background owner, manual capture/transcription exclusion, TTS queue-flush/errors/closure and PCM completion, provisioning failure and missing optional grants.
 - [ ] Implement UI and integration; preserve typed/manual availability when continuous mode is off and no stale preference-based authority.
 - [ ] Run Python verification, native lifecycle tests, Android JVM tests, debug/test APK builds and lint; add API36 emulator checks, inspect native ABI/alignment and APK provenance; run end-to-end emulator suites and fix meaningful failures.
-- [ ] Whole-branch review, complete TASK-081/work log, update PR60 from design to final implementation, provide a signed source/checksum-bound APK. Do not merge or claim physical-device acceptance automatically.
+- [ ] Whole-branch review, complete TASK-082/work log, update PR60 from design to final implementation, provide a signed source/checksum-bound APK. Do not merge or claim physical-device acceptance automatically.
