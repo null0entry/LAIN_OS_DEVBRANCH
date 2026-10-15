@@ -14,7 +14,7 @@ Owner wants continuous hands-free task execution, including settings, flashlight
 - Verify Android compatibility and deliver a source/checksum-bound test APK; record real-device limits honestly.
 
 ### Status
-Owner approved the design. Deterministic Android device-command parsing and direct native controls (torch, volume, brightness, rotation, timeout, app/settings navigation) have been implemented on this draft branch, with unit/instrumentation checks. Continuous user-started wake-command service, foreground/background lifecycle ownership, optional bounded Accessibility integration, and Moto physical acceptance remain incomplete. Task renumbered from 081 because TASK-081 belongs to unified Local Chat/Workbench context (merged via PR #58).
+Owner-approved TASK-082 is implemented in bounded slices on draft PR #60: deterministic direct Android actions; explicit user-started offline microphone foreground service with persistent Stop notification; exact LAIN/lane wake gate, five-second final window, duplicate suppression and local Stop; independent RuntimeClient binding for background voice ownership; TTS microphone interlock; screen-off bounded wake lock, permission checks and recognizer timeout; Start/Stop and voice language setup controls. These are **committed code, not physical device acceptance**. Voice-owned task cancellation under ambiguous in-flight submission needs hardware acceptance; optional bounded Accessibility UI control remains unimplemented. CI exact-head Android emulator/build and physical Moto tests must complete before closing. See `docs/CONTINUOUS_VOICE_ACCEPTANCE.md`. TASK-081 separately belongs to unified Local Chat/Workbench context (merged plan PR #58).
 
 ---
 
