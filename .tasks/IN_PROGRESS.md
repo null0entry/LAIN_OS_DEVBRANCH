@@ -1,6 +1,6 @@
 # In Progress
 
-## TASK-081: Add continuous LAIN wake commands and broad Android device control
+## TASK-082: Add continuous LAIN wake commands and broad Android device control
 **Priority:** P2 | **Tags:** android, voice, continuous-listening, device-control
 **Updated:** 2026-10-14
 
@@ -14,7 +14,7 @@ Owner wants continuous hands-free task execution, including settings, flashlight
 - Verify Android compatibility and deliver a source/checksum-bound test APK; record real-device limits honestly.
 
 ### Status
-Design prepared in `docs/superpowers/specs/2026-10-14-continuous-voice-device-control-design.md`; implementation has not started. Owner approved the written design and instructed “Approved. Proceed.” Implementation is authorized and in progress.
+Owner approved the design. Deterministic Android device-command parsing and direct native controls (torch, volume, brightness, rotation, timeout, app/settings navigation) have been implemented on this draft branch, with unit/instrumentation checks. Continuous user-started wake-command service, foreground/background lifecycle ownership, optional bounded Accessibility integration, and Moto physical acceptance remain incomplete. Task renumbered from 081 because TASK-081 belongs to unified Local Chat/Workbench context (merged via PR #58).
 
 ---
 
