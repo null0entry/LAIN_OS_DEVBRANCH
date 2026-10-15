@@ -309,7 +309,9 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() { super.onStart(); model.attach(); residentClient.connect() }
     override fun onResume() {
         super.onResume()
-        showContinuousStatus(if (ContinuousVoiceService.leaseActive) "Listening for LAIN locally" else "Continuous listening stopped")
+        showContinuousStatus(if (ContinuousVoiceService.leaseActive)
+            "Continuous voice service running; Android may restart mic sessions"
+            else ContinuousVoiceService.lastStopReason(this) ?: "Continuous listening stopped")
         voice.reconcilePermission()
         refreshNotificationPermission()
     }
