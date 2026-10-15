@@ -10,6 +10,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import dev.lain.os.MainActivity
 import dev.lain.os.R
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -35,7 +36,20 @@ class MicrophoneLifecycleAndroidTest {
         }
     }
 
+    @Before fun useLegacyEngineForCaptureLifecycleTests() {
+        // These tests exercise AudioRecord capture lifecycle deliberately.
+        // Live recognition has separate injection/acceptance tests.
+        VoiceCaptureViewModel.liveSpeechFactory = { object : LiveSpeechInput {
+            override val available = false
+            override fun start(onFinal: (BackendTranscriptionResult) -> Unit) = false
+            override fun stop() = Unit
+            override fun cancel() = Unit
+            override fun close() = Unit
+        } }
+    }
+
     @After fun resetFactories() {
+        VoiceCaptureViewModel.liveSpeechFactory = { AndroidLiveSpeechInput(it) }
         VoiceCaptureViewModel.engineFactory = { AndroidAudioCaptureEngine() }
         VoiceCaptureViewModel.permissionChecker = { context ->
             context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
