@@ -31,8 +31,10 @@ import java.util.concurrent.atomic.AtomicReference
 /** A closed callback used only by the trusted embedded executor, never a planner. */
 class NativeCapabilities(private val context: Context) {
     private val main = Handler(Looper.getMainLooper())
+    private val deviceControls = NativeDeviceControls(context)
 
     fun execute(name: String, argumentsJson: String): String {
+        if (NativeDeviceControls.owns(name)) return deviceControls.executeRaw(name, argumentsJson)!!.toString()
         return try {
             if (argumentsJson.toByteArray(Charsets.UTF_8).size > 65536) return reply("failure").toString()
             val args = JSONObject(argumentsJson)

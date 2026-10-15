@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum
+import re
 from typing import Any
 
 from lain.errors import ErrorCode, LainError
@@ -25,11 +26,21 @@ class ArgumentSpec:
     minimum: int | None = None
     maximum: int | None = None
     max_bytes: int | None = None
+    choices: tuple[str, ...] | None = None
+    pattern: str | None = None
+    allow_empty: bool = False
 
-    def limits(self) -> dict[str, int]:
-        return {name: value for name, value in (
+    def limits(self) -> dict[str, Any]:
+        result = {name: value for name, value in (
             ("minimum", self.minimum), ("maximum", self.maximum), ("max_bytes", self.max_bytes),
         ) if value is not None}
+        if self.choices is not None:
+            result["choices"] = list(self.choices)
+        if self.pattern is not None:
+            result["pattern"] = self.pattern
+        if self.allow_empty:
+            result["allow_empty"] = True
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +81,10 @@ class CapabilityDefinition:
                     f"argument '{name}' has invalid type",
                     details={"argument": name},
                 )
+            if spec.choices is not None and value not in spec.choices:
+                raise LainError(ErrorCode.ARGUMENT_INVALID, f"argument '{name}' has invalid choice")
+            if spec.pattern is not None and re.fullmatch(spec.pattern, value) is None:
+                raise LainError(ErrorCode.ARGUMENT_INVALID, f"argument '{name}' has invalid identity")
             if spec.minimum is not None and value < spec.minimum:
                 raise LainError(ErrorCode.ARGUMENT_INVALID, f"argument '{name}' is below its minimum")
             if spec.maximum is not None and value > spec.maximum:
@@ -79,7 +94,7 @@ class CapabilityDefinition:
                     size = len(value.encode("utf-8"))
                 except UnicodeError as exc:
                     raise LainError(ErrorCode.ARGUMENT_INVALID, f"argument '{name}' must be valid UTF-8") from exc
-                if not size or size > spec.max_bytes or "\x00" in value:
+                if (not size and not spec.allow_empty) or size > spec.max_bytes or "\x00" in value:
                     raise LainError(ErrorCode.ARGUMENT_INVALID, f"argument '{name}' is empty, contains NUL, or exceeds its byte limit")
             validated[name] = value
         if missing:
@@ -116,6 +131,48 @@ class CapabilityRegistry:
 
 _STR = (str,)
 _BOOL = (bool,)
+
+VOLUME_STREAMS = ("media", "ring", "alarm", "notification", "system", "voice_call")
+SETTINGS_PAGES = ("wifi", "bluetooth", "display", "sound", "apps", "app_permissions",
+                  "notifications", "accessibility", "write_settings", "dnd")
+PACKAGE_PATTERN = r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+"
+IDENTITY_PATTERN = r"[A-Za-z0-9_-]{1,128}"
+
+
+def _device_capabilities() -> tuple[CapabilityDefinition, ...]:
+    stream = ArgumentSpec(_STR, required=False, default="media", choices=VOLUME_STREAMS)
+    percentage = ArgumentSpec((int,), minimum=0, maximum=100)
+    identity = ArgumentSpec(_STR, max_bytes=128, pattern=IDENTITY_PATTERN)
+    target = {"snapshot_id": identity, "node_id": identity}
+    # Arguments, permission, risk. All generic UI mutations require exact-action
+    # approval, since visible controls may have external or destructive effects.
+    definitions = (
+        ("flashlight_set", {"enabled": ArgumentSpec(_BOOL)}, "camera", 1),
+        ("volume_get", {"stream": stream}, "audio", 0),
+        ("volume_set", {"percentage": percentage, "stream": stream}, "audio", 1),
+        ("volume_adjust", {"direction": ArgumentSpec(_STR, choices=("up", "down", "mute", "unmute")), "stream": stream}, "audio", 1),
+        ("brightness_set", {"percentage": percentage}, "write_settings", 1),
+        ("rotation_set", {"enabled": ArgumentSpec(_BOOL)}, "write_settings", 1),
+        ("screen_timeout_set", {"milliseconds": ArgumentSpec((int,), minimum=15000, maximum=1800000)}, "write_settings", 1),
+        ("settings_open", {"page": ArgumentSpec(_STR, choices=SETTINGS_PAGES)}, "intent", 1),
+        ("app_open", {"package": ArgumentSpec(_STR, max_bytes=255, pattern=PACKAGE_PATTERN)}, "launcher", 1),
+        ("app_list", {"query": ArgumentSpec(_STR, required=False, default="", max_bytes=256, allow_empty=True)}, "launcher", 0),
+        ("ui.inspect", {}, "accessibility", 0),
+        ("ui.click", target, "accessibility", 2),
+        ("ui.scroll", {**target, "direction": ArgumentSpec(_STR, choices=("forward", "backward"))}, "accessibility", 2),
+        ("ui.set_text", {**target, "text": ArgumentSpec(_STR, max_bytes=4096, allow_empty=True)}, "accessibility", 2),
+        ("ui.global_action", {"action": ArgumentSpec(_STR, choices=("home", "back", "recents", "notifications", "quick_settings"))}, "accessibility", 2),
+    )
+    return tuple(CapabilityDefinition(
+        name="android." + name, arguments=args, risk_class=RiskClass(risk),
+        required_permissions=("android." + permission,), reversible=False,
+        confirmation_required=risk == 2, network_required=False,
+        environments=("android",), verification="native_device_evidence",
+    ) for name, args, permission, risk in definitions)
+
+
+DEVICE_CAPABILITIES = frozenset(cap.name for cap in _device_capabilities())
+
 
 DEFAULT_REGISTRY = CapabilityRegistry(
     (
@@ -275,5 +332,5 @@ DEFAULT_REGISTRY = CapabilityRegistry(
             environments=("linux", "termux"),
             verification="reddit_post_lookup",
         ),
-    )
+    ) + _device_capabilities()
 )

@@ -65,6 +65,10 @@ class WorkbenchViewModel(application: Application, private val saved: SavedState
         main.removeCallbacks(tick)
         if (changingConfiguration) return
         visible = false
+        if (dev.lain.os.voice.ContinuousVoiceService.leaseActive) {
+            client.disconnect()  // The live voice service owns the runtime lease.
+            return
+        }
         val session = current().session
         if (session?.optBoolean("active") == true) {
             client.request("stop", JSONObject().put("session_id", session.getString("session_id"))) {

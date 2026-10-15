@@ -107,6 +107,19 @@ def _action_schema(capability: dict[str, Any]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     for name, spec in capability["arguments"].items():
         value_schema = _type_schema(spec["type"])
+        limits = capability.get("argument_limits", {}).get(name, {})
+        for key in ("minimum", "maximum"):
+            if key in limits:
+                value_schema[key] = limits[key]
+        if "choices" in limits:
+            value_schema["enum"] = limits["choices"]
+        if "pattern" in limits:
+            value_schema["pattern"] = "^(?:" + limits["pattern"] + ")$"
+        if "max_bytes" in limits:
+            # JSON Schema counts characters, while the host enforces UTF-8 bytes.
+            value_schema["maxLength"] = limits["max_bytes"]
+            value_schema["minLength"] = 0 if limits.get("allow_empty") else 1
+            value_schema["description"] = f"Maximum {limits['max_bytes']} UTF-8 bytes; NUL forbidden"
         if not spec["required"]:
             members = value_schema.get("anyOf", [value_schema])
             value_schema = {"anyOf": [*members, {"type": "null"}]}

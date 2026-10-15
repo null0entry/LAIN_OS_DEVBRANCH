@@ -12,6 +12,7 @@ import json
 import re
 
 from lain.app.demo import COMMANDS, parse_sms_compose_command
+from lain.device_commands import parse_device_command
 from lain.app.planner_bridge import _use_low_reasoning
 
 MAX_ROUTER_BYTES = 4096
@@ -119,7 +120,7 @@ def classify_final_turn(text, binding, native_bridge=None):
     _validate_final(text)
     phrase = text.strip()
     normalized = phrase.casefold()
-    if any(normalized == command.casefold() for command in COMMANDS):
+    if any(normalized == command.casefold() for command in COMMANDS) or parse_device_command(phrase) is not None:
         return TurnRoutingDecision(TurnDisposition.TASK, "", "exact supported command")
     if parse_sms_compose_command(phrase) is not None:
         return TurnRoutingDecision(TurnDisposition.TASK, "", "explicit numeric SMS compose request")

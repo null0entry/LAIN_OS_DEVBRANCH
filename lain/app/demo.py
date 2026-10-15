@@ -3,6 +3,7 @@ from pathlib import Path
 import re
 
 from lain.planning.models import AgentPlannerDecision, AgentPlannerStatus, ProposedAction
+from lain.device_commands import parse_device_command
 
 
 COMMANDS = ("Create demo file", "Show battery", "Show demo toast", "Vibrate briefly",
@@ -84,7 +85,7 @@ class DemoPlanner:
             "copy demo text": ProposedAction("android.clipboard_set", {"content": "Hello from LAIN_OS."}),
             "share demo text": ProposedAction("android.share_text", {"content": "Hello from LAIN_OS."}),
         }
-        action = demos.get(normalized_goal)
+        action = demos.get(normalized_goal) or parse_device_command(goal)
         if action is None:
             return AgentPlannerDecision(AgentPlannerStatus.BLOCKED,
                                         "No language-model planner configured. Choose a listed offline demo.", ())
