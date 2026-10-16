@@ -1,5 +1,16 @@
 # Next
 
+> **P0 OWNER REPRIORITIZATION (2026-10-16):** [API-first three-phase design](../docs/superpowers/specs/2026-10-16-api-first-three-phase-design.md) replaces the older active on-device GGUF and two-screen UX sequencing. Old TASK entries below remain as historical/dependency records until reviewed; do not select a local-model task merely because it appears next in this legacy file.
+>
+> **PHASE 1 / FIRST EXECUTION TARGET:** capability descriptor registry, current SDK/role/permission inventory, permission broker, secure hosted API profile, STT final-turn adapter, canonical event contracts, one verified Android demo tool, physical baseline evidence. Treat inaccessible tools as UNSUPPORTED, never pregrant everything.
+>
+> **PHASE 2:** hosted API model interprets every final voice/text turn (including "Show Demo Toast"); strict typed planning, local policy/consent, sequential execution/verification/audit, API reply on every turn and truthful failures.
+>
+> **PHASE 3:** remove separate LocalChat/Workbench UX, one composer/timeline, one bounded canonical shared context for typed/voice/chat/verified outcomes; physical Moto acceptance.
+>
+> **STATUS:** design review pending. No v2 implementation authorized or completed by this documentation change.
+
+
 ## TASK-081: Unify Local chat and Workbench under one canonical conversation
 **Priority:** P0 | **Tags:** overseer-assigned, developer, android, context, on-device, voice, command-bridge
 **Updated:** 2026-10-12
