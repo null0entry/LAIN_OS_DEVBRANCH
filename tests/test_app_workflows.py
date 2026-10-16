@@ -64,6 +64,41 @@ class AppWorkflowProtocolTests(unittest.TestCase):
                                    confirmed_action_ids=["s1"])["ok"])
         self.assertEqual(target.read_text(), "original")
 
+    def test_sensitive_workflow_approval_requires_fresh_token_and_single_use(self):
+        target = self.root / "workspace" / "x.txt"
+        target.write_text("original")
+        steps = [{"id": "overwrite", "capability": "file.write_text",
+                  "arguments": {"path": "x.txt", "content": "authorized", "overwrite": True},
+                  "depends_on": []}]
+        key = self.send("workflow_create", steps=steps)["workflow"]["workflow_id"]
+        paused = self.send("workflow_advance", workflow_id=key)
+        self.assertEqual(paused["workflow"]["status"], "awaiting_confirmation")
+        token = paused["approval"]["token"]
+        self.assertTrue(token)
+        self.assertFalse(self.send("workflow_approve", workflow_id=key, token="fabricated")["ok"])
+        self.assertEqual(target.read_text(), "original")
+        accepted = self.send("workflow_approve", workflow_id=key, token=token)
+        self.assertTrue(accepted["ok"])
+        self.assertEqual(accepted["workflow"]["status"], "complete")
+        self.assertEqual(target.read_text(), "authorized")
+        self.assertFalse(self.send("workflow_approve", workflow_id=key, token=token)["ok"])
+
+    def test_restart_invalidates_sensitive_workflow_approval(self):
+        target = self.root / "workspace" / "x.txt"
+        target.write_text("original")
+        key = self.send("workflow_create", steps=[
+            {"id": "overwrite", "capability": "file.write_text", "depends_on": [],
+             "arguments": {"path": "x.txt", "content": "new", "overwrite": True}}
+        ])["workflow"]["workflow_id"]
+        token = self.send("workflow_advance", workflow_id=key)["approval"]["token"]
+        self.app = AppController(self.root)
+        self.assertFalse(self.send("workflow_approve", workflow_id=key, token=token)["ok"])
+        self.assertEqual(target.read_text(), "original")
+        refreshed = self.send("workflow_inspect", workflow_id=key)
+        self.assertTrue(refreshed["approval"]["token"] != token)
+        self.assertTrue(self.send("workflow_approve", workflow_id=key,
+                                  token=refreshed["approval"]["token"])["ok"])
+
 
 if __name__ == "__main__":
     unittest.main()
