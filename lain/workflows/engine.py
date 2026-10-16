@@ -229,6 +229,22 @@ class WorkflowRunner:
             resolved[name] = str(target)
         return resolved
 
+    def run_until_stop(self, workflow_id: str) -> dict:
+        """Advance a bounded verified graph until completion or a human gate.
+
+        No confirmation can be supplied here. Any uncertain in-flight state
+        raises and is never automatically retried.
+        """
+        workflow_id = _workflow_id(workflow_id)
+        for _ in range(min(self.runtime.config.max_actions, 32) + 1):
+            state = self.inspect(workflow_id)
+            if state["status"] in {"complete", "blocked", "awaiting_confirmation"}:
+                return state
+            state = self.advance(workflow_id)
+            if state["status"] != "pending":
+                return state
+        raise LainError(ErrorCode.AGENT_STATE_INVALID, "workflow step budget exhausted")
+
     @staticmethod
     def _envelope(workflow_id: str, steps: list[dict]) -> ActionEnvelope:
         return ActionEnvelope(
