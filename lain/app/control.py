@@ -261,6 +261,10 @@ class AppController:
             verified = self.workflows.advance(
                 workflow_id, confirmed_action_ids=frozenset({action_id}),
             )
+            if verified["status"] == "pending":
+                # Resume ordinary follow-on steps; any later sensitive step
+                # will pause and require a separate fresh owner token.
+                verified = self.workflows.run_until_stop(workflow_id)
             return self._workflow_view(verified)
 
     def _conversation_snapshot_for_ui(self):
