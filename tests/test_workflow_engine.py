@@ -216,6 +216,23 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, ErrorCode.AGENT_STATE_INVALID)
         self.assertFalse((self.root / "a.txt").exists())
 
+    def test_stop_callback_pauses_before_scheduling_next_action(self):
+        key = self.runner.create(self.plan())
+        checks = 0
+
+        def stop_after_first():
+            nonlocal checks
+            checks += 1
+            return checks > 1
+
+        paused = self.runner.run_until_stop(key, stop_requested=stop_after_first)
+        self.assertEqual(paused["status"], "paused")
+        self.assertEqual(paused["completed"], ["write"])
+        self.assertFalse((self.root / "b.txt").exists())
+        finished = self.runner.run_until_stop(key)
+        self.assertEqual(finished["status"], "complete")
+        self.assertEqual((self.root / "c.txt").read_text(), "hello")
+
 
 if __name__ == "__main__":
     unittest.main()
