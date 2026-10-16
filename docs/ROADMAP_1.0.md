@@ -21,6 +21,9 @@ Unimplemented permissions or privileged APIs never count as granted capability; 
 
 ### 2026-10-16 flagship 1.0 benchmark: multi-step execution, not single-action demos
 
+**Top-level process design:** [Reusable capability adapters and dynamic workflow engine](WORKFLOW_ENGINE.md). The unit of implementation is a small authorized, schema-checked tool, not a fully hardcoded user-request script. The orchestrator builds typed dependency graphs from model-generated proposals; it never bypasses the OS or treats proposal text as evidence.
+
+
 **[Golden workflow](superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md):** From a single spoken or typed command, LAIN must obtain legitimate screen-capture consent; capture the screen; crop a validated region; resolve and confirm a real group recipient target; send that image once via an authorized **group** messaging transport; and verify the actual send result. A share chooser, MMS composer, invented message ID, or batch of independent one-recipient SMS sends **does not pass**. If direct group send cannot be lawfully supported with the actual device/app role, the 1.0 flagship remains BLOCKED until a legitimate supported transport is integrated or the owner explicitly revises the benchmark.
 
 **[Fifty candidate workflows](FEATURE_MATRIX_1_0.md):** tracked as design targets/phase gates versus deferred adapter proposals, not implemented claims and not a verified "Gemini cannot" list. The product differentiator is a **single continuously running, dependency-aware, durable plan** with typed artifact handoffs, limited safe replanning, approval and audit across multiple Android tools.
