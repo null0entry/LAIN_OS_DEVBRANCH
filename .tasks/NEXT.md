@@ -1,6 +1,9 @@
 
 ## P0 WORK PACKAGE — Golden multi-tool orchestration (owner directive 2026-10-16)
 
+**Reusable implementation unit:** implement each safe Android/provider [tool adapter](../docs/WORKFLOW_ENGINE.md) once; the hosted model and trusted planner dynamically combine adapters in durable workflows. **Do not** create separate hardcoded code paths for each of the 50 requests.
+
+
 **Status:** SPEC FOR OWNER REVIEW, not implemented. Canonical: [API-first architecture](../docs/superpowers/specs/2026-10-16-api-first-three-phase-design.md), [golden screenshot/crop/group-send](../docs/superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md), [50-workflow target catalog](../docs/FEATURE_MATRIX_1_0.md).
 
 **Release benchmark:** One user utterance: "Take a screenshot, crop it, then send it as a group text all in one go." Build one persisted dependency-aware plan, not separate commands; achieve a real group-image sending outcome via an authorized transport, not just `ACTION_SEND` composition. System screenshot consent and exact sensitive send approval are mandatory. If real group sending is unavailable on the actual Android handset, mark **BLOCKED** rather than pass.
