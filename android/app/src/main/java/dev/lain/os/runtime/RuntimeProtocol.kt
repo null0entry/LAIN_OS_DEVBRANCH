@@ -10,7 +10,7 @@ object RuntimeProtocol {
     const val MAX_BYTES = 65536
     val readCommands = setOf("inspect", "sessions", "stop", "turns", "workflow_inspect")
     val writeCommands = setOf("start", "approve", "resume", "turn_partial", "turn_submit",
-        "workflow_create", "workflow_run", "workflow_advance", "workflow_approve")
+        "workflow_create", "workflow_run", "workflow_advance", "workflow_approve", "workflow_goal")
 
     fun enforceCaller(callingUid: Int = Binder.getCallingUid(), ownUid: Int = Process.myUid()) {
         if (callingUid != ownUid) throw SecurityException("Private application control")
