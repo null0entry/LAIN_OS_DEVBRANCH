@@ -285,6 +285,42 @@ class WorkflowRunner:
                 or type(state.get("artifacts")) is not dict
             ):
                 raise ValueError("invalid state")
+            # Checkpoint corruption must not invent completed work or change
+            # trusted action IDs. Atomic writes do not make loaded data valid.
+            steps = state["steps"]
+            completed = state["completed"]
+            results = state["results"]
+            if not 1 <= len(steps) <= 32:
+                raise ValueError("invalid workflow step count")
+            ids = []
+            for index, step in enumerate(steps):
+                if (type(step) is not dict
+                        or set(step) != {"id", "action_id", "capability", "arguments", "depends_on"}
+                        or type(step["id"]) is not str or _NODE.fullmatch(step["id"]) is None
+                        or step["action_id"] != f"s{index + 1}"
+                        or type(step["capability"]) is not str
+                        or type(step["arguments"]) is not dict
+                        or type(step["depends_on"]) is not list
+                        or any(type(d) is not str or d not in ids for d in step["depends_on"])):
+                    raise ValueError("invalid persisted workflow step")
+                ids.append(step["id"])
+            if (len(set(ids)) != len(ids)
+                    or completed != ids[:len(completed)]
+                    or (state["status"] == "complete") != (len(completed) == len(steps))):
+                raise ValueError("invalid workflow completion checkpoint")
+            if (len(results) not in {len(completed), len(completed) + 1}
+                    or (len(results) > len(completed) and state["status"] != "blocked")):
+                raise ValueError("invalid workflow result count")
+            for index, result in enumerate(results):
+                if (type(result) is not dict
+                        or set(result) != {"action_id", "status", "verification", "error_code"}
+                        or result["action_id"] != f"s{index + 1}"):
+                    raise ValueError("invalid persisted workflow result")
+            in_flight = state.get("in_flight")
+            if in_flight is not None and (
+                    len(completed) == len(steps)
+                    or in_flight != f"s{len(completed) + 1}"):
+                raise ValueError("invalid in-flight workflow checkpoint")
             return state
         except (OSError, ValueError, TypeError, UnicodeError) as exc:
             raise LainError(ErrorCode.AGENT_STATE_INVALID, "workflow checkpoint is missing or invalid") from exc

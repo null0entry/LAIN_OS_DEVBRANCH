@@ -195,5 +195,27 @@ class WorkflowRunnerTests(unittest.TestCase):
             self.runner.run_until_stop(key)
 
 
+    def test_corrupt_checkpoint_cannot_fabricate_completed_work(self):
+        key = self.runner.create(self.plan())
+        checkpoint = self.runner._load(key)
+        checkpoint["completed"] = ["write", "copy", "move"]
+        checkpoint["status"] = "complete"
+        self.runner._save(key, checkpoint)
+        with self.assertRaises(LainError) as caught:
+            self.runner.inspect(key)
+        self.assertEqual(caught.exception.code, ErrorCode.AGENT_STATE_INVALID)
+        self.assertFalse((self.root / "a.txt").exists())
+
+    def test_corrupt_checkpoint_cannot_replace_trusted_action_identity(self):
+        key = self.runner.create(self.plan())
+        checkpoint = self.runner._load(key)
+        checkpoint["steps"][0]["action_id"] = "model-approved"
+        self.runner._save(key, checkpoint)
+        with self.assertRaises(LainError) as caught:
+            self.runner.advance(key)
+        self.assertEqual(caught.exception.code, ErrorCode.AGENT_STATE_INVALID)
+        self.assertFalse((self.root / "a.txt").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
