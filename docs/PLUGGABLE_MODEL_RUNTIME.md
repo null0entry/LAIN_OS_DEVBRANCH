@@ -1,3 +1,5 @@
+> **Historical planning document (2026-10-01), superseded for the active release by [API-first three-phase LAIN_OS v2](superpowers/specs/2026-10-16-api-first-three-phase-design.md).** Preserve existing tested cloud transport/Keystore and trusted executor seams, but do not follow this document's Demo/Local/on-device provider expansion or earlier phase numbers as current priorities.
+
 # LAIN_OS Phase 2 — Pluggable Model Runtime
 
 **Status:** Planned  

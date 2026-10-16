@@ -8,6 +8,28 @@ Version: 1.0-roadmap-r6
 Status: Active product roadmap
 Date: 2026-10-11
 
+### 2026-10-16 OWNER SUPERSESSION — API-first speech → planner → unified chat (P0)
+
+**Canonical replacement architecture:** [LAIN_OS v2: API-first three-phase design](superpowers/specs/2026-10-16-api-first-three-phase-design.md). This supersedes previous near-term prioritization, local GGUF/Qwen critical-path work, the old planner/voice phase numbering and TASK-081's two-view UX. **The release target is hosted API only**, with Android/platform STT or typed input, local permissioned execution, and one shared conversation context.
+
+**NEW ORDER (phase gates):**
+1. **Phase 1 — Scaffolding:** registered typed tool/capability descriptors, Android adapters, permission/role/settings broker, protected API profiles, speech final-input adapter, durable events, evidence and availability taxonomy.
+2. **Phase 2 — Planner:** every final user message, including Show Demo Toast, is interpreted by the hosted model API; strict schema validation + trusted plan/policy/owner approval + execution + real verification; then model-generated explanation.
+3. **Phase 3 — Chat:** **ONE** chat box/input for spoken and typed commands plus conversation, **ONE** context and selected hosted model, no separate Workbench/LocalChat. Real model reply attempt for each accepted turn; truthful error when provider unavailable.
+
+Unimplemented permissions or privileged APIs never count as granted capability; Android restrictions remain. **The rest of this original roadmap is historical and may contain superseded GGUF/local-model and old phase assumptions.** Work begins only after owner reviews revised design and approves an implementation plan; this is NOT an APK completion or physical acceptance claim.
+
+### 2026-10-16 flagship 1.0 benchmark: multi-step execution, not single-action demos
+
+**Top-level process design:** [Reusable capability adapters and dynamic workflow engine](WORKFLOW_ENGINE.md). The unit of implementation is a small authorized, schema-checked tool, not a fully hardcoded user-request script. The orchestrator builds typed dependency graphs from model-generated proposals; it never bypasses the OS or treats proposal text as evidence.
+
+
+**[Golden workflow](superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md):** From a single spoken or typed command, LAIN must obtain legitimate screen-capture consent; capture the screen; crop a validated region; resolve and confirm a real group recipient target; send that image once via an authorized **group** messaging transport; and verify the actual send result. A share chooser, MMS composer, invented message ID, or batch of independent one-recipient SMS sends **does not pass**. If direct group send cannot be lawfully supported with the actual device/app role, the 1.0 flagship remains BLOCKED until a legitimate supported transport is integrated or the owner explicitly revises the benchmark.
+
+**[Fifty candidate workflows](FEATURE_MATRIX_1_0.md):** tracked as design targets/phase gates versus deferred adapter proposals, not implemented claims and not a verified "Gemini cannot" list. The product differentiator is a **single continuously running, dependency-aware, durable plan** with typed artifact handoffs, limited safe replanning, approval and audit across multiple Android tools.
+
+**Phase mapping:** Phase 1 defines/probes real capture, crop, messaging group and verification primitives; Phase 2 proves a hosted-model-created graph and real effects; Phase 3 proves one shared voice/text interface and the physical flagship. Preserve original three-phase order and API-only inference. Existing historical roadmap below is superseded where it conflicts with these owner requirements.
+
 ## 1. North-star release outcome
 
 LAIN_OS 1.0 is a standalone Android voice-first autonomous agent suite that turns ordinary spoken or typed goals into bounded, durable, verified multi-step work while preserving human authority over every consequential action.
