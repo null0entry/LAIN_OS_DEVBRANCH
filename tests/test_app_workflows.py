@@ -114,6 +114,26 @@ class AppWorkflowProtocolTests(unittest.TestCase):
         self.assertEqual(result["workflow"]["status"], "complete")
         self.assertEqual((self.root / "workspace" / "copied.txt").read_text(), "one instruction")
 
+    def test_approval_resumes_remaining_verified_steps_automatically(self):
+        root = self.root / "workspace"
+        (root / "a.txt").write_text("before")
+        steps = [
+            {"id": "write", "capability": "file.write_text",
+             "arguments": {"path": "a.txt", "content": "after", "overwrite": True},
+             "depends_on": []},
+            {"id": "copy", "capability": "file.copy",
+             "arguments": {"source": {"$artifact": "write.path"}, "destination": "b.txt"},
+             "depends_on": ["write"]},
+        ]
+        workflow_id = self.send("workflow_create", steps=steps)["workflow"]["workflow_id"]
+        paused = self.send("workflow_run", workflow_id=workflow_id)
+        self.assertEqual(paused["workflow"]["status"], "awaiting_confirmation")
+        token = paused["approval"]["token"]
+        outcome = self.send("workflow_approve", workflow_id=workflow_id, token=token)
+        self.assertTrue(outcome["ok"])
+        self.assertEqual(outcome["workflow"]["status"], "complete")
+        self.assertEqual((root / "b.txt").read_text(), "after")
+
 
 if __name__ == "__main__":
     unittest.main()
