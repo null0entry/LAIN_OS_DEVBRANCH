@@ -99,6 +99,21 @@ class AppWorkflowProtocolTests(unittest.TestCase):
         self.assertTrue(self.send("workflow_approve", workflow_id=key,
                                   token=refreshed["approval"]["token"])["ok"])
 
+    def test_run_command_completes_composite_task_without_manual_steps(self):
+        created = self.send("workflow_create", steps=[
+            {"id": "copy", "capability": "file.copy",
+             "arguments": {"source": {"$artifact": "write.path"}, "destination": "copied.txt"},
+             "depends_on": ["write"]},
+            {"id": "write", "capability": "file.write_text",
+             "arguments": {"path": "original.txt", "content": "one instruction"},
+             "depends_on": []},
+        ])
+        self.assertTrue(created["ok"])
+        result = self.send("workflow_run", workflow_id=created["workflow"]["workflow_id"])
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["workflow"]["status"], "complete")
+        self.assertEqual((self.root / "workspace" / "copied.txt").read_text(), "one instruction")
+
 
 if __name__ == "__main__":
     unittest.main()
