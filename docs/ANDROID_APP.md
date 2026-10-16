@@ -6,6 +6,12 @@ The `android/` module embeds the Python runtime and native GGUF inference in a
 private `:runtime` process. Launching the app requires no Termux, external Python,
 root, Shizuku, server, or cloud account.
 
+## Current implementation vs 1.0 acceptance benchmark
+
+The legacy local model and split Workbench/LocalChat paths described below are **historical current implementation**, not the new release target. The [API-first owner-design](superpowers/specs/2026-10-16-api-first-three-phase-design.md) makes speech/text and all tool intents flow through the hosted model and one single chat.
+
+New proposed [1.0 flagship screenshot/crop/group-send benchmark](superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md): real Android MediaProjection consent; bounded crop producing verifiable image artifact; correct group target and exact owner send approval; one real **group image send** with separate provider/delivery evidence. Android MMS `ACTION_SEND`/composer alone means **ASSISTED_COMPOSE**, not SENT. No current APK, emulator or README claim satisfies this golden test. See [50 candidate workflows](FEATURE_MATRIX_1_0.md).
+
 ## Setup and conversation
 
 On first launch, choose Demo for fixed offline commands, or configure a planner.
