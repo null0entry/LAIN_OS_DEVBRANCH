@@ -28,7 +28,7 @@ from lain.agent.planning import AgentPlanningService
 from lain.agent.store import AgentSessionStore
 from lain.app.demo import COMMANDS, DemoPlanner, parse_sms_compose_command
 from lain.conversation_routing import TurnDisposition, classify_final_turn
-from lain.app.planner_bridge import AndroidPlannerFactory, _use_low_reasoning
+from lain.app.planner_bridge import AndroidPlannerFactory, NativeBridgePlanner, _use_low_reasoning
 from lain.app.native import NativeAndroidAdapter
 from lain.audit.logger import redact, redact_android_narratives
 from lain.config import RuntimeConfig
@@ -40,10 +40,11 @@ from lain.conversation import (
     TurnRoute,
     TurnSource,
 )
-from lain.errors import LainError
+from lain.errors import ErrorCode, LainError
 from lain.protocol.models import ActionStatus
 from lain.runtime.engine import RuntimeEngine
 from lain.workflows.engine import WorkflowRunner
+from lain.workflows.intent import WorkflowIntentBridge
 
 MAX_MESSAGE_BYTES = 65536
 MAX_SPEECH_TEXT_BYTES = 32768
@@ -64,6 +65,7 @@ _FIELDS = {
     "workflow_create": {"steps"},
     "workflow_advance": {"workflow_id"},
     "workflow_run": {"workflow_id"},
+    "workflow_goal": {"goal"},
     "workflow_inspect": {"workflow_id"},
     "workflow_approve": {"workflow_id", "token"},
 }
@@ -197,6 +199,8 @@ class AppController:
                 result = self._workflow_view(self.workflows.advance(arguments["workflow_id"]))
             elif command == "workflow_run":
                 result = self._workflow_view(self._workflow_run_checked(arguments["workflow_id"]))
+            elif command == "workflow_goal":
+                result = self._workflow_goal(arguments["goal"])
             elif command == "workflow_inspect":
                 result = self._workflow_view(self.workflows.inspect(arguments["workflow_id"]))
             elif command == "workflow_approve":
@@ -244,6 +248,20 @@ class AppController:
                 "action_id": action_id,
                 "expires_in_seconds": APPROVAL_TTL_SECONDS,
             }}
+
+    def _workflow_goal(self, goal):
+        # Experimental hosted-intent entry point. Full conversation/UI routing
+        # is a separate release gate; this never grants model-supplied approval.
+        binding = self._binding_provider()
+        if binding.mode != "cloud" or self._planner_bridge is None:
+            raise LainError(ErrorCode.PLANNER_UNAVAILABLE, "hosted workflow model is not configured")
+        limit = min(8, self.runtime.config.max_actions)
+        planner = NativeBridgePlanner(binding, self._planner_bridge, max_actions=limit)
+        service = AgentPlanningService(planner, registry=self.runtime.registry, max_actions=limit)
+        proposed = WorkflowIntentBridge(service, self.workflows).propose(goal)
+        if proposed["status"] != "planned":
+            return {"workflow": {"status": "no_action", "workflow_id": None}}
+        return self._workflow_view(self._workflow_run_checked(proposed["workflow_id"]))
 
     def _workflow_run_checked(self, workflow_id):
         with self._lock:
