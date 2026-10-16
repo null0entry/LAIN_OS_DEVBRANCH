@@ -1,5 +1,7 @@
 # Android app
 
+> **Current build behavior, not the new product target.** The separate Workbench / Local chat interface described below is slated for replacement by the [single conversation UI design](superpowers/specs/2026-10-16-unified-conversation-ui-design.md): one timeline, one composer for both commands and chat, and a model response attempt for every accepted message. The proposal is not yet implemented or physically accepted.
+
 The `android/` module embeds the Python runtime and native GGUF inference in a
 private `:runtime` process. Launching the app requires no Termux, external Python,
 root, Shizuku, server, or cloud account.
