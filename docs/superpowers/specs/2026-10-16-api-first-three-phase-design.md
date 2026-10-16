@@ -302,6 +302,9 @@ The existing implementation includes local-model JNI, Qwen preload, LocalChat an
 
 ## 8. Owner-mandated capability breadth and compositional intelligence
 
+The reusable implementation architecture is [capability adapters + dynamic workflow engine](../../WORKFLOW_ENGINE.md). Individual Android integration surfaces need bounded code and verification once; their combinations are runtime-assembled graphs, not new feature source files per phrasing.
+
+
 **2026-10-16 refinement:** The central LAIN_OS benchmark is **not** performing one named function in isolation. From one voice or text request, LAIN must plan, authorize, execute, verify and recover a **continuous multi-step sequence** that passes real intermediate artifacts between independent Android capabilities.
 
 **Flagship acceptance:** [Screenshot → crop → send one image to a group](2026-10-16-screen-crop-group-send-golden-workflow.md). Exact user-requested wording: "Take a screenshot, crop it, then send it as a group text, all in one go." This is a **P0 golden workflow** and an explicit release blocker if only SMS/MMS composition or share chooser invocation is supported. Sending separate individual texts cannot be misreported as a group-thread send. The capture step and outgoing transmission remain subject to owner consent, Android roles and actual authorized transport availability.
