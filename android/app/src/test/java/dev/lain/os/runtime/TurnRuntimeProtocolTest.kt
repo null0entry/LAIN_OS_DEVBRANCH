@@ -50,4 +50,11 @@ class TurnRuntimeProtocolTest {
         assertEquals(5L, RuntimeTimeoutPolicy.seconds("workflow_advance", null))
     }
 
+    @Test fun hostedWorkflowGoalUsesPrivateWriteChannelAndModelBudget() {
+        assertTrue("workflow_goal" in RuntimeProtocol.writeCommands)
+        assertEquals(190L, RuntimeTimeoutPolicy.seconds("workflow_goal", null))
+        assertFalse(RuntimeProtocol.shouldAdvance("workflow_goal", """{"ok":true}"""))
+        assertFalse(RuntimeProtocol.shouldAdvanceAfterUncertainOutcome("workflow_goal"))
+    }
+
 }
