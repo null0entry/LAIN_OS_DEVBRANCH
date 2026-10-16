@@ -15,11 +15,15 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from lain.errors import ErrorCode, LainError
+from lain.execution.filesystem import sha256_file
+from lain.security.paths import resolve_allowed_path
 from lain.protocol.models import Action, ActionEnvelope, ActionStatus, VerificationStatus
 
 
 _NODE = re.compile(r"[A-Za-z][A-Za-z0-9_-]{0,39}\Z")
 _STATES = frozenset({"pending", "awaiting_confirmation", "complete", "blocked"})
+_FILE_OUTPUTS = {"file.write_text": "path", "file.copy": "destination", "file.move": "destination"}
+_FILE_CONSUMERS = frozenset({"file.copy", "file.move"})
 
 
 def _invalid(message: str) -> LainError:
@@ -93,12 +97,14 @@ class WorkflowRunner:
              "arguments": step["arguments"], "depends_on": step["depends_on"]}
             for i, step in enumerate(ordered, 1)
         ]
-        envelope = self._envelope(workflow_id, steps)
-        # Validate every action before creating state or attempting any side effect.
-        self.runtime.preflight(envelope)
+        # Resolve only shape-valid references to *already declared* dependency
+        # outputs. No planner-authored path or arbitrary dictionary is trusted.
+        preview = [self._arguments_for_step(s, steps, {}, preview=True) for s in steps]
+        validation_steps = [{**s, "arguments": args} for s, args in zip(steps, preview)]
+        self.runtime.preflight(self._envelope(workflow_id, validation_steps))
         state = {
             "version": 1, "workflow_id": workflow_id, "steps": steps,
-            "status": "pending", "completed": [], "results": [], "in_flight": None,
+            "status": "pending", "completed": [], "results": [], "artifacts": {}, "in_flight": None,
         }
         self._save(workflow_id, state)
         return workflow_id
@@ -134,7 +140,8 @@ class WorkflowRunner:
 
             if any(dep not in completed for dep in step["depends_on"]):
                 raise LainError(ErrorCode.AGENT_STATE_INVALID, "workflow dependency state is inconsistent")
-            action = Action(step["action_id"], step["capability"], step["arguments"])
+            resolved = self._arguments_for_step(step, state["steps"], state["artifacts"])
+            action = Action(step["action_id"], step["capability"], resolved)
             envelope = ActionEnvelope("0", workflow_id, "trusted-workflow", (action,))
             self.runtime.preflight(envelope)
             if confirmed_action_ids - {action.id}:
@@ -165,6 +172,14 @@ class WorkflowRunner:
                 and result.verification.status is VerificationStatus.PASSED
             ):
                 state["completed"].append(step["id"])
+                field = _FILE_OUTPUTS.get(step["capability"])
+                if field is not None:
+                    details = result.details
+                    digest = details.get("sha256") if field == "path" else details.get("sha256_before")
+                    if isinstance(details.get(field), str) and isinstance(digest, str):
+                        state["artifacts"][f"{step['id']}.{field}"] = {
+                            "path": details[field], "sha256": digest,
+                        }
                 state["status"] = (
                     "complete" if len(state["completed"]) == len(state["steps"])
                     else "pending"
@@ -174,6 +189,45 @@ class WorkflowRunner:
                 state["status"] = "blocked"
             self._save(workflow_id, state)
             return self._summary(state)
+
+    def _arguments_for_step(
+        self, step: dict, steps: list[dict], artifacts: dict,
+        *, preview: bool = False,
+    ) -> dict:
+        resolved = {}
+        producers = {s["id"]: s for s in steps}
+        for name, value in step["arguments"].items():
+            if type(value) is not dict:
+                resolved[name] = value
+                continue
+            if (set(value) != {"$artifact"} or step["capability"] not in _FILE_CONSUMERS
+                    or name != "source" or type(value["$artifact"]) is not str):
+                raise _invalid("unsupported artifact binding")
+            reference = value["$artifact"]
+            if reference.count(".") != 1:
+                raise _invalid("invalid artifact reference")
+            producer_id, field = reference.split(".")
+            producer = producers.get(producer_id)
+            if (producer is None or producer_id not in step["depends_on"]
+                    or field != _FILE_OUTPUTS.get(producer["capability"])):
+                raise _invalid("artifact reference must name a verified direct dependency output")
+            if preview:
+                # Preview is a validated in-root string of the correct argument type.
+                # Only file.copy/file.move source accepts a bound file output.
+                resolved[name] = str(self.runtime.config.allowed_roots[0] / ".lain-validation-placeholder")
+                continue
+            receipt = artifacts.get(reference)
+            if (type(receipt) is not dict or set(receipt) != {"path", "sha256"}
+                    or type(receipt["path"]) is not str or type(receipt["sha256"]) is not str):
+                raise LainError(ErrorCode.AGENT_STATE_INVALID, "verified artifact receipt missing")
+            target = resolve_allowed_path(receipt["path"], self.runtime.config.allowed_roots)
+            try:
+                if not target.is_file() or sha256_file(target) != receipt["sha256"]:
+                    raise LainError(ErrorCode.VERIFICATION_FAILED, "artifact changed since verification")
+            except OSError as exc:
+                raise LainError(ErrorCode.VERIFICATION_FAILED, "artifact no longer available") from exc
+            resolved[name] = str(target)
+        return resolved
 
     @staticmethod
     def _envelope(workflow_id: str, steps: list[dict]) -> ActionEnvelope:
@@ -211,6 +265,7 @@ class WorkflowRunner:
                 or type(state.get("completed")) is not list
                 or type(state.get("results")) is not list
                 or type(state.get("steps")) is not list
+                or type(state.get("artifacts")) is not dict
             ):
                 raise ValueError("invalid state")
             return state
