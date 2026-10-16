@@ -1,6 +1,6 @@
 # Android app
 
-> **Current build behavior, not the new product target.** The separate Workbench / Local chat interface described below is slated for replacement by the [single conversation UI design](superpowers/specs/2026-10-16-unified-conversation-ui-design.md): one timeline, one composer for both commands and chat, and a model response attempt for every accepted message. The proposal is not yet implemented or physically accepted.
+> **Current build behavior, NOT the new product target.** The owner-directed [API-first three-phase design](superpowers/specs/2026-10-16-api-first-three-phase-design.md) replaces the local GGUF release path. Phase 1 scaffolds all supported tool/permission contracts, Phase 2 uses a hosted model API to interpret every final input and plans trusted Android actions, and Phase 3 delivers **one** chat timeline and composer. This page describes historical implemented mechanisms (including Qwen/LocalChat); it does not assert that the revised system is implemented or physically accepted.
 
 The `android/` module embeds the Python runtime and native GGUF inference in a
 private `:runtime` process. Launching the app requires no Termux, external Python,
