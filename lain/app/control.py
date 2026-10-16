@@ -28,7 +28,7 @@ from lain.agent.planning import AgentPlanningService
 from lain.agent.store import AgentSessionStore
 from lain.app.demo import COMMANDS, DemoPlanner, parse_sms_compose_command
 from lain.conversation_routing import TurnDisposition, classify_final_turn
-from lain.app.planner_bridge import AndroidPlannerFactory, _use_low_reasoning
+from lain.app.planner_bridge import AndroidPlannerFactory, NativeBridgePlanner, _use_low_reasoning
 from lain.app.native import NativeAndroidAdapter
 from lain.audit.logger import redact, redact_android_narratives
 from lain.config import RuntimeConfig
@@ -40,9 +40,11 @@ from lain.conversation import (
     TurnRoute,
     TurnSource,
 )
-from lain.errors import LainError
+from lain.errors import ErrorCode, LainError
 from lain.protocol.models import ActionStatus
 from lain.runtime.engine import RuntimeEngine
+from lain.workflows.engine import WorkflowRunner
+from lain.workflows.intent import WorkflowIntentBridge
 
 MAX_MESSAGE_BYTES = 65536
 MAX_SPEECH_TEXT_BYTES = 32768
@@ -60,6 +62,12 @@ _FIELDS = {
     "turn_partial": {"text"},
     "turn_submit": {"text", "source", "kind", "reference", "target_session_id"},
     "turns": set(),
+    "workflow_create": {"steps"},
+    "workflow_advance": {"workflow_id"},
+    "workflow_run": {"workflow_id"},
+    "workflow_goal": {"goal"},
+    "workflow_inspect": {"workflow_id"},
+    "workflow_approve": {"workflow_id", "token"},
 }
 _SESSION_COMMANDS = {"inspect", "approve", "stop", "resume"}
 
@@ -129,6 +137,9 @@ class AppController:
                     turn_id, "The reply was interrupted. Send your message again to retry.", "failed",
                 )
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
+        self.workflows = WorkflowRunner(self.runtime, root / "workflows")
+        self._workflow_grants = {}
+        self._workflow_epoch = 0
         self._planner_bridge = planner_bridge
         self._binding_provider = _planner_binding_provider(planner_profiles)
         self.controller = AgentController(
@@ -181,6 +192,19 @@ class AppController:
                 )
             elif command == "turns":
                 result = {"conversation": self._conversation_snapshot_for_ui()}
+            elif command == "workflow_create":
+                workflow_id = self.workflows.create(arguments["steps"])
+                result = self._workflow_view(self.workflows.inspect(workflow_id))
+            elif command == "workflow_advance":
+                result = self._workflow_view(self.workflows.advance(arguments["workflow_id"]))
+            elif command == "workflow_run":
+                result = self._workflow_view(self._workflow_run_checked(arguments["workflow_id"]))
+            elif command == "workflow_goal":
+                result = self._workflow_goal(arguments["goal"])
+            elif command == "workflow_inspect":
+                result = self._workflow_view(self.workflows.inspect(arguments["workflow_id"]))
+            elif command == "workflow_approve":
+                result = self._workflow_approve(arguments["workflow_id"], arguments["token"])
             elif command == "approve":
                 result = self._approve(arguments["session_id"], arguments["token"])
             elif command == "resume":
@@ -201,6 +225,77 @@ class AppController:
         if len(encoded.encode("utf-8")) > MAX_MESSAGE_BYTES:
             return '{"version":1,"ok":false,"error":"APP_RESPONSE_TOO_LARGE"}'
         return encoded
+
+    def _workflow_view(self, state):
+        """Issue a short-lived approval token for trusted owner UI only.
+
+        Never insert this token into hosted model prompts or normal chat content.
+        """
+        with self._lock:
+            workflow_id = state["workflow_id"]
+            if state["status"] != "awaiting_confirmation":
+                self._workflow_grants.pop(workflow_id, None)
+                return {"workflow": state}
+            action_id = state["current_action_id"]
+            if not action_id:
+                raise ValueError("workflow approval action missing")
+            token = secrets.token_urlsafe(32)
+            self._workflow_grants[workflow_id] = (
+                token, action_id, monotonic() + APPROVAL_TTL_SECONDS,
+            )
+            return {"workflow": state, "approval": {
+                "token": token,
+                "action_id": action_id,
+                "expires_in_seconds": APPROVAL_TTL_SECONDS,
+            }}
+
+    def _workflow_goal(self, goal):
+        # Experimental hosted-intent entry point. Full conversation/UI routing
+        # is a separate release gate; this never grants model-supplied approval.
+        binding = self._binding_provider()
+        if binding.mode != "cloud" or self._planner_bridge is None:
+            raise LainError(ErrorCode.PLANNER_UNAVAILABLE, "hosted workflow model is not configured")
+        limit = min(8, self.runtime.config.max_actions)
+        planner = NativeBridgePlanner(binding, self._planner_bridge, max_actions=limit)
+        service = AgentPlanningService(planner, registry=self.runtime.registry, max_actions=limit)
+        proposed = WorkflowIntentBridge(service, self.workflows).propose(goal)
+        if proposed["status"] != "planned":
+            return {"workflow": {"status": "no_action", "workflow_id": None}}
+        return self._workflow_view(self._workflow_run_checked(proposed["workflow_id"]))
+
+    def _workflow_run_checked(self, workflow_id):
+        with self._lock:
+            epoch = self._workflow_epoch
+        return self.workflows.run_until_stop(
+            workflow_id, stop_requested=lambda: self._workflow_epoch != epoch,
+        )
+
+    def _workflow_approve(self, workflow_id, token):
+        if not isinstance(token, str) or not 1 <= len(token) <= 128:
+            raise ValueError("invalid workflow approval token")
+        with self._lock:
+            grant = self._workflow_grants.get(workflow_id)
+            state = self.workflows.inspect(workflow_id)
+            if grant is None or state["status"] != "awaiting_confirmation":
+                raise ValueError("workflow approval is stale")
+            expected, action_id, expiry = grant
+            if (not secrets.compare_digest(expected, token) or monotonic() >= expiry
+                    or state["current_action_id"] != action_id):
+                raise ValueError("workflow approval is stale")
+            self._workflow_grants.pop(workflow_id, None)
+            epoch = self._workflow_epoch
+        if self._workflow_epoch != epoch:
+            raise ValueError("workflow approval revoked by lifecycle")
+        # A call may already be in-flight when backgrounding occurs; never
+        # start further steps once stop_active() changes the epoch.
+        verified = self.workflows.advance(
+            workflow_id, confirmed_action_ids=frozenset({action_id}),
+        )
+        if verified["status"] == "pending":
+            verified = self.workflows.run_until_stop(
+                workflow_id, stop_requested=lambda: self._workflow_epoch != epoch,
+            )
+        return self._workflow_view(verified)
 
     def _conversation_snapshot_for_ui(self):
         """Return recent accepted turns without exceeding the app protocol bound."""
@@ -565,6 +660,8 @@ class AppController:
     def stop_active(self):
         """Private lifecycle hook; not a Binder-dispatchable planner command."""
         with self._lock:
+            self._workflow_epoch += 1
+            self._workflow_grants.clear()
             if self._active is not None:
                 self._stopped.set()
                 self._grants.clear()

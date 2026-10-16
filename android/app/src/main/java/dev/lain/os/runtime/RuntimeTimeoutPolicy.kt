@@ -8,8 +8,15 @@ package dev.lain.os.runtime
 internal object RuntimeTimeoutPolicy {
     const val MODEL_ROUTE_SECONDS = 190L
     const val CONTROL_SECONDS = 5L
+    const val WORKFLOW_RUN_SECONDS = 60L
+    const val WORKFLOW_APPROVE_SECONDS = 30L
 
     fun seconds(command: String, kind: String?): Long =
-        if (command == "turn_submit" && kind == "auto") MODEL_ROUTE_SECONDS
-        else CONTROL_SECONDS
+        when {
+            command == "turn_submit" && kind == "auto" -> MODEL_ROUTE_SECONDS
+            command == "workflow_goal" -> MODEL_ROUTE_SECONDS
+            command == "workflow_run" -> WORKFLOW_RUN_SECONDS
+            command == "workflow_approve" -> WORKFLOW_APPROVE_SECONDS
+            else -> CONTROL_SECONDS
+        }
 }
