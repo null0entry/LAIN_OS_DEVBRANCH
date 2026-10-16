@@ -1,3 +1,19 @@
+
+## P0 WORK PACKAGE — Golden multi-tool orchestration (owner directive 2026-10-16)
+
+**Status:** SPEC FOR OWNER REVIEW, not implemented. Canonical: [API-first architecture](../docs/superpowers/specs/2026-10-16-api-first-three-phase-design.md), [golden screenshot/crop/group-send](../docs/superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md), [50-workflow target catalog](../docs/FEATURE_MATRIX_1_0.md).
+
+**Release benchmark:** One user utterance: "Take a screenshot, crop it, then send it as a group text all in one go." Build one persisted dependency-aware plan, not separate commands; achieve a real group-image sending outcome via an authorized transport, not just `ACTION_SEND` composition. System screenshot consent and exact sensitive send approval are mandatory. If real group sending is unavailable on the actual Android handset, mark **BLOCKED** rather than pass.
+
+**P1 scaffolding slices:** platform capability + permission/role probes; `screen.capture`; `image.crop`; private image content references and hashes; `contacts.group.resolve`; `message.group.compose`; `message.group.send` with capability availability only when installed/authorized; `message.group.verify`; hosted-model API/STT port, audit, privacy and typed schema constraints. Direct group sending requires a separately proven legitimate transport. Prototype unsupported parts as unavailable, not executable.
+
+**P2 planner slices:** versioned typed graph; dependency ordering; model-origin intent decomposition; typed artifact input/output wiring; exact-action consent for capture/send; trusted capability validation; persisted checkpoints; idempotent side-effect reconciliation; bounded replanning; truthful final model answer. Test malformed model output, denied consent, ambiguous group, carrier timeout and process restart without duplicate sends.
+
+**P3 chat slices:** single composer and one durable context for all voice/text and tool events; inline approval/progress/receipts; model answers after each accepted turn; one real-phone full benchmark and five-step diversified acceptance set. Source-bound signed/debug APK SHA and device/transport evidence required.
+
+**Acceptance:** [golden-workflow acceptance tests](../docs/superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md#6-automated--physical-acceptance-tests). All 50 features are **design targets**, not 50 claimed shipped modules; implement reusable adapters first. Do not confuse provider SUBMITTED with recipient DELIVERED.
+
+---
 # Next
 
 > **P0 OWNER REPRIORITIZATION (2026-10-16):** [API-first three-phase design](../docs/superpowers/specs/2026-10-16-api-first-three-phase-design.md) replaces the older active on-device GGUF and two-screen UX sequencing. Old TASK entries below remain as historical/dependency records until reviewed; do not select a local-model task merely because it appears next in this legacy file.
