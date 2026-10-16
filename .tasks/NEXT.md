@@ -30,6 +30,62 @@
 > **STATUS:** design review pending. No v2 implementation authorized or completed by this documentation change.
 
 
+## TASK-083: Establish authorized group-image transport feasibility gate
+**Priority:** P0 | **Tags:** overseer-assigned, developer, v2, android, messaging, security, golden-workflow, feasibility
+**Updated:** 2026-10-16
+
+### Goal
+Prove whether the owner-selected stock Android device and a legitimate user-authorized messaging transport can send one actual cropped image into one real group conversation, without claiming that an MMS/share composer is a send.
+
+### Scope
+- Inventory supported installed messaging providers, Android default-SMS role availability, group MMS/RCS constraints, app/provider APIs, and their exact user grants on the target device.
+- Define an evidence-backed availability matrix for `message.group.compose`, `message.group.send`, and `message.group.verify`; keep unsupported paths unavailable to the model.
+- Produce a narrow consent/transport/recipient identity contract and a real-provider proof fixture using non-sensitive synthetic image content and a controlled test group, **only after owner-approved PR #61 design and explicit owner authorization for any real outbound send**.
+- Explicitly exclude Accessibility-driven stealth sending, unapproved recipients, arbitrary shell/intent automation, guessed RCS APIs, and fabricated delivery status.
+- Do not implement the full screenshot→crop graph, a new messaging stack, or direct-send transport without feasibility evidence.
+
+### Dependencies
+- PR #61 architecture/golden workflow design accepted by owner; PR #62 typed workflow backend can be independently reviewed but does not establish messaging authority.
+- TASK-074 Android capability policy and trusted approval boundary; actual test device, selected provider/role and test-group consent.
+- TASK-082 is already claimed by open draft PR #60; this assignment uses TASK-083 to avoid an ID collision. `.tasks/config.json` had `nextId=82` before this allocation.
+
+### Plan
+- Enumerate installed/provider capabilities, role/permission checks, group identity resolution and evidence obtainable from send callbacks.
+- Separate assisted compose from actual send and distinguish provider acceptance, send, and independently observed delivery.
+- If a legitimate transport exists, define a minimal typed adapter contract and reversible integration/test plan for later implementation.
+- If not, record `BLOCKED: GROUP_SEND_AUTHORITY` with the precise platform/provider limitation; do not silently change the 1.0 benchmark.
+
+### Acceptance
+- A source-linked matrix identifies one supported authorized transport or a conclusive blocker for the exact test-device/provider combination.
+- No model-supplied group label, recipient list, image bytes or status can impersonate a trusted group identity, artifact, approval or send receipt.
+- Composer-only, individually addressed SMS, and unavailable RCS cannot pass the actual group-send gate.
+- Outbound image/recipient approval is exact, expires on changed content/destination and is never replayed after uncertain delivery.
+- Any physical send is owner-authorized, non-sensitive, and recorded separately from simulated/emulator results.
+
+### Verification
+- Official Android/provider API and role capability inspection with recorded OS/API/app version and evidence links.
+- Deterministic fake-adapter negatives: unsupported provider, ambiguous group, changed recipients, denied grant, timeout/unknown outcome, duplicate retry, misleading composer callback, and status escalation.
+- On-device controlled test group: one authorized image transmission, independent receiver-side observation where available, provider receipt and artifact hash; mark UNVERIFIED if not run.
+- Architecture/security review and fresh CI only for actual implementation changes; no product tests claimed by this planning assignment.
+
+### Expected result
+A concrete go/no-go decision and safe adapter contract for the flagship screenshot→crop→actual group-send workflow, without falsely advertising Android messaging privileges.
+
+### Evidence basis
+- PR #61 golden workflow spec explicitly requires a real group image transmission and warns that Android intents and `SmsManager.sendMultimediaMessage` do not independently prove group interoperability.
+- Open PR #62 implements a generic file-workflow backend, not group messaging; open PR #60 claims TASK-082 and is draft.
+- The current canonical queue contains a v2 P0 override but no independently assigned group-transport feasibility task.
+
+### Projection basis
+The complete 1.0 physical benchmark is blocked unless a legitimate provider can actually send and verify the group image; this feasibility gate should precede irreversible transport-specific implementation.
+
+### Risks / unknowns
+- The target phone may lack an accessible authorized direct-send group transport; owner choice of provider/role may be required.
+- Carrier MMS/RCS behavior and recipient-side delivery are device/network-dependent and cannot be inferred from emulator tests.
+- PR #61 remains design-only pending owner review; no implementation authority is implied.
+
+---
+
 ## TASK-081: Unify Local chat and Workbench under one canonical conversation
 **Priority:** P0 | **Tags:** overseer-assigned, developer, android, context, on-device, voice, command-bridge
 **Updated:** 2026-10-12

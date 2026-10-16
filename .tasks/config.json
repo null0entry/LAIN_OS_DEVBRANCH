@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 82,
+  "nextId": 84,
   "states": [
     {
       "name": "Backlog",
@@ -469,10 +469,16 @@
         "title": "Unify Local chat and Workbench under one canonical conversation",
         "priority": "P0",
         "order": 71
+      },
+      {
+        "id": "TASK-083",
+        "title": "Establish authorized group-image transport feasibility gate",
+        "priority": "P0",
+        "order": 72
       }
     ],
     "issue": 6,
-    "repo_head": "dc817d1a01417aec01aca9eca79e8ec2bbc5f494",
-    "next_action": "PR #57 currently open and exact-head green: independent review before integration; next TASK-081 cross-surface single conversation (stacked planning assignment), TASK-075 physical 4GB Android acceptance, then issue #52 storage/export follow-up. CI is not physical acceptance."
+    "repo_head": "043627b80d4ad8d0f56de4a3d849074bada66284",
+    "next_action": "TASK-083: group-image-send transport feasibility after owner acceptance of design PR #61; PR #62 remains draft; TASK-082 reserved by open draft PR #60. TASK-015 physical acceptance remains unverified."
   }
 }
