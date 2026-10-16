@@ -1,5 +1,6 @@
 package dev.lain.os.runtime
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,4 +38,16 @@ class TurnRuntimeProtocolTest {
         assertTrue(RuntimeProtocol.shouldAdvance("approve", """{"version":1,"ok":true}"""))
         assertTrue(RuntimeProtocol.shouldAdvance("resume", """{"version":1,"ok":true}"""))
     }
+    @Test fun workflowCommandsArePrivateAndDoNotKickLegacyAgentPump() {
+        assertTrue("workflow_inspect" in RuntimeProtocol.readCommands)
+        for (command in listOf("workflow_create", "workflow_run", "workflow_advance", "workflow_approve")) {
+            assertTrue(command in RuntimeProtocol.writeCommands)
+            assertFalse(RuntimeProtocol.shouldAdvance(command, """{"ok":true}"""))
+            assertFalse(RuntimeProtocol.shouldAdvanceAfterUncertainOutcome(command))
+        }
+        assertEquals(60L, RuntimeTimeoutPolicy.seconds("workflow_run", null))
+        assertEquals(30L, RuntimeTimeoutPolicy.seconds("workflow_approve", null))
+        assertEquals(5L, RuntimeTimeoutPolicy.seconds("workflow_advance", null))
+    }
+
 }
