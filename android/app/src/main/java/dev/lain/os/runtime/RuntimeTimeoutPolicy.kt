@@ -14,6 +14,7 @@ internal object RuntimeTimeoutPolicy {
     fun seconds(command: String, kind: String?): Long =
         when {
             command == "turn_submit" && kind == "auto" -> MODEL_ROUTE_SECONDS
+            command == "workflow_goal" -> MODEL_ROUTE_SECONDS
             command == "workflow_run" -> WORKFLOW_RUN_SECONDS
             command == "workflow_approve" -> WORKFLOW_APPROVE_SECONDS
             else -> CONTROL_SECONDS
