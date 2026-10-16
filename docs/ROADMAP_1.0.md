@@ -19,6 +19,14 @@ Date: 2026-10-11
 
 Unimplemented permissions or privileged APIs never count as granted capability; Android restrictions remain. **The rest of this original roadmap is historical and may contain superseded GGUF/local-model and old phase assumptions.** Work begins only after owner reviews revised design and approves an implementation plan; this is NOT an APK completion or physical acceptance claim.
 
+### 2026-10-16 flagship 1.0 benchmark: multi-step execution, not single-action demos
+
+**[Golden workflow](superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md):** From a single spoken or typed command, LAIN must obtain legitimate screen-capture consent; capture the screen; crop a validated region; resolve and confirm a real group recipient target; send that image once via an authorized **group** messaging transport; and verify the actual send result. A share chooser, MMS composer, invented message ID, or batch of independent one-recipient SMS sends **does not pass**. If direct group send cannot be lawfully supported with the actual device/app role, the 1.0 flagship remains BLOCKED until a legitimate supported transport is integrated or the owner explicitly revises the benchmark.
+
+**[Fifty candidate workflows](FEATURE_MATRIX_1_0.md):** tracked as design targets/phase gates versus deferred adapter proposals, not implemented claims and not a verified "Gemini cannot" list. The product differentiator is a **single continuously running, dependency-aware, durable plan** with typed artifact handoffs, limited safe replanning, approval and audit across multiple Android tools.
+
+**Phase mapping:** Phase 1 defines/probes real capture, crop, messaging group and verification primitives; Phase 2 proves a hosted-model-created graph and real effects; Phase 3 proves one shared voice/text interface and the physical flagship. Preserve original three-phase order and API-only inference. Existing historical roadmap below is superseded where it conflicts with these owner requirements.
+
 ## 1. North-star release outcome
 
 LAIN_OS 1.0 is a standalone Android voice-first autonomous agent suite that turns ordinary spoken or typed goals into bounded, durable, verified multi-step work while preserving human authority over every consequential action.
