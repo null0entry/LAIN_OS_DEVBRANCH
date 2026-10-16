@@ -103,6 +103,62 @@ class WorkflowRunnerTests(unittest.TestCase):
         with self.assertRaises(LainError):
             self.runner.advance("invalid-id")
 
+    def test_verified_artifact_bindings_chain_file_steps(self):
+        plan = [
+            {"id": "copy", "capability": "file.copy", "arguments": {
+                "source": {"$artifact": "write.path"}, "destination": "copy.txt"
+            }, "depends_on": ["write"]},
+            {"id": "write", "capability": "file.write_text", "arguments": {
+                "path": "source.txt", "content": "provenance"
+            }, "depends_on": []},
+        ]
+        key = self.runner.create(plan)
+        self.assertEqual(self.runner.advance(key)["completed"], ["write"])
+        finished = self.runner.advance(key)
+        self.assertEqual(finished["status"], "complete")
+        self.assertEqual((self.root / "copy.txt").read_text(), "provenance")
+        self.assertNotIn("source.txt", str(finished))
+
+    def test_tampered_artifact_source_blocks_follow_on_effect(self):
+        plan = [
+            {"id": "write", "capability": "file.write_text", "arguments": {
+                "path": "source.txt", "content": "trusted"
+            }, "depends_on": []},
+            {"id": "copy", "capability": "file.copy", "arguments": {
+                "source": {"$artifact": "write.path"}, "destination": "copy.txt"
+            }, "depends_on": ["write"]},
+        ]
+        key = self.runner.create(plan)
+        self.runner.advance(key)
+        (self.root / "source.txt").write_text("changed externally")
+        with self.assertRaises(LainError):
+            self.runner.advance(key)
+        self.assertFalse((self.root / "copy.txt").exists())
+
+    def test_artifact_refs_are_not_model_controlled_paths_or_data(self):
+        good = self.plan()
+        bad = [
+            {"id": "copy", "capability": "file.copy", "arguments": {
+                "source": {"$artifact": "missing.path"}, "destination": "copy.txt"
+            }, "depends_on": ["write"]},
+            {"id": "write", "capability": "file.write_text", "arguments": {
+                "path": "source.txt", "content": "trusted"
+            }, "depends_on": []},
+        ]
+        invalid = [
+            bad,  # unresolved artifact
+            [{**bad[0], "arguments": {"source": {"$artifact": "write.path"}, "destination": "copy.txt"}, "depends_on": []}, bad[1]],
+            [{**bad[0], "arguments": {"source": {"$artifact": "write.content"}, "destination": "copy.txt"}}, bad[1]],
+            [{**bad[0], "arguments": {"source": {"$artifact": "write.path", "path": "/tmp/other"}, "destination": "copy.txt"}}, bad[1]],
+            [{**bad[0], "arguments": {"source": {"$artifact": "write.path"}, "destination": {"$artifact": "write.path"}}}, bad[1]],
+            [{"id": "msg", "capability": "android.toast", "arguments": {"content": {"$artifact": "write.path"}}, "depends_on": ["write"]}, bad[1]],
+        ]
+        for plan in invalid:
+            with self.subTest(plan=plan), self.assertRaises(LainError):
+                self.runner.create(plan)
+        self.assertFalse((self.root / "source.txt").exists())
+        self.assertFalse((self.root / "copy.txt").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
