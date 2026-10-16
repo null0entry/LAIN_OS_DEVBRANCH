@@ -64,6 +64,7 @@ _FIELDS = {
     "workflow_create": {"steps"},
     "workflow_advance": {"workflow_id"},
     "workflow_inspect": {"workflow_id"},
+    "workflow_approve": {"workflow_id", "token"},
 }
 _SESSION_COMMANDS = {"inspect", "approve", "stop", "resume"}
 
@@ -134,6 +135,7 @@ class AppController:
                 )
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
         self.workflows = WorkflowRunner(self.runtime, root / "workflows")
+        self._workflow_grants = {}
         self._planner_bridge = planner_bridge
         self._binding_provider = _planner_binding_provider(planner_profiles)
         self.controller = AgentController(
@@ -188,11 +190,13 @@ class AppController:
                 result = {"conversation": self._conversation_snapshot_for_ui()}
             elif command == "workflow_create":
                 workflow_id = self.workflows.create(arguments["steps"])
-                result = {"workflow": self.workflows.inspect(workflow_id)}
+                result = self._workflow_view(self.workflows.inspect(workflow_id))
             elif command == "workflow_advance":
-                result = {"workflow": self.workflows.advance(arguments["workflow_id"])}
+                result = self._workflow_view(self.workflows.advance(arguments["workflow_id"]))
             elif command == "workflow_inspect":
-                result = {"workflow": self.workflows.inspect(arguments["workflow_id"])}
+                result = self._workflow_view(self.workflows.inspect(arguments["workflow_id"]))
+            elif command == "workflow_approve":
+                result = self._workflow_approve(arguments["workflow_id"], arguments["token"])
             elif command == "approve":
                 result = self._approve(arguments["session_id"], arguments["token"])
             elif command == "resume":
@@ -213,6 +217,48 @@ class AppController:
         if len(encoded.encode("utf-8")) > MAX_MESSAGE_BYTES:
             return '{"version":1,"ok":false,"error":"APP_RESPONSE_TOO_LARGE"}'
         return encoded
+
+    def _workflow_view(self, state):
+        """Issue a short-lived approval token for trusted owner UI only.
+
+        Never insert this token into hosted model prompts or normal chat content.
+        """
+        with self._lock:
+            workflow_id = state["workflow_id"]
+            if state["status"] != "awaiting_confirmation":
+                self._workflow_grants.pop(workflow_id, None)
+                return {"workflow": state}
+            action_id = state["current_action_id"]
+            if not action_id:
+                raise ValueError("workflow approval action missing")
+            token = secrets.token_urlsafe(32)
+            self._workflow_grants[workflow_id] = (
+                token, action_id, monotonic() + APPROVAL_TTL_SECONDS,
+            )
+            return {"workflow": state, "approval": {
+                "token": token,
+                "action_id": action_id,
+                "expires_in_seconds": APPROVAL_TTL_SECONDS,
+            }}
+
+    def _workflow_approve(self, workflow_id, token):
+        if not isinstance(token, str) or not 1 <= len(token) <= 128:
+            raise ValueError("invalid workflow approval token")
+        with self._lock:
+            grant = self._workflow_grants.get(workflow_id)
+            state = self.workflows.inspect(workflow_id)
+            if grant is None or state["status"] != "awaiting_confirmation":
+                raise ValueError("workflow approval is stale")
+            expected, action_id, expiry = grant
+            if (not secrets.compare_digest(expected, token) or monotonic() >= expiry
+                    or state["current_action_id"] != action_id):
+                raise ValueError("workflow approval is stale")
+            self._workflow_grants.pop(workflow_id, None)
+            # Never infer confirmation from planner output, goal text or untrusted args.
+            verified = self.workflows.advance(
+                workflow_id, confirmed_action_ids=frozenset({action_id}),
+            )
+            return self._workflow_view(verified)
 
     def _conversation_snapshot_for_ui(self):
         """Return recent accepted turns without exceeding the app protocol bound."""
