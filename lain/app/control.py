@@ -63,6 +63,7 @@ _FIELDS = {
     "turns": set(),
     "workflow_create": {"steps"},
     "workflow_advance": {"workflow_id"},
+    "workflow_run": {"workflow_id"},
     "workflow_inspect": {"workflow_id"},
     "workflow_approve": {"workflow_id", "token"},
 }
@@ -193,6 +194,8 @@ class AppController:
                 result = self._workflow_view(self.workflows.inspect(workflow_id))
             elif command == "workflow_advance":
                 result = self._workflow_view(self.workflows.advance(arguments["workflow_id"]))
+            elif command == "workflow_run":
+                result = self._workflow_view(self.workflows.run_until_stop(arguments["workflow_id"]))
             elif command == "workflow_inspect":
                 result = self._workflow_view(self.workflows.inspect(arguments["workflow_id"]))
             elif command == "workflow_approve":
