@@ -184,6 +184,16 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertEqual(target.read_text(), "original")
         self.assertFalse((self.root / "after.txt").exists())
 
+    def test_inspection_reports_uncertain_in_flight_action_truthfully(self):
+        key = self.runner.create(self.plan())
+        self.runner._save(key, self.runner._load(key) | {"in_flight": "s1"})
+        observed = self.runner.inspect(key)
+        self.assertEqual(observed["status"], "uncertain")
+        self.assertEqual(observed["current_action_id"], "s1")
+        self.assertEqual(observed["completed"], [])
+        with self.assertRaises(LainError):
+            self.runner.run_until_stop(key)
+
 
 if __name__ == "__main__":
     unittest.main()
