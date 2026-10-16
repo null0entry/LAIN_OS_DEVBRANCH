@@ -55,7 +55,7 @@ LAIN_OS separates four concerns:
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-**Proposed Android UX revision (not yet implemented):** [Single conversation interface design](docs/superpowers/specs/2026-10-16-unified-conversation-ui-design.md). One chat timeline and one text composer will handle both ordinary conversation and device commands; every accepted turn attempts a selected-model response, with truthful failure when inference is unavailable. The currently shipped Workbench/Local chat split remains until implementation and physical acceptance.
+**Current authoritative proposed architecture (not yet implemented):** [API-first three-phase LAIN_OS design](docs/superpowers/specs/2026-10-16-api-first-three-phase-design.md). Phase 1: backend capability/permission/variable scaffolding. Phase 2: hosted HTTPS model interprets every final speech/text request and the trusted planner executes validated actions. Phase 3: one shared conversation UI for both commands and chat, with real model replies and truthful tool receipts. Local GGUF inference is deferred/removed from the active release target; historical code and docs remain until safely migrated. Android sandbox limits and physical-device acceptance remain explicit.
 
 For the sequenced path from the current runtime to the 1.0 voice-agent release, see [docs/ROADMAP_1.0.md](docs/ROADMAP_1.0.md).
 
