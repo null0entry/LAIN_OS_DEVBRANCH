@@ -43,6 +43,7 @@ from lain.conversation import (
 from lain.errors import LainError
 from lain.protocol.models import ActionStatus
 from lain.runtime.engine import RuntimeEngine
+from lain.workflows.engine import WorkflowRunner
 
 MAX_MESSAGE_BYTES = 65536
 MAX_SPEECH_TEXT_BYTES = 32768
@@ -60,6 +61,9 @@ _FIELDS = {
     "turn_partial": {"text"},
     "turn_submit": {"text", "source", "kind", "reference", "target_session_id"},
     "turns": set(),
+    "workflow_create": {"steps"},
+    "workflow_advance": {"workflow_id"},
+    "workflow_inspect": {"workflow_id"},
 }
 _SESSION_COMMANDS = {"inspect", "approve", "stop", "resume"}
 
@@ -129,6 +133,7 @@ class AppController:
                     turn_id, "The reply was interrupted. Send your message again to retry.", "failed",
                 )
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
+        self.workflows = WorkflowRunner(self.runtime, root / "workflows")
         self._planner_bridge = planner_bridge
         self._binding_provider = _planner_binding_provider(planner_profiles)
         self.controller = AgentController(
@@ -181,6 +186,13 @@ class AppController:
                 )
             elif command == "turns":
                 result = {"conversation": self._conversation_snapshot_for_ui()}
+            elif command == "workflow_create":
+                workflow_id = self.workflows.create(arguments["steps"])
+                result = {"workflow": self.workflows.inspect(workflow_id)}
+            elif command == "workflow_advance":
+                result = {"workflow": self.workflows.advance(arguments["workflow_id"])}
+            elif command == "workflow_inspect":
+                result = {"workflow": self.workflows.inspect(arguments["workflow_id"])}
             elif command == "approve":
                 result = self._approve(arguments["session_id"], arguments["token"])
             elif command == "resume":
