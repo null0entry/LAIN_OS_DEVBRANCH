@@ -59,6 +59,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 For the sequenced path from the current runtime to the 1.0 voice-agent release, see [docs/ROADMAP_1.0.md](docs/ROADMAP_1.0.md).
 
+## 1.0 defining benchmark and 50-workflow catalog
+
+The owner's acceptance benchmark is **one spoken/typed request → screenshot → verified crop → one authorized group image send → truthful receipt**, using a single persistent dependency-aware execution plan. Android screen projection requires system consent; opening a compose window is **not** equivalent to sending. The full [golden workflow specification](docs/superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md) and [50 workflow candidate catalog](docs/FEATURE_MATRIX_1_0.md) are **proposed design goals**, not features verified to work. The catalog does not assert categorical competitive exclusivity over Gemini.
+
+Development order remains **Phase 1 capability/permission scaffolding → Phase 2 model-driven stateful planner → Phase 3 one voice/text chat**. Reusable typed tools, artifact passing, durable checkpoints, safe replanning and exact owner-approved external side effects are mandatory. A physical Moto group-send result and source-bound APK evidence are required before claiming the flagship works.
+
 ## First milestone
 
 Demonstrate a complete local loop on Android:
