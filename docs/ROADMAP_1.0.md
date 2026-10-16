@@ -8,6 +8,12 @@ Version: 1.0-roadmap-r6
 Status: Active product roadmap
 Date: 2026-10-11
 
+### 2026-10-16 P0 design amendment — one conversation for all interactions
+
+The owner rejects the existing separate Workbench and Local chat UX as nonfunctional. The next Android product target is **one** owner-facing message timeline and **one** Send composer for all typed/spoken conversation and commands, including exact demo actions such as **Show Demo Toast**. After each accepted final turn, the selected model must attempt a conversational response, including on device-action turns; tool receipts and model text remain distinct. Model unavailability is surfaced honestly rather than fabricating an answer. The UI must not expose a second chat screen, separate Workbench Run button, or divergent history.
+
+The authoritative requirements, event/state contract, safety boundaries, legacy history handling and physical acceptance gate are in [the 2026-10-16 single-conversation UI design](superpowers/specs/2026-10-16-unified-conversation-ui-design.md). That design **supersedes** TASK-081's proposed two-screen UX, while retaining its single-transcript goal. Existing references below to Local chat/Workbench, Galaxy-only reference testing, or separate input flows describe historical implementation and must not be read as the revised acceptance target. **This is a design proposal, not an implemented or physically proven release.**
+
 ## 1. North-star release outcome
 
 LAIN_OS 1.0 is a standalone Android voice-first autonomous agent suite that turns ordinary spoken or typed goals into bounded, durable, verified multi-step work while preserving human authority over every consequential action.
