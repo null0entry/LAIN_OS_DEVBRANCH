@@ -8,11 +8,16 @@ Version: 1.0-roadmap-r6
 Status: Active product roadmap
 Date: 2026-10-11
 
-### 2026-10-16 P0 design amendment — one conversation for all interactions
+### 2026-10-16 OWNER SUPERSESSION — API-first speech → planner → unified chat (P0)
 
-The owner rejects the existing separate Workbench and Local chat UX as nonfunctional. The next Android product target is **one** owner-facing message timeline and **one** Send composer for all typed/spoken conversation and commands, including exact demo actions such as **Show Demo Toast**. After each accepted final turn, the selected model must attempt a conversational response, including on device-action turns; tool receipts and model text remain distinct. Model unavailability is surfaced honestly rather than fabricating an answer. The UI must not expose a second chat screen, separate Workbench Run button, or divergent history.
+**Canonical replacement architecture:** [LAIN_OS v2: API-first three-phase design](superpowers/specs/2026-10-16-api-first-three-phase-design.md). This supersedes previous near-term prioritization, local GGUF/Qwen critical-path work, the old planner/voice phase numbering and TASK-081's two-view UX. **The release target is hosted API only**, with Android/platform STT or typed input, local permissioned execution, and one shared conversation context.
 
-The authoritative requirements, event/state contract, safety boundaries, legacy history handling and physical acceptance gate are in [the 2026-10-16 single-conversation UI design](superpowers/specs/2026-10-16-unified-conversation-ui-design.md). That design **supersedes** TASK-081's proposed two-screen UX, while retaining its single-transcript goal. Existing references below to Local chat/Workbench, Galaxy-only reference testing, or separate input flows describe historical implementation and must not be read as the revised acceptance target. **This is a design proposal, not an implemented or physically proven release.**
+**NEW ORDER (phase gates):**
+1. **Phase 1 — Scaffolding:** registered typed tool/capability descriptors, Android adapters, permission/role/settings broker, protected API profiles, speech final-input adapter, durable events, evidence and availability taxonomy.
+2. **Phase 2 — Planner:** every final user message, including Show Demo Toast, is interpreted by the hosted model API; strict schema validation + trusted plan/policy/owner approval + execution + real verification; then model-generated explanation.
+3. **Phase 3 — Chat:** **ONE** chat box/input for spoken and typed commands plus conversation, **ONE** context and selected hosted model, no separate Workbench/LocalChat. Real model reply attempt for each accepted turn; truthful error when provider unavailable.
+
+Unimplemented permissions or privileged APIs never count as granted capability; Android restrictions remain. **The rest of this original roadmap is historical and may contain superseded GGUF/local-model and old phase assumptions.** Work begins only after owner reviews revised design and approves an implementation plan; this is NOT an APK completion or physical acceptance claim.
 
 ## 1. North-star release outcome
 
