@@ -134,6 +134,20 @@ class AppWorkflowProtocolTests(unittest.TestCase):
         self.assertEqual(outcome["workflow"]["status"], "complete")
         self.assertEqual((root / "b.txt").read_text(), "after")
 
+    def test_background_stop_revokes_workflow_approval_token(self):
+        root = self.root / "workspace"
+        (root / "a.txt").write_text("original")
+        steps = [{"id": "overwrite", "capability": "file.write_text",
+                  "arguments": {"path": "a.txt", "content": "new", "overwrite": True},
+                  "depends_on": []}]
+        key = self.send("workflow_create", steps=steps)["workflow"]["workflow_id"]
+        paused = self.send("workflow_run", workflow_id=key)
+        token = paused["approval"]["token"]
+        self.app.stop_active()
+        rejected = self.send("workflow_approve", workflow_id=key, token=token)
+        self.assertFalse(rejected["ok"])
+        self.assertEqual((root / "a.txt").read_text(), "original")
+
 
 if __name__ == "__main__":
     unittest.main()
