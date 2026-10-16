@@ -298,3 +298,47 @@ The existing implementation includes local-model JNI, Qwen preload, LocalChat an
 - 2026-10-16: User prioritizes real speech-to-action, API inference instead of local GGUF, complete backend tool/permission scaffolding, model-driven planner and finally single shared-context chat.
 - Reuse existing permissioned runtime, audit, cloud transport and canonical turn management; remove duplicated LocalChat and local inference from the release critical path.
 - **Design only.** Owner reviews the spec before coding. No claim of successful Android functionality or APK acceptance.
+
+
+## 8. Owner-mandated capability breadth and compositional intelligence
+
+**2026-10-16 refinement:** The central LAIN_OS benchmark is **not** performing one named function in isolation. From one voice or text request, LAIN must plan, authorize, execute, verify and recover a **continuous multi-step sequence** that passes real intermediate artifacts between independent Android capabilities.
+
+**Flagship acceptance:** [Screenshot → crop → send one image to a group](2026-10-16-screen-crop-group-send-golden-workflow.md). Exact user-requested wording: "Take a screenshot, crop it, then send it as a group text, all in one go." This is a **P0 golden workflow** and an explicit release blocker if only SMS/MMS composition or share chooser invocation is supported. Sending separate individual texts cannot be misreported as a group-thread send. The capture step and outgoing transmission remain subject to owner consent, Android roles and actual authorized transport availability.
+
+**Coverage:** [50 Android workflow targets and scope/evidence matrix](../../FEATURE_MATRIX_1_0.md). All 50 entries are **design candidates**, not delivered features and not assertions about what Gemini categorically cannot do. Prioritize reusable primitives and physical demonstrations instead of hard-coding 50 command strings.
+
+### 8.1 Planner semantics: dependency-aware persistent graph
+
+The model must transform a natural-language request into a **versioned directed acyclic graph (DAG)** of capabilities where possible. Sequential workflows are a subset, not a separate execution mechanism. Each step has declared typed inputs/outputs, prerequisites, capability and permission requirements, risk, timeout, side-effect class, verification policy, deterministic IDs and status. Step N can consume **only a previously verified/approved artifact handle** from dependencies; model-invented paths, message IDs, screenshots or targets are not executable evidence.
+
+Planner lifecycle:
+
+```text
+SPEECH FINAL / TYPED TURN
+   → model intent + goal decomposition
+   → resolve ambiguities & goal constraints
+   → validated typed graph + artifact wiring
+   → availability + permission + policy preflight
+   → owner consent where required
+   → one eligible step → trusted execution → independent verification
+   → durable checkpoint + audit
+   → next eligible step / bounded replanning / block
+   → model narrates verified evidence inside ONE conversation
+```
+
+**Dynamic state:** Store `workflow_id, turn_id, graph_revision, step_id, dependency_ids, capability_version, artifact_ref, artifact_hash, approval_scope, execution_lease, idempotency_key, attempt_count, timeout, side_effect, verification_state, checkpoint_seq`. Replanning replaces only future, not yet executed nodes and must preserve previously observed effects and owner approvals. Unauthorized target changes require new authorization.
+
+**Failure behavior:** classify `FAILED, BLOCKED, NEEDS_CLARIFICATION, UNCERTAIN, UNSUPPORTED`, with a bounded recovery budget. Never retry an irreversible external effect merely because the LLM timed out. If a send was attempted and the transport response is unknown, reconcile against provider evidence or ask before any resend. Stop Task halts future execution, not a message already accepted by the carrier.
+
+### 8.2 Phase gates updated by the golden benchmark
+
+- **Phase 1:** capability schemas and real executors/probes for capture, crop, inspect/redact, group resolve, authorized group compose/send/verify plus shared typed image references, permission broker and secure API connection. Feature status must distinguish `IMPLEMENTED` from `AUTHORIZED_AVAILABLE`; a generic adapter descriptor grants no Android privilege. If no group-send transport is available, record a feasibility blocker immediately.
+- **Phase 2:** test a model-created dependent graph from "take a screenshot, crop it and send it to my group" with real artifact passing, group resolution, consent, native image edit, authorized messaging transport, evidence, interruption/retry and safe replanning. A mocked send may satisfy isolated planner unit tests **but not** the flagship physical acceptance.
+- **Phase 3:** deliver the one chat/voice input and shared context with continuous progress and approval cards, truthful model replies, and the real-device screenshot→crop→group-send flagship as the 1.0 release gate.
+
+**1.0 truth condition:** The app must demonstrate this end-to-end on a physical reference Android device with user-approved screen projection, actual cropped image bytes, the correct group conversation, a real authorized **send** result and a persisted audit/receipt. A composed-but-unsent MMS is an **assisted** outcome, not success. If Android integration/roles/carrier make this impossible, keep the benchmark `BLOCKED`; do not redefine it away or declare 1.0 complete.
+
+See official Android references for [capture consent](https://developer.android.com/about/versions/14/behavior-changes-14), [MMS compose intents](https://developer.android.com/guide/components/intents-common), and [direct multimedia transport API](https://developer.android.com/reference/android/telephony/SmsManager). These mechanisms do not themselves guarantee that a group-send result is obtainable on the owner's phone.
+
+**No implementation authorized or completed by this design amendment.**
