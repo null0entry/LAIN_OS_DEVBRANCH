@@ -55,6 +55,8 @@ LAIN_OS separates four concerns:
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+**Proposed Android UX revision (not yet implemented):** [Single conversation interface design](docs/superpowers/specs/2026-10-16-unified-conversation-ui-design.md). One chat timeline and one text composer will handle both ordinary conversation and device commands; every accepted turn attempts a selected-model response, with truthful failure when inference is unavailable. The currently shipped Workbench/Local chat split remains until implementation and physical acceptance.
+
 For the sequenced path from the current runtime to the 1.0 voice-agent release, see [docs/ROADMAP_1.0.md](docs/ROADMAP_1.0.md).
 
 ## First milestone
