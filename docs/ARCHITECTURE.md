@@ -9,6 +9,9 @@ The distinction is intentional: LAIN describes the network and alignment model; 
 
 ## 2026-10-16 active product architecture: compositional execution
 
+Detailed [tool/framework/process architecture](WORKFLOW_ENGINE.md) specifies capability-adapter lifecycle, dataflow, versioning, approvals, durable graph execution, error recovery and extension contracts.
+
+
 This document's original layers remain a foundation, but the [API-first three-phase design](superpowers/specs/2026-10-16-api-first-three-phase-design.md) is the active *proposed* product target: Android/platform speech-to-text or typed user entry → hosted-model intent interpretation → **versioned typed dependency graph** → trusted permission/role/consent → one ordered executable node at a time → verification + durable checkpoint → safe replan/continue → one unified conversation model reply.
 
 The primary benchmark is [screenshot → crop → actual group-image send](superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md), not a successful demo toast. Image capture and crop produce opaque, hashed, typed artifact references consumed by the next validated node; group resolving and transmission require supported, authorized roles/adapters and exact owner approval. See the [50 candidate workflows](FEATURE_MATRIX_1_0.md). **All remain designs until tests and device receipts prove otherwise.** Do not expose arbitrary shell or pretend a messaging composer is evidence of an actual send.
