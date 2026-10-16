@@ -137,6 +137,7 @@ class AppController:
         self.runtime = RuntimeEngine(config, native_android=NativeAndroidAdapter(native) if native else None)
         self.workflows = WorkflowRunner(self.runtime, root / "workflows")
         self._workflow_grants = {}
+        self._workflow_epoch = 0
         self._planner_bridge = planner_bridge
         self._binding_provider = _planner_binding_provider(planner_profiles)
         self.controller = AgentController(
@@ -195,7 +196,7 @@ class AppController:
             elif command == "workflow_advance":
                 result = self._workflow_view(self.workflows.advance(arguments["workflow_id"]))
             elif command == "workflow_run":
-                result = self._workflow_view(self.workflows.run_until_stop(arguments["workflow_id"]))
+                result = self._workflow_view(self._workflow_run_checked(arguments["workflow_id"]))
             elif command == "workflow_inspect":
                 result = self._workflow_view(self.workflows.inspect(arguments["workflow_id"]))
             elif command == "workflow_approve":
@@ -244,6 +245,13 @@ class AppController:
                 "expires_in_seconds": APPROVAL_TTL_SECONDS,
             }}
 
+    def _workflow_run_checked(self, workflow_id):
+        with self._lock:
+            epoch = self._workflow_epoch
+        return self.workflows.run_until_stop(
+            workflow_id, stop_requested=lambda: self._workflow_epoch != epoch,
+        )
+
     def _workflow_approve(self, workflow_id, token):
         if not isinstance(token, str) or not 1 <= len(token) <= 128:
             raise ValueError("invalid workflow approval token")
@@ -257,15 +265,19 @@ class AppController:
                     or state["current_action_id"] != action_id):
                 raise ValueError("workflow approval is stale")
             self._workflow_grants.pop(workflow_id, None)
-            # Never infer confirmation from planner output, goal text or untrusted args.
-            verified = self.workflows.advance(
-                workflow_id, confirmed_action_ids=frozenset({action_id}),
+            epoch = self._workflow_epoch
+        if self._workflow_epoch != epoch:
+            raise ValueError("workflow approval revoked by lifecycle")
+        # A call may already be in-flight when backgrounding occurs; never
+        # start further steps once stop_active() changes the epoch.
+        verified = self.workflows.advance(
+            workflow_id, confirmed_action_ids=frozenset({action_id}),
+        )
+        if verified["status"] == "pending":
+            verified = self.workflows.run_until_stop(
+                workflow_id, stop_requested=lambda: self._workflow_epoch != epoch,
             )
-            if verified["status"] == "pending":
-                # Resume ordinary follow-on steps; any later sensitive step
-                # will pause and require a separate fresh owner token.
-                verified = self.workflows.run_until_stop(workflow_id)
-            return self._workflow_view(verified)
+        return self._workflow_view(verified)
 
     def _conversation_snapshot_for_ui(self):
         """Return recent accepted turns without exceeding the app protocol bound."""
@@ -630,6 +642,8 @@ class AppController:
     def stop_active(self):
         """Private lifecycle hook; not a Binder-dispatchable planner command."""
         with self._lock:
+            self._workflow_epoch += 1
+            self._workflow_grants.clear()
             if self._active is not None:
                 self._stopped.set()
                 self._grants.clear()
