@@ -11,6 +11,7 @@ import os
 import re
 import tempfile
 from contextlib import contextmanager
+from typing import Callable
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -229,7 +230,9 @@ class WorkflowRunner:
             resolved[name] = str(target)
         return resolved
 
-    def run_until_stop(self, workflow_id: str) -> dict:
+    def run_until_stop(
+        self, workflow_id: str, *, stop_requested: Callable[[], bool] | None = None
+    ) -> dict:
         """Advance a bounded verified graph until completion or a human gate.
 
         No confirmation can be supplied here. Any uncertain in-flight state
@@ -240,6 +243,8 @@ class WorkflowRunner:
             state = self.inspect(workflow_id)
             if state["status"] in {"complete", "blocked", "awaiting_confirmation"}:
                 return state
+            if stop_requested is not None and stop_requested():
+                return {**state, "status": "paused"}
             state = self.advance(workflow_id)
             if state["status"] != "pending":
                 return state
