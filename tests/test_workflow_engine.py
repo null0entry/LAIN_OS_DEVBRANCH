@@ -159,6 +159,31 @@ class WorkflowRunnerTests(unittest.TestCase):
         self.assertFalse((self.root / "source.txt").exists())
         self.assertFalse((self.root / "copy.txt").exists())
 
+    def test_run_until_stop_completes_three_steps_and_does_not_replay(self):
+        key = self.runner.create(self.plan())
+        state = self.runner.run_until_stop(key)
+        self.assertEqual(state["status"], "complete")
+        self.assertEqual(state["completed"], ["write", "copy", "move"])
+        self.assertEqual((self.root / "c.txt").read_text(), "hello")
+        self.assertEqual(self.runner.run_until_stop(key)["status"], "complete")
+        self.assertEqual(len([r for r in self.runtime.audit.records() if r.get("execution_attempted")]), 3)
+
+    def test_run_until_stop_pauses_for_owner_confirmation(self):
+        target = self.root / "protected.txt"
+        target.write_text("original")
+        key = self.runner.create([
+            {"id": "protected", "capability": "file.write_text",
+             "arguments": {"path": "protected.txt", "content": "new", "overwrite": True},
+             "depends_on": []},
+            {"id": "after", "capability": "file.write_text",
+             "arguments": {"path": "after.txt", "content": "done"},
+             "depends_on": ["protected"]},
+        ])
+        result = self.runner.run_until_stop(key)
+        self.assertEqual(result["status"], "awaiting_confirmation")
+        self.assertEqual(target.read_text(), "original")
+        self.assertFalse((self.root / "after.txt").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
