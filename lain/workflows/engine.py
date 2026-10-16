@@ -256,10 +256,11 @@ class WorkflowRunner:
     def _summary(state: dict) -> dict:
         return {
             "workflow_id": state["workflow_id"],
-            "status": state["status"],
+            "status": "uncertain" if state["in_flight"] is not None else state["status"],
             "completed": list(state["completed"]),
             "results": [dict(r) for r in state["results"]],
             "current_action_id": (
+                state["in_flight"] if state["in_flight"] is not None else
                 next((s["action_id"] for s in state["steps"] if s["id"] not in state["completed"]), None)
                 if state["status"] == "awaiting_confirmation" else None
             ),
