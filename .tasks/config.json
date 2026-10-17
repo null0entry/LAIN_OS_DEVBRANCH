@@ -3,7 +3,7 @@
   "taskplannerVersion": "2.4.7",
   "readmeAttribution": true,
   "idPrefix": "TASK",
-  "nextId": 84,
+  "nextId": 86,
   "states": [
     {
       "name": "Backlog",
@@ -475,10 +475,22 @@
         "title": "Establish authorized group-image transport feasibility gate",
         "priority": "P0",
         "order": 72
+      },
+      {
+        "id": "TASK-084",
+        "title": "Implement consent-bound Android screen capture adapter",
+        "priority": "P0",
+        "order": 73
+      },
+      {
+        "id": "TASK-085",
+        "title": "Implement bounded native image crop and artifact provenance",
+        "priority": "P0",
+        "order": 74
       }
     ],
     "issue": 6,
-    "repo_head": "043627b80d4ad8d0f56de4a3d849074bada66284",
-    "next_action": "TASK-083: group-image-send transport feasibility after owner acceptance of design PR #61; PR #62 remains draft; TASK-082 reserved by open draft PR #60. TASK-015 physical acceptance remains unverified."
+    "repo_head": "052c88b8b2b4392b71f6387a50047a8769624ada",
+    "next_action": "TASK-084 consent-bound capture and TASK-085 native crop are independent Phase-1 adapter slices; TASK-083 group transport feasibility awaits authorized physical provider evidence; PR #60 remains draft and requires Android CI review."
   }
 }

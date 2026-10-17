@@ -86,6 +86,100 @@ The complete 1.0 physical benchmark is blocked unless a legitimate provider can 
 
 ---
 
+## TASK-084: Implement consent-bound Android screen capture adapter
+**Priority:** P0 | **Tags:** overseer-assigned, developer, v2, phase-1, android, capture, privacy, golden-workflow
+**Updated:** 2026-10-16
+
+### Goal
+Make one user-initiated Android screenshot available as a verified, private, typed image artifact for the flagship workflow, without bypassing OS capture consent or exposing pixels to the hosted model.
+
+### Scope
+- Implement a native `screen.capture` capability with runtime SDK/foreground-service availability checks and Android-owned MediaProjection consent, including Android 14+ single-use session semantics.
+- Return an opaque app-owned `CapturedImageRef` containing verified pixel dimensions, orientation, MIME, byte count, SHA-256, provenance, expiry and privacy classification. No raw paths or bitmap payloads from the model.
+- Bound image memory, dimensions, file size, time, cancellation and cleanup; handle denied/revoked consent, lock/stop, process death, protected surfaces and no-frame timeouts.
+- Keep capture unsupported or consent-required until the real Android adapter is ready; never reuse a projection token or treat a consent dialog launch as successful capture. Do not upload screen pixels or implement group messaging.
+
+### Dependencies
+- Merged design PR #61 and its golden workflow specification.
+- Existing Android capability registry, permission broker/availability semantics (TASK-071), trusted policy/approval path and app-private artifact storage. Coordinate adapter manifest rather than adding a parallel permission system.
+- TASK-083 group transport feasibility is independent and does not block capture implementation.
+
+### Plan
+- Define exact capture request/result schema and availability states.
+- Add failing deterministic tests for denied/revoked/stale consent and hostile dimensions, then implement the minimal MediaProjection lifecycle and private artifact writer.
+- Exercise Android API 24 and 35 instrumentation, capture cancellation, rotation/rebind and protected/empty-frame behavior. Keep physical Moto results separately UNVERIFIED until run.
+
+### Acceptance
+- User-visible system consent precedes each capture session where required; no consent, no capture.
+- A completed capture has actual locally decoded pixels, verified bounds/hash and private artifact ownership; models cannot forge or read arbitrary handles.
+- A canceled, denied, stale, protected or crashed capture yields explicit BLOCKED/FAILED/UNKNOWN with no false success, leaked image or reusable consent authority.
+- The capability remains unavailable on unsupported SDK/role/service configurations; no root, shell or Accessibility bypass.
+
+### Verification
+- Pure schema and negative-authority tests; Android instrumentation for consent lifecycle and artifact identity; exact-head Verify + API24/API35 Android CI.
+- Reference-device consent/capture and privacy check on Moto G Play with build SHA, SDK, orientation and screenshot hash; UNVERIFIED until performed.
+
+### Expected result
+A trustworthy reusable screenshot primitive producing a private typed artifact for downstream workflow steps.
+
+### Evidence basis
+Merged PR #61 and `docs/superpowers/specs/2026-10-16-screen-crop-group-send-golden-workflow.md` require `screen.capture`; current TASK-083 only covers group-send transport feasibility and PR #60 device controls do not implement MediaProjection capture.
+
+### Projection basis
+The flagship one-request graph cannot supply a real image to crop without a consent-bound capture artifact. This is a Phase-1 adapter dependency, not a complete workflow.
+
+### Risks / unknowns
+Android 14/15 projection lifecycle, protected-content restrictions, device-specific foreground service behavior and memory pressure require physical evidence. System consent cannot be automated.
+
+---
+
+## TASK-085: Implement bounded native image crop and artifact provenance
+**Priority:** P0 | **Tags:** overseer-assigned, developer, v2, phase-1, android, image, privacy, golden-workflow
+**Updated:** 2026-10-16
+
+### Goal
+Transform a trusted captured or synthetic local image artifact into a real verified cropped image through a deterministic on-device tool, with no model-authored filesystem access.
+
+### Scope
+- Implement `image.crop` over an opaque trusted input artifact and validated integer `{x,y,width,height}` rectangle, using Android-native image decode/crop/encode.
+- Validate image type, source hash, orientation, pixel/byte budgets, bounds and expiry before work; reject zero/offscreen/overflow/ambiguous rectangles instead of guessing.
+- Write a private immutable `CroppedImageRef` with parent identity, normalized rectangle, actual dimensions, MIME, byte hash, privacy/retention metadata and temporary scoped URI only when explicitly shared.
+- Cancel/cleanup partial outputs on failure, enforce memory/CPU limits and ensure stale or foreign artifact handles never authorize reads. No model upload, messaging or unapproved redaction claims.
+
+### Dependencies
+- Merged PR #61 typed artifact design and trusted artifact store/registry.
+- TASK-084's `CapturedImageRef` contract for end-to-end integration; synthetic local fixtures allow independent crop tests before physical capture.
+- TASK-083 transport feasibility is independent.
+
+### Plan
+- Define the minimal typed crop input/output and hash/provenance contract.
+- Write deterministic red→green tests with synthetic image fixtures, hostile bounds and forged/stale references; implement native bitmap transform.
+- Integrate output handle into workflow artifact resolver and add Android API24/API35 tests; keep physical capture→crop parity separately labeled.
+
+### Acceptance
+- Cropped pixel content and dimensions match the requested rectangle and actual decoded image; recomputed SHA-256 matches persisted bytes.
+- Crop never reads an arbitrary path, expands access, silently clamps ambiguous bounds, leaks source pixels to a remote model or returns success for empty/corrupt output.
+- Parent provenance, privacy, expiry and revision are preserved; source mutation or revoked grant fails closed.
+- Output can be consumed as an immutable typed artifact by later authorized send adapters without becoming send authority.
+
+### Verification
+- Golden synthetic fixture pixel/hash assertions; invalid/overflow/offscreen/EXIF/rotation, malformed image, oversized decode, stale handle, cancellation, cleanup and restart tests.
+- Exact-head Verify and Android API24/API35; physical Moto capture→crop source-bound evidence remains UNVERIFIED until run.
+
+### Expected result
+A reusable local image transformation primitive with trustworthy artifact handoff, independently useful of group transport availability.
+
+### Evidence basis
+Merged PR #61 golden spec explicitly requires `image.crop` and a verified `CroppedImageRef`; TASK-083 covers messaging feasibility, not pixel transforms.
+
+### Projection basis
+A typed, verifiable crop step is the second necessary dependency in screenshot→crop→actual group send and avoids one-off hardcoded workflow logic.
+
+### Risks / unknowns
+Bitmap decode memory, orientation metadata, hardware image formats and content-URI lifetime vary by device; physical acceptance is separate from emulator proof.
+
+---
+
 ## TASK-081: Unify Local chat and Workbench under one canonical conversation
 **Priority:** P0 | **Tags:** overseer-assigned, developer, android, context, on-device, voice, command-bridge
 **Updated:** 2026-10-12
